@@ -1,0 +1,13 @@
+{
+  "name": "itzik-sound",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ITZIK SOUND - AI music production studio",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "lamejs": "^1.2.1"
+  }
+}
