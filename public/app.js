@@ -714,6 +714,26 @@ async function init(){
  $("#signOutBtn").onclick=signOut;
 
  setAuthMode("login");
+const authLanguageSelect=$("#authLanguageSelect");
+
+if(authLanguageSelect){
+ const initialLanguage=window.ITZIK_I18N?.getLanguage?.()||"he";
+ authLanguageSelect.value=initialLanguage;
+
+ authLanguageSelect.onchange=()=>{
+  const selected=authLanguageSelect.value;
+  localStorage.setItem("itzik_login_language_selected","1");
+
+  if(window.ITZIK_I18N){
+   window.ITZIK_I18N.applyLanguage(selected);
+  }
+
+  const settingsLanguageSelect=$("#languageSelect");
+  if(settingsLanguageSelect){
+   settingsLanguageSelect.value=selected;
+  }
+ };
+} 
 
  // Handle both Google OAuth return and normal sign-in events.
  // setTimeout avoids doing Supabase work inside its auth callback.
