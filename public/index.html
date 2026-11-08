@@ -333,5 +333,178 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/vendor/lame.min.js"></script>
 <script src="/app.js"></script>
+<!-- ITZIK SOUND — Interactive Studio Entrance -->
+<style>
+  /* מבטל את ההיעלמות האוטומטית של מסך הפתיחה */
+  #itzikSplash {
+    animation: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    cursor: pointer;
+    transition:
+      opacity 1.1s ease,
+      filter 1.1s ease,
+      transform 1.1s ease;
+  }
+
+  /* תנועת האוזניות */
+  #itzikSplash .splash-headphones {
+    animation: itzikHeadphoneMove 2s ease-in-out infinite !important;
+  }
+
+  @keyframes itzikHeadphoneMove {
+    0%, 100% {
+      transform: translateY(0) scale(1);
+    }
+    50% {
+      transform: translateY(-12px) scale(1.05);
+    }
+  }
+
+  /* הוראת הכניסה */
+  .itzik-click-hint {
+    z-index: 5;
+    margin-top: 25px;
+    color: #52d9d0;
+    font: 800 15px Arial, sans-serif;
+    letter-spacing: 1px;
+    text-align: center;
+    animation: itzikHintGlow 1.5s ease-in-out infinite;
+  }
+
+  @keyframes itzikHintGlow {
+    0%, 100% {
+      opacity: .55;
+      text-shadow: none;
+    }
+    50% {
+      opacity: 1;
+      text-shadow: 0 0 20px #52d9d0;
+    }
+  }
+
+  /* פס טעינה */
+  .itzik-loading-line {
+    position: absolute;
+    bottom: 35px;
+    left: 12%;
+    width: 76%;
+    height: 3px;
+    border-radius: 10px;
+    background: rgba(82,217,208,.15);
+    overflow: hidden;
+  }
+
+  .itzik-loading-line::after {
+    content: "";
+    display: block;
+    width: 0;
+    height: 100%;
+    background: #52d9d0;
+    box-shadow: 0 0 16px #52d9d0;
+  }
+
+  #itzikSplash.itzik-entered .itzik-loading-line::after {
+    width: 100%;
+    transition: width 1.4s ease;
+  }
+
+  /* מעבר קולנועי */
+  #itzikSplash.itzik-entered {
+    opacity: 0 !important;
+    filter: blur(25px) brightness(2.2);
+    transform: scale(1.12);
+    pointer-events: none !important;
+  }
+
+  #itzikSplash.itzik-entered .splash-headphones {
+    animation: itzikLaunch .8s ease forwards !important;
+  }
+
+  @keyframes itzikLaunch {
+    to {
+      transform: scale(1.35) translateY(-18px);
+      filter: brightness(2.5);
+    }
+  }
+</style>
+
+<script>
+(() => {
+  const splash = document.getElementById("itzikSplash");
+
+  if (!splash || splash.dataset.interactiveReady) return;
+
+  splash.dataset.interactiveReady = "true";
+
+  // טקסט הכניסה
+  const hint = document.createElement("div");
+  hint.className = "itzik-click-hint";
+  hint.textContent = "לחץ על ITZIK SOUND כדי להיכנס";
+
+  // פס טעינה
+  const loading = document.createElement("div");
+  loading.className = "itzik-loading-line";
+
+  splash.appendChild(hint);
+  splash.appendChild(loading);
+
+  splash.setAttribute("role", "button");
+  splash.setAttribute("tabindex", "0");
+  splash.setAttribute("aria-label", "כניסה ל-ITZIK SOUND");
+
+  let entered = false;
+
+  async function enterStudio() {
+    if (entered) return;
+    entered = true;
+
+    hint.textContent = "WELCOME TO ITZIK SOUND";
+
+    // אם המשתמש לא כיבה את הצליל, נשמור ונפעיל אותו
+    const preferenceSet =
+      localStorage.getItem("itzik_sound_preference_set") === "1";
+
+    const soundAllowed =
+      !preferenceSet ||
+      localStorage.getItem("itzik_sound_enabled") === "true";
+
+    if (soundAllowed) {
+      if (typeof window.saveSoundPreference === "function") {
+        window.saveSoundPreference(true).catch(error => {
+          console.log("Startup sound unavailable:", error);
+        });
+      } else {
+        localStorage.setItem("itzik_sound_enabled", "true");
+
+        if (window.playIzikSignature) {
+          window.playIzikSignature().catch(error => {
+            console.log("Startup sound unavailable:", error);
+          });
+        }
+      }
+    }
+
+    // מתחילים את המעבר
+    splash.classList.add("itzik-entered");
+
+    // חשיפת מסך ההתחברות או האולפן
+    setTimeout(() => {
+      splash.style.display = "none";
+    }, 1500);
+  }
+
+  splash.addEventListener("click", enterStudio);
+
+  splash.addEventListener("keydown", event => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      enterStudio();
+    }
+  });
+})();
+</script>
+<!-- END ITZIK SOUND ENTRANCE -->  
 </body>
 </html>
