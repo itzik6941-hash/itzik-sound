@@ -261,22 +261,34 @@ async function onSignedIn(user){
  }
 
  const supportedLanguages=["he","en","ar","ru","es","fr","de"];
+ const loginLanguageSelected=
+  localStorage.getItem("itzik_login_language_selected")==="1";
+
  const savedLanguage=user.user_metadata?.language;
+ const localLanguage=window.ITZIK_I18N?.getLanguage?.()||"he";
 
- if(savedLanguage && supportedLanguages.includes(savedLanguage)){
+ let languageToSave=null;
+
+ if(loginLanguageSelected && supportedLanguages.includes(localLanguage)){
+  languageToSave=localLanguage;
+ }else if(savedLanguage && supportedLanguages.includes(savedLanguage)){
   window.ITZIK_I18N?.applyLanguage(savedLanguage);
- }else{
-  const localLanguage=window.ITZIK_I18N?.getLanguage?.()||"he";
-
-  if(supportedLanguages.includes(localLanguage)){
-   const {data,error}=await supabaseClient.auth.updateUser({
-    data:{language:localLanguage}
-   });
-
-   if(!error && data.user) user=data.user;
-   if(error) console.error("Could not save initial language:",error);
-  }
+ }else if(supportedLanguages.includes(localLanguage)){
+  languageToSave=localLanguage;
  }
+
+ if(languageToSave){
+  window.ITZIK_I18N?.applyLanguage(languageToSave);
+
+  const {data,error}=await supabaseClient.auth.updateUser({
+   data:{language:languageToSave}
+  });
+
+  if(!error && data.user) user=data.user;
+  if(error) console.error("Could not save language:",error);
+ }
+
+ localStorage.removeItem("itzik_login_language_selected");
 
  showApp(user);
  await loadProjects();
