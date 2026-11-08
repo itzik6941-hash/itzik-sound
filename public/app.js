@@ -126,23 +126,39 @@ function bindDynamic(){
   languageSelect.value=currentLanguage;
  }
 
- if(saveLanguageBtn && languageSelect){
-  saveLanguageBtn.onclick=()=>{
-   const selected=languageSelect.value;
+if(saveLanguageBtn && languageSelect){
+  saveLanguageBtn.onclick=async()=>{
+    const selected=languageSelect.value;
 
-   if(window.ITZIK_I18N){
-    window.ITZIK_I18N.applyLanguage(selected);
-   }else{
-    localStorage.setItem("itzik_language",selected);
-    document.documentElement.lang=selected;
-    document.documentElement.dir=["he","ar"].includes(selected)?"rtl":"ltr";
-   }
+    if(window.ITZIK_I18N){
+      window.ITZIK_I18N.applyLanguage(selected);
+    }else{
+      localStorage.setItem("itzik_language",selected);
+      document.documentElement.lang=selected;
+      document.documentElement.dir=["he","ar"].includes(selected)?"rtl":"ltr";
+    }
 
-   if(languageStatus){
-    languageStatus.textContent="השפה נשמרה בהצלחה! כדי להשלים את התרגום נמשיך לחבר את המסכים.";
-   }
+    if(currentUser && supabaseClient){
+      const {data,error}=await supabaseClient.auth.updateUser({
+        data:{language:selected}
+      });
+
+      if(error){
+        if(languageStatus){
+          languageStatus.textContent="השפה הוחלפה, אך השמירה בחשבון נכשלה.";
+        }
+        console.error(error);
+        return;
+      }
+
+      if(data.user) currentUser=data.user;
+    }
+
+    if(languageStatus){
+      languageStatus.textContent="השפה נשמרה בהצלחה בחשבון שלך!";
+    }
   };
- }
+}
 }
 
 function showAuth(message=""){
