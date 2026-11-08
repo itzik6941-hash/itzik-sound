@@ -34,7 +34,43 @@ const pages = {
 
  projects:{title:"הפרויקטים שלי",html:()=>`<div class="workspace-title"><div><h1>הפרויקטים שלי</h1><p>הפרויקטים שלך שמורים בחשבון וניתנים לפתיחה מכל מכשיר.</p></div></div><div class="project-list">${projects.length?projects.map(p=>`<div class="project-card"><div><b>${escapeHtml(p.name)}</b><small>${escapeHtml(formatDate(p.created_at))} · ${escapeHtml(p.original_file_name||"ללא קובץ")}</small></div><button data-open-project="${escapeHtml(p.id)}">פתיחה</button></div>`).join(""):`<div class="panel empty-state" style="grid-column:1/-1"><div class="big">▤</div><b>עדיין אין פרויקטים שמורים</b><p>העלה שיר במסך הראשי כדי ליצור פרויקט ראשון. הוא יישמר בחשבון שלך.</p><button class="secondary-btn" data-go="home">חזרה למסך הראשי</button></div>`}</div>`},
 
- settings:{title:"הגדרות ושפה",html:()=>`<div class="workspace-title"><div><h1>הגדרות ושפה</h1><p>התאמה אישית של סביבת העבודה.</p></div></div><div class="panel"><h3>שפה</h3><p>עברית (פעילה). תמיכה באנגלית תתווסף בהמשך.</p></div><div class="panel"><h3>שמירת פרויקטים</h3><p>הפרויקטים וקובצי האודיו נשמרים בחשבון שלך בענן פרטי, בכפוף למגבלות האחסון של התוכנית.</p></div>`},
+settings:{title:"הגדרות ושפה",html:()=>`
+  <div class="workspace-title">
+    <div>
+      <h1>הגדרות ושפה</h1>
+      <p>התאמה אישית של סביבת העבודה שלך.</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>🌍 בחירת שפה</h3>
+    <p>בחר את השפה שבה תרצה להשתמש ב־ITZIK SOUND.</p>
+
+    <select id="languageSelect" class="input">
+      <option value="he">🇮🇱 עברית</option>
+      <option value="en">🇬🇧 English</option>
+      <option value="ar">🇸🇦 العربية</option>
+      <option value="ru">🇷🇺 Русский</option>
+      <option value="es">🇪🇸 Español</option>
+      <option value="fr">🇫🇷 Français</option>
+      <option value="de">🇩🇪 Deutsch</option>
+    </select>
+
+    <button class="btn btn-primary" id="saveLanguageBtn">
+      שמור שפה
+    </button>
+
+    <p id="languageStatus"></p>
+  </div>
+
+  <div class="panel">
+    <h3>☁️ שמירת פרויקטים</h3>
+    <p>
+      הפרויקטים וקובצי האודיו נשמרים בחשבון שלך בענן פרטי,
+      בכפוף למגבלות האחסון של התוכנית.
+    </p>
+  </div>
+`},
 
  help:{title:"עזרה ותמיכה",html:()=>`<div class="workspace-title"><div><h1>עזרה ותמיכה</h1><p>כל מה שצריך כדי לעבוד בנוחות.</p></div></div><div class="panel"><h3>איך מתחילים?</h3><p>חוזרים למסך הראשי, מעלים קובץ אודיו וממשיכים לכלי הרצוי. הפרויקט נשמר בחשבון שלך.</p></div><div class="panel"><h3>האם ה-AI כבר מחובר?</h3><p>איצקו יכול לשוחח ולייעץ. עיבוד אודיו אמיתי יחייב מנועי עיבוד נוספים.</p></div><div class="panel"><h3>האם הפרויקטים פרטיים?</h3><p>הגישה לפרויקטים ולקובצי האודיו מוגבלת למשתמש המחובר באמצעות הרשאות Supabase.</p></div>`}
 };
@@ -74,10 +110,39 @@ function bindDynamic(){
   zone.ondragleave=()=>zone.style.borderColor="";
   zone.ondrop=e=>{e.preventDefault();if(e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0]);};
  }
+
  document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>render(b.dataset.go));
  document.querySelectorAll("[data-open-project]").forEach(b=>b.onclick=()=>openProject(b.dataset.openProject));
+
  const send=$("#chatSend");
  if(send)send.onclick=sendAssistant;
+
+ const languageSelect=$("#languageSelect");
+ const saveLanguageBtn=$("#saveLanguageBtn");
+ const languageStatus=$("#languageStatus");
+
+ if(languageSelect){
+  const currentLanguage=window.ITZIK_I18N?.getLanguage?.()||"he";
+  languageSelect.value=currentLanguage;
+ }
+
+ if(saveLanguageBtn && languageSelect){
+  saveLanguageBtn.onclick=()=>{
+   const selected=languageSelect.value;
+
+   if(window.ITZIK_I18N){
+    window.ITZIK_I18N.applyLanguage(selected);
+   }else{
+    localStorage.setItem("itzik_language",selected);
+    document.documentElement.lang=selected;
+    document.documentElement.dir=["he","ar"].includes(selected)?"rtl":"ltr";
+   }
+
+   if(languageStatus){
+    languageStatus.textContent="השפה נשמרה בהצלחה! כדי להשלים את התרגום נמשיך לחבר את המסכים.";
+   }
+  };
+ }
 }
 
 function showAuth(message=""){
