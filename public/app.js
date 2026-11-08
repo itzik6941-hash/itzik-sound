@@ -468,11 +468,13 @@ async function loadFile(file,existingProjectId=null){
  $("#seek").disabled=false;
  $("#exportBtn").disabled=false;
 
-  if(!existingProjectId)await saveNewProject(file);
+if(!existingProjectId)await saveNewProject(file);
 
- render("home");
+render("home");
 
-
+if (window.refreshIzikWaveform) {
+  window.refreshIzikWaveform();
+}
 }
 
 async function saveNewProject(file){
@@ -1267,7 +1269,7 @@ init();
       playButton.textContent = audio.paused ? "▶" : "Ⅱ";
     }
   }
-
+window.refreshIzikWaveform = buildWaveform;
   // הרחבת render הקיים בלי לפגוע בו
   const originalRender = render;
 
