@@ -16,8 +16,9 @@
 }
 
 html {
-  direction: inherit;
+  direction: var(--page-direction, rtl);
 }
+
 
 body {
   margin: 0;
