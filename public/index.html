@@ -7,7 +7,27 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-<div class="app-shell">
+<div id="authScreen" class="auth-screen" hidden>
+  <div class="auth-card">
+    <div class="brand auth-brand"><div class="brand-mark">IS</div><div><b>ITZIK SOUND</b><small>AI MUSIC STUDIO</small></div></div>
+    <div class="eyebrow">YOUR PERSONAL MUSIC SPACE</div>
+    <h1 id="authTitle">ברוך הבא לאולפן שלך</h1>
+    <p id="authSubtitle">התחבר כדי לשמור את הפרויקטים שלך בענן.</p>
+    <form id="authForm">
+      <label for="authEmail">כתובת אימייל</label>
+      <input id="authEmail" type="email" autocomplete="email" placeholder="name@example.com" required>
+      <label for="authPassword">סיסמה</label>
+      <input id="authPassword" type="password" autocomplete="current-password" minlength="8" placeholder="לפחות 8 תווים" required>
+      <button class="primary-btn auth-submit" id="authSubmit" type="submit">התחברות</button>
+    </form>
+    <div class="auth-separator"><span>או</span></div>
+    <button class="google-btn" id="googleLogin" type="button"><b>G</b> המשך עם Google</button>
+    <p class="auth-switch" id="authSwitch">אין לך חשבון? <button id="toggleAuth" type="button">הרשמה</button></p>
+    <div id="authMessage" class="auth-message" role="status"></div>
+    <small class="auth-private">🔒 הפרויקטים וקובצי האודיו שלך פרטיים לחשבון שלך.</small>
+  </div>
+</div>
+<div class="app-shell" id="appShell" hidden>
   <aside class="sidebar">
     <div class="brand"><div class="brand-mark">IS</div><div><b>ITZIK SOUND</b><small>AI MUSIC STUDIO</small></div></div>
     <button class="new-project" id="newProject">＋ פרויקט חדש</button>
@@ -30,7 +50,7 @@
   <main class="main-area">
     <header class="topbar">
       <div><div class="eyebrow">YOUR PERSONAL MUSIC SPACE</div><div class="top-title" id="topTitle">הסטודיו שלך, הסאונד שלך.</div></div>
-      <div class="top-actions"><span class="connection"><i></i> ממשק מקומי פעיל</span><button class="icon-button" title="עזרה" data-go="help">?</button></div>
+      <div class="top-actions"><span class="connection"><i></i> חשבון מחובר</span><span id="accountEmail" class="account-email"></span><button id="signOutBtn" class="signout-button">יציאה</button><button class="icon-button" title="עזרה" data-go="help">?</button></div>
     </header>
     <section id="pageContent" class="page-content"></section>
   </main>
@@ -56,6 +76,8 @@
   </div>
 </div>
 <input id="fileInput" type="file" accept="audio/*,.mp3,.wav,.m4a,.aac,.flac" hidden>
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/vendor/lame.min.js"></script>
 <script src="/app.js"></script>
 </body>
