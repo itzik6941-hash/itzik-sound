@@ -175,8 +175,14 @@
       console.warn("Could not save language preference:", error);
     }
 
+    
     document.documentElement.lang = selected;
-    document.documentElement.dir = LANGUAGES[selected].direction;
+document.documentElement.dir = LANGUAGES[selected].direction;
+
+document.documentElement.style.setProperty(
+  "--page-direction",
+  LANGUAGES[selected].direction
+);
 
     document.dispatchEvent(
       new CustomEvent("itzik:language-changed", {
