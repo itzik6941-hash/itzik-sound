@@ -892,3 +892,433 @@ if(authLanguageSelect){
 }
 
 init();
+
+/* ==========================================
+   ITZIK SOUND — PROFESSIONAL WAVEFORM PLAYER
+   תוספת בלבד — לא מחליפה קוד קיים
+========================================== */
+
+(() => {
+  // עיצוב הנגן
+  if (!document.getElementById("itzikWaveStyle")) {
+    const style = document.createElement("style");
+    style.id = "itzikWaveStyle";
+    style.textContent = `
+      .itzik-project-player {
+        background: linear-gradient(145deg,#101d32,#0b1425);
+        border: 1px solid #263b58;
+        border-radius: 22px;
+        padding: 25px;
+        margin-bottom: 25px;
+        box-shadow: 0 15px 45px rgba(0,0,0,.25);
+      }
+
+      .itzik-player-top {
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:15px;
+        flex-wrap:wrap;
+        margin-bottom:25px;
+      }
+
+      .itzik-player-top h2 {
+        margin:0 0 7px;
+        color:#edf4ff;
+      }
+
+      .itzik-player-top p {
+        margin:0;
+        color:#91a2bb;
+        overflow-wrap:anywhere;
+      }
+
+      .itzik-wave-area {
+        height:155px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:3px;
+        overflow:hidden;
+        padding:12px 5px;
+        border-radius:14px;
+        background:rgba(4,10,21,.65);
+        cursor:pointer;
+      }
+
+      .itzik-wave-bar {
+        flex:1;
+        min-width:2px;
+        max-width:9px;
+        height:3px;
+        border-radius:8px;
+        background:linear-gradient(to top,#648cff,#52d9d0);
+        opacity:.78;
+        transition:height .15s ease,opacity .15s ease;
+      }
+
+      .itzik-wave-bar.active {
+        opacity:1;
+        filter:brightness(1.5);
+        box-shadow:0 0 8px rgba(82,217,208,.35);
+      }
+
+      .itzik-player-controls {
+        display:flex;
+        align-items:center;
+        gap:14px;
+        margin-top:20px;
+      }
+
+      .itzik-wave-play {
+        width:48px;
+        height:48px;
+        border:0;
+        border-radius:50%;
+        background:linear-gradient(135deg,#52d9d0,#648cff);
+        color:#07111f;
+        font-size:20px;
+        font-weight:900;
+        cursor:pointer;
+      }
+
+      .itzik-wave-seek {
+        flex:1;
+        min-width:0;
+        accent-color:#52d9d0;
+        cursor:pointer;
+      }
+
+      .itzik-wave-time {
+        color:#91a2bb;
+        font-size:12px;
+        white-space:nowrap;
+        direction:ltr;
+      }
+
+      .itzik-player-actions {
+        display:flex;
+        gap:10px;
+        flex-wrap:wrap;
+        margin-top:22px;
+      }
+
+      .itzik-player-actions button {
+        cursor:pointer;
+      }
+
+      .itzik-wave-loading {
+        color:#52d9d0;
+        text-align:center;
+        font-size:13px;
+        margin-top:12px;
+      }
+
+      @media(max-width:600px) {
+        .itzik-project-player {padding:16px}
+        .itzik-wave-area {height:115px;gap:2px}
+        .itzik-player-controls {gap:8px}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // תצוגת מסך הבית משתנה בהתאם למצב הפרויקט
+  pages.home.html = () => {
+    if (!currentFile) {
+      return `
+        <div class="welcome">
+          <div>
+            <div class="eyebrow">WELCOME TO YOUR STUDIO</div>
+            <h1>בוא ניצור משהו שנשמע גדול.</h1>
+            <p>כל הכלים שלך להפקה מוזיקלית, במקום אחד.<br>
+            העלה שיר והתחל לעבוד עם ITZIK SOUND.</p>
+          </div>
+          <span class="tag">✦ YOUR MUSIC. YOUR SOUND.</span>
+        </div>
+
+        <div class="upload-zone" id="uploadZone">
+          <div class="upload-icon">⇧</div>
+          <h2>גרור קובץ לכאן או לחץ לבחירה</h2>
+          <p>MP3 · WAV · M4A · AAC · FLAC · עד 50MB</p>
+          <button class="primary-btn" type="button">
+            בחירת קובץ מהמחשב
+          </button>
+        </div>
+
+        <div class="section-heading">
+          <h3>כלי הסטודיו</h3>
+          <span>בחר מאיפה להתחיל</span>
+        </div>
+
+        <div class="quick-grid">
+          <div class="quick-card" data-go="mix">
+            <div class="quick-icon">☷</div>
+            <b>מיקס AI</b>
+            <small>איזון ועיצוב הסאונד של השיר</small>
+          </div>
+          <div class="quick-card" data-go="master">
+            <div class="quick-icon">◉</div>
+            <b>מאסטרינג AI</b>
+            <small>ליטוש והכנה להפצה</small>
+          </div>
+          <div class="quick-card" data-go="pitch">
+            <div class="quick-icon">♬</div>
+            <b>תיקון זיופים</b>
+            <small>דיוק קולי בשליטה שלך</small>
+          </div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="welcome">
+        <div>
+          <div class="eyebrow">YOUR PROJECT IS READY</div>
+          <h1>האולפן שלך מוכן לעבודה.</h1>
+          <p>הקובץ שלך נטען. עכשיו אפשר להאזין ולעבוד עליו.</p>
+        </div>
+        <span class="tag">✦ ITZIK SOUND STUDIO</span>
+      </div>
+
+      <div class="itzik-project-player">
+        <div class="itzik-player-top">
+          <div>
+            <div class="eyebrow">NOW IN YOUR STUDIO</div>
+            <h2>♫ הפרויקט שלך</h2>
+            <p>${escapeHtml(currentFile.name)}</p>
+          </div>
+          <span class="tag">● ${currentProjectId ? "PROJECT SAVED" : "LOCAL AUDIO"}</span>
+        </div>
+
+        <div class="itzik-wave-area" id="itzikWaveform">
+          <span class="itzik-wave-loading">מנתח את הסאונד...</span>
+        </div>
+
+        <div class="itzik-player-controls">
+          <button class="itzik-wave-play" id="itzikWavePlay" type="button">▶</button>
+          <span class="itzik-wave-time" id="itzikWaveCurrent">0:00</span>
+          <input class="itzik-wave-seek" id="itzikWaveSeek"
+            type="range" min="0" max="100" value="0">
+          <span class="itzik-wave-time" id="itzikWaveDuration">0:00</span>
+        </div>
+
+        <div class="itzik-player-actions">
+          <button class="secondary-btn" id="itzikNewProject" type="button">
+            ＋ פרויקט חדש
+          </button>
+          <button class="secondary-btn" data-go="projects" type="button">
+            ▤ הפרויקטים שלי
+          </button>
+          <button class="secondary-btn" data-go="mix" type="button">
+            ☷ מעבר למיקס
+          </button>
+        </div>
+      </div>
+
+      <div class="section-heading">
+        <h3>כלי הסטודיו</h3>
+        <span>המשך לעבוד על הסאונד שלך</span>
+      </div>
+
+      <div class="quick-grid">
+        <div class="quick-card" data-go="mix">
+          <div class="quick-icon">☷</div>
+          <b>מיקס AI</b>
+          <small>איזון ועיצוב הסאונד של השיר</small>
+        </div>
+        <div class="quick-card" data-go="master">
+          <div class="quick-icon">◉</div>
+          <b>מאסטרינג AI</b>
+          <small>ליטוש והכנה להפצה</small>
+        </div>
+        <div class="quick-card" data-go="pitch">
+          <div class="quick-icon">♬</div>
+          <b>תיקון זיופים</b>
+          <small>דיוק קולי בשליטה שלך</small>
+        </div>
+      </div>
+    `;
+  };
+
+  // פורמט זמן
+  function waveTime(seconds) {
+    if (!Number.isFinite(seconds)) return "0:00";
+    return Math.floor(seconds / 60) + ":" +
+      String(Math.floor(seconds % 60)).padStart(2, "0");
+  }
+
+  // ציור פסי הגל לפי עוצמת האודיו האמיתית
+  async function buildWaveform() {
+    const container = $("#itzikWaveform");
+    if (!container || !currentFile) return;
+
+    const fileBeingAnalyzed = currentFile;
+    container.innerHTML =
+      '<span class="itzik-wave-loading">מנתח את הסאונד...</span>';
+
+    let context;
+
+    try {
+      const AudioContextClass =
+        window.AudioContext || window.webkitAudioContext;
+
+      if (!AudioContextClass) {
+        throw new Error("AudioContext unavailable");
+      }
+
+      context = new AudioContextClass();
+
+      const buffer = await context.decodeAudioData(
+        await fileBeingAnalyzed.arrayBuffer()
+      );
+
+      if (currentFile !== fileBeingAnalyzed) return;
+
+      const samples = buffer.getChannelData(0);
+      const barCount = 120;
+      const samplesPerBar = Math.max(
+        1,
+        Math.floor(samples.length / barCount)
+      );
+
+      const peaks = [];
+
+      for (let bar = 0; bar < barCount; bar++) {
+        const start = bar * samplesPerBar;
+        const end = Math.min(
+          start + samplesPerBar,
+          samples.length
+        );
+
+        let peak = 0;
+        let sum = 0;
+
+        for (let i = start; i < end; i++) {
+          const value = Math.abs(samples[i]);
+          if (value > peak) peak = value;
+          sum += value * value;
+        }
+
+        const rms = end > start
+          ? Math.sqrt(sum / (end - start))
+          : 0;
+
+        peaks.push(Math.max(peak * 0.75, rms * 2));
+      }
+
+      const maxPeak = Math.max(...peaks, 0.001);
+
+      container.innerHTML = peaks.map((peak, index) => {
+        const normalized = peak / maxPeak;
+        const height = Math.max(3, normalized * 110);
+
+        return `
+          <div class="itzik-wave-bar"
+            data-wave-index="${index}"
+            style="height:${height}px">
+          </div>
+        `;
+      }).join("");
+
+      updateWaveformProgress();
+
+    } catch (error) {
+      console.error("Waveform analysis failed:", error);
+      container.innerHTML =
+        '<span class="itzik-wave-loading">לא ניתן להציג את צורת הגל.</span>';
+    } finally {
+      if (context && context.state !== "closed") {
+        context.close().catch(() => {});
+      }
+    }
+  }
+
+  // עדכון ההתקדמות בנגן
+  function updateWaveformProgress() {
+    const bars = document.querySelectorAll(".itzik-wave-bar");
+
+    if (!bars.length) return;
+
+    const duration = audio.duration || 0;
+    const progress = duration
+      ? audio.currentTime / duration
+      : 0;
+
+    const activeIndex = Math.floor(progress * bars.length);
+
+    bars.forEach((bar, index) => {
+      bar.classList.toggle("active", index < activeIndex);
+    });
+
+    const seek = $("#itzikWaveSeek");
+    const current = $("#itzikWaveCurrent");
+    const total = $("#itzikWaveDuration");
+
+    if (seek) seek.value = progress * 100;
+    if (current) current.textContent = waveTime(audio.currentTime);
+    if (total) total.textContent = waveTime(duration);
+
+    const playButton = $("#itzikWavePlay");
+    if (playButton) {
+      playButton.textContent = audio.paused ? "▶" : "Ⅱ";
+    }
+  }
+
+  // הרחבת render הקיים בלי לפגוע בו
+  const originalRender = render;
+
+  render = function(page) {
+    originalRender(page);
+
+    if (page === "home" && currentFile) {
+      buildWaveform();
+
+      const playButton = $("#itzikWavePlay");
+      const seek = $("#itzikWaveSeek");
+      const newProjectButton = $("#itzikNewProject");
+
+      if (playButton) {
+        playButton.onclick = async () => {
+          if (audio.paused) {
+            try {
+              await audio.play();
+            } catch (error) {
+              console.error("Playback failed:", error);
+            }
+          } else {
+            audio.pause();
+          }
+
+          updateWaveformProgress();
+        };
+      }
+
+      if (seek) {
+        seek.oninput = () => {
+          if (audio.duration) {
+            audio.currentTime =
+              Number(seek.value) / 100 * audio.duration;
+          }
+          updateWaveformProgress();
+        };
+      }
+
+      if (newProjectButton) {
+        newProjectButton.onclick = () => {
+          resetWorkspace();
+          render("home");
+        };
+      }
+
+      updateWaveformProgress();
+    }
+  };
+
+  // סנכרון הפסים בזמן הניגון
+  audio.addEventListener("timeupdate", updateWaveformProgress);
+  audio.addEventListener("play", updateWaveformProgress);
+  audio.addEventListener("pause", updateWaveformProgress);
+  audio.addEventListener("loadedmetadata", updateWaveformProgress);
+
+})();
