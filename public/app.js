@@ -254,11 +254,28 @@ async function signInWithGoogle(){
 async function onSignedIn(user){
  if(!user)return;
 
- // Prevent duplicate loading when both the OAuth event
- // and getSession report the same user.
+ // Prevent duplicate loading.
  if(currentUser?.id===user.id){
   showApp(user);
   return;
+ }
+
+ const supportedLanguages=["he","en","ar","ru","es","fr","de"];
+ const savedLanguage=user.user_metadata?.language;
+
+ if(savedLanguage && supportedLanguages.includes(savedLanguage)){
+  window.ITZIK_I18N?.applyLanguage(savedLanguage);
+ }else{
+  const localLanguage=window.ITZIK_I18N?.getLanguage?.()||"he";
+
+  if(supportedLanguages.includes(localLanguage)){
+   const {data,error}=await supabaseClient.auth.updateUser({
+    data:{language:localLanguage}
+   });
+
+   if(!error && data.user) user=data.user;
+   if(error) console.error("Could not save initial language:",error);
+  }
  }
 
  showApp(user);
