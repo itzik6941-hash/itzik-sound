@@ -1041,3 +1041,53 @@ body::before {
     animation: none;
   }
 }
+
+/* ITZIK SOUND - Slow flowing light streams */
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: -50%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.38;
+  mix-blend-mode: screen;
+
+  background:
+    linear-gradient(
+      115deg,
+      transparent 43%,
+      rgba(50, 145, 255, 0.18) 48%,
+      rgba(180, 240, 255, 0.30) 49%,
+      transparent 51%
+    ),
+    linear-gradient(
+      65deg,
+      transparent 35%,
+      rgba(0, 210, 255, 0.16) 49%,
+      rgba(255, 255, 255, 0.22) 50%,
+      transparent 53%
+    ),
+    linear-gradient(
+      145deg,
+      transparent 45%,
+      rgba(40, 110, 255, 0.18) 50%,
+      transparent 55%
+    );
+
+  background-size: 100% 100%;
+  filter: blur(3px);
+  animation: itzikLightStreams 28s ease-in-out infinite alternate;
+}
+
+@keyframes itzikLightStreams {
+  0% {
+    transform: translate(-5%, -3%) rotate(0deg);
+  }
+  50% {
+    transform: translate(3%, 4%) rotate(2deg);
+  }
+  100% {
+    transform: translate(6%, -2%) rotate(-2deg);
+  }
+}
