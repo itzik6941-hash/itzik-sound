@@ -792,7 +792,23 @@ async function init(){
  $("#signOutBtn").onclick=signOut;
 
  setAuthMode("login");
+const authSoundToggle=$("#authSoundEnabled");
+
+if(authSoundToggle){
+ authSoundToggle.checked=soundEnabled;
+
+ authSoundToggle.onchange=async()=>{
+  try{
+   await saveSoundPreference(authSoundToggle.checked);
+  }catch(error){
+   console.error("Sound preference error:",error);
+   setAuthMessage("לא הצלחתי לשמור את העדפת הצליל.",true);
+   syncSoundControls();
+  }
+ };
+} 
 const authLanguageSelect=$("#authLanguageSelect");
+
 
 if(authLanguageSelect){
  const initialLanguage=window.ITZIK_I18N?.getLanguage?.()||"he";
