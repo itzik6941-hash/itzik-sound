@@ -11,7 +11,8 @@ let supabaseClient = null;
 let currentUser = null;
 let authMode = "login";
 let authBusy = false;
-
+let soundEnabled =
+  localStorage.getItem("itzik_sound_enabled") === "true";
 const pages = {
  home: {title:"הסטודיו שלך, הסאונד שלך.", html: () => `
   <div class="welcome"><div><div class="eyebrow">WELCOME TO YOUR STUDIO</div><h1>בוא ניצור משהו שנשמע גדול.</h1><p>כל הכלים שלך להפקה מוזיקלית, במקום אחד.<br>העלה שיר והתחל לעבוד עם ITZIK SOUND.</p></div><span class="tag">✦ YOUR MUSIC. YOUR SOUND.</span></div>
