@@ -468,8 +468,11 @@ async function loadFile(file,existingProjectId=null){
  $("#seek").disabled=false;
  $("#exportBtn").disabled=false;
 
- if(!existingProjectId)await saveNewProject(file);
+  if(!existingProjectId)await saveNewProject(file);
+
  render("home");
+
+
 }
 
 async function saveNewProject(file){
