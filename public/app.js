@@ -63,7 +63,17 @@ settings:{title:"הגדרות ושפה",html:()=>`
 
     <p id="languageStatus"></p>
   </div>
+  <div class="panel">
+    <h3>🔊 צליל פתיחה</h3>
+    <p>בחר אם להפעיל את צליל הפתיחה של ITZIK SOUND.</p>
 
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+      <input id="studioSoundEnabled" type="checkbox" style="width:auto">
+      הפעל צליל פתיחה
+    </label>
+
+    <p id="soundStatus"></p>
+  </div>
   <div class="panel">
     <h3>☁️ שמירת פרויקטים</h3>
     <p>
