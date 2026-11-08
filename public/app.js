@@ -89,7 +89,39 @@ function formatDate(value){
 function filePanel(){
  return `<div class="panel">${currentFile?`<h3>הקובץ בפרויקט</h3><p>${escapeHtml(currentFile.name)} · ${Math.round(currentFile.size/1024/1024*10)/10} MB</p>`:`<div class="empty-state"><div class="big">♫</div><b>עדיין לא הועלה שיר</b><p>העלה קובץ במסך הראשי כדי לעבוד איתו כאן.</p><button class="secondary-btn" data-go="home">העלאת שיר</button></div>`}</div>`;
 }
+function syncSoundControls(){
+  const authToggle=$("#authSoundEnabled");
+  const studioToggle=$("#studioSoundEnabled");
 
+  if(authToggle)authToggle.checked=soundEnabled;
+  if(studioToggle)studioToggle.checked=soundEnabled;
+}
+
+async function saveSoundPreference(enabled){
+  soundEnabled=Boolean(enabled);
+
+  localStorage.setItem("itzik_sound_enabled",String(soundEnabled));
+  localStorage.setItem("itzik_sound_preference_set","1");
+
+  syncSoundControls();
+
+  if(currentUser && supabaseClient){
+    const {data,error}=await supabaseClient.auth.updateUser({
+      data:{sound_enabled:soundEnabled}
+    });
+
+    if(error)throw error;
+    if(data.user)currentUser=data.user;
+  }
+
+  if(soundEnabled && window.playIzikSignature){
+    try{
+      await window.playIzikSignature();
+    }catch(error){
+      console.log("Browser blocked startup sound:",error);
+    }
+  }
+}
 function toolPage(name,desc,icon){
  return `<div class="workspace-title"><div class="quick-icon">${icon}</div><div><h1>${name}</h1><p>${desc}</p></div></div><div class="panel"><h3>העבודה שלך</h3>${currentFile?`<p>הקובץ הפעיל: <b>${escapeHtml(currentFile.name)}</b></p><div class="notice">ממשק הכלי מוכן. בשלב הבא נחבר את מנוע העיבוד האמיתי ונוסיף בקרות מקצועיות.</div>`:`<div class="empty-state"><div class="big">♫</div><b>קודם נעלה שיר</b><p>אותו קובץ יהיה זמין בכל כלי הסטודיו.</p><button class="secondary-btn" data-go="home">העלאת שיר</button></div>`}</div>`;
 }
