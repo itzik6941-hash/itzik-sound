@@ -462,30 +462,19 @@
 
     hint.textContent = "WELCOME TO ITZIK SOUND";
 
-    // אם המשתמש לא כיבה את הצליל, נשמור ונפעיל אותו
-    const preferenceSet =
-      localStorage.getItem("itzik_sound_preference_set") === "1";
+// הפעלת הצליל ישירות בעקבות לחיצת המשתמש
+const preferenceSet =
+  localStorage.getItem("itzik_sound_preference_set") === "1";
 
-    const soundAllowed =
-      !preferenceSet ||
-      localStorage.getItem("itzik_sound_enabled") === "true";
+const soundAllowed =
+  !preferenceSet ||
+  localStorage.getItem("itzik_sound_enabled") === "true";
 
-    if (soundAllowed) {
-      if (typeof window.saveSoundPreference === "function") {
-        window.saveSoundPreference(true).catch(error => {
-          console.log("Startup sound unavailable:", error);
-        });
-      } else {
-        localStorage.setItem("itzik_sound_enabled", "true");
-
-        if (window.playIzikSignature) {
-          window.playIzikSignature().catch(error => {
-            console.log("Startup sound unavailable:", error);
-          });
-        }
-      }
-    }
-
+if (soundAllowed && window.playIzikSignature) {
+  window.playIzikSignature().catch(error => {
+    console.log("Startup sound unavailable:", error);
+  });
+}         
     // מתחילים את המעבר
     splash.classList.add("itzik-entered");
 
