@@ -159,7 +159,30 @@ function bindDynamic(){
 
  const send=$("#chatSend");
  if(send)send.onclick=sendAssistant;
+ const studioSoundToggle=$("#studioSoundEnabled");
+ const soundStatus=$("#soundStatus");
 
+ if(studioSoundToggle){
+  studioSoundToggle.checked=soundEnabled;
+
+  studioSoundToggle.onchange=async()=>{
+   try{
+    await saveSoundPreference(studioSoundToggle.checked);
+
+    if(soundStatus){
+     soundStatus.textContent="העדפת הצליל נשמרה בחשבון שלך.";
+    }
+   }catch(error){
+    console.error(error);
+
+    if(soundStatus){
+     soundStatus.textContent="לא הצלחתי לשמור את ההעדפה.";
+    }
+
+    syncSoundControls();
+   }
+  };
+ }
  const languageSelect=$("#languageSelect");
  const saveLanguageBtn=$("#saveLanguageBtn");
  const languageStatus=$("#languageStatus");
