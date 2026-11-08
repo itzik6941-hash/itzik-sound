@@ -472,9 +472,11 @@ if(!existingProjectId)await saveNewProject(file);
 
 render("home");
 
-if (window.refreshIzikWaveform) {
-  window.refreshIzikWaveform();
-}
+requestAnimationFrame(() => {
+  if (window.refreshIzikWaveform) {
+    window.refreshIzikWaveform();
+  }
+});
 }
 
 async function saveNewProject(file){
