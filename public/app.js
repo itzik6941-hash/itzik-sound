@@ -325,7 +325,38 @@ async function onSignedIn(user){
   showApp(user);
   return;
  }
+ const localSoundChoice =
+  localStorage.getItem("itzik_sound_preference_set")==="1";
 
+ if(localSoundChoice){
+  soundEnabled =
+   localStorage.getItem("itzik_sound_enabled")==="true";
+
+  const {data,error}=await supabaseClient.auth.updateUser({
+   data:{sound_enabled:soundEnabled}
+  });
+
+  if(!error && data.user)user=data.user;
+  if(error)console.error("Could not save sound preference:",error);
+
+  localStorage.removeItem("itzik_sound_preference_set");
+
+ }else if(typeof user.user_metadata?.sound_enabled==="boolean"){
+  soundEnabled=user.user_metadata.sound_enabled;
+
+  localStorage.setItem(
+   "itzik_sound_enabled",
+   String(soundEnabled)
+  );
+ }
+
+ syncSoundControls();
+
+ if(soundEnabled && window.playIzikSignature){
+  window.playIzikSignature().catch(error=>{
+   console.log("Browser blocked automatic startup sound:",error);
+  });
+ }
  const supportedLanguages=["he","en","ar","ru","es","fr","de"];
  const loginLanguageSelected=
   localStorage.getItem("itzik_login_language_selected")==="1";
