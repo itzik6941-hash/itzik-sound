@@ -1339,10 +1339,8 @@ waveContainers.forEach(container => {
     if (playButton) {
       playButton.textContent = audio.paused ? "▶" : "Ⅱ";
     }
-  }
-}
-
 window.refreshIzikWaveform = buildWaveform;
+    
   // הרחבת render הקיים בלי לפגוע בו
   const originalRender = render;
 
