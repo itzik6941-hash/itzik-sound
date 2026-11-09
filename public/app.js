@@ -1286,10 +1286,18 @@ if (miniContainer) miniContainer.innerHTML = waveformHtml;
 
       updateWaveformProgress();
 
-    } catch (error) {
-      console.error("Waveform analysis failed:", error);
-      container.innerHTML =
-        '<span class="itzik-wave-loading">לא ניתן להציג את צורת הגל.</span>';
+} catch (error) {
+  console.error("Waveform analysis failed:", error);
+
+  if (container) {
+    container.innerHTML =
+      '<span class="itzik-wave-loading">לא ניתן להציג את צורת הגל.</span>';
+  }
+
+  if (miniContainer) {
+    miniContainer.innerHTML =
+      '<span class="itzik-wave-loading">לא ניתן להציג את צורת הגל.</span>';
+  }
     } finally {
       if (context && context.state !== "closed") {
         context.close().catch(() => {});
