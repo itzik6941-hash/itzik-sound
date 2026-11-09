@@ -1200,13 +1200,22 @@ init();
   }
 
   // ציור פסי הגל לפי עוצמת האודיו האמיתית
-  async function buildWaveform() {
-    const container = $("#itzikWaveform");
-    if (!container || !currentFile) return;
+  const container = $("#itzikWaveform");
+  const miniContainer = $("#itzikMiniWaveform");
 
-    const fileBeingAnalyzed = currentFile;
+  if ((!container && !miniContainer) || !currentFile) return;
+
+  const fileBeingAnalyzed = currentFile;
+
+  if (container) {
     container.innerHTML =
       '<span class="itzik-wave-loading">מנתח את הסאונד...</span>';
+  }
+
+  if (miniContainer) {
+    miniContainer.innerHTML =
+      '<span class="itzik-wave-loading">מנתח את הסאונד...</span>';
+  }
 
     let context;
 
