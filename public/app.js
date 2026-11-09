@@ -1302,7 +1302,11 @@ window.refreshIzikWaveform = buildWaveform;
       const playButton = $("#itzikWavePlay");
       const seek = $("#itzikWaveSeek");
       const newProjectButton = $("#itzikNewProject");
+const waveExportButton = $("#itzikWaveExport");
 
+if (waveExportButton) {
+  waveExportButton.onclick = () => $("#exportBtn").click();
+}
       if (playButton) {
         playButton.onclick = async () => {
           if (audio.paused) {
