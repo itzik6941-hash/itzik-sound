@@ -88,7 +88,169 @@ async function verifyUser(req) {
   const user = await response.json();
   return user && user.id ? user : null;
 }
+// ROEX MIX ENHANCE PREVIEW
+app.post(
+  "/api/roex/preview",
+  audioUpload.single("audio"),
+  async (req, res) => {
+    try {
+      const user = await verifyUser(req);
 
+      if (!user) {
+        return res.status(401).json({
+          error: "UNAUTHORIZED",
+          message: "צריך להתחבר לחשבון כדי להשתמש ב-Mix AI."
+        });
+      }
+
+      const apiKey = process.env.ROEX_API_KEY;
+
+      if (!apiKey) {
+        return res.status(503).json({
+          error: "ROEX_NOT_CONFIGURED",
+          message: "חיבור RoEx עדיין לא הוגדר בשרת."
+        });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({
+          error: "NO_AUDIO_FILE",
+          message: "לא נבחר קובץ אודיו."
+        });
+      }
+
+      const extension = path.extname(req.file.originalname).toLowerCase();
+
+      const contentTypes = {
+        ".mp3": "audio/mpeg",
+        ".wav": "audio/wav",
+        ".flac": "audio/flac"
+      };
+
+      const contentType = contentTypes[extension];
+
+      if (!contentType) {
+        return res.status(400).json({
+          error: "INVALID_AUDIO_FORMAT",
+          message: "אפשר להעלות MP3, WAV או FLAC בלבד."
+        });
+      }
+
+      const styles = [
+        "ROCK", "POP", "TECHNO", "TRAP", "JAZZ",
+        "METAL", "SOUL", "FOLK", "ORCHESTRAL",
+        "PUNK", "BLUES", "AMBIENT", "ACOUSTIC",
+        "EXPERIMENTAL", "HIP_HOP_GRIME", "COUNTRY",
+        "FUNK", "RNB", "INDIE_POP", "INDIE_ROCK",
+        "AFROBEAT", "DRUM_N_BASS", "HOUSE",
+        "TRANCE", "LO_FI", "ELECTRONIC"
+      ];
+
+      const musicalStyle = req.body.musicalStyle || "POP";
+
+      if (!styles.includes(musicalStyle)) {
+        return res.status(400).json({
+          error: "INVALID_MUSICAL_STYLE",
+          message: "סגנון מוזיקלי לא נתמך."
+        });
+      }
+
+      const uploadResponse = await fetch(
+        "https://tonn.roexaudio.com/upload",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-Key": apiKey
+          },
+          body: JSON.stringify({
+            filename: req.file.originalname,
+            contentType
+          }),
+          signal: AbortSignal.timeout(30000)
+        }
+      );
+
+      const uploadData = await uploadResponse.json();
+
+      if (!uploadResponse.ok || !uploadData.signed_url) {
+        console.error("RoEx upload error:", uploadData);
+
+        return res.status(502).json({
+          error: "ROEX_UPLOAD_FAILED",
+          message: "RoEx לא הצליח להכין העלאת קובץ."
+        });
+      }
+
+      const fileResponse = await fetch(uploadData.signed_url, {
+        method: "PUT",
+        headers: {
+          "Content-Type": contentType
+        },
+        body: req.file.buffer,
+        signal: AbortSignal.timeout(120000)
+      });
+
+      if (!fileResponse.ok) {
+        return res.status(502).json({
+          error: "ROEX_FILE_UPLOAD_FAILED",
+          message: "העלאת קובץ האודיו ל-RoEx נכשלה."
+        });
+      }
+
+      const previewResponse = await fetch(
+        "https://tonn.roexaudio.com/mixenhancepreview",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-Key": apiKey
+          },
+          body: JSON.stringify({
+            mixReviveData: {
+              audioFileLocation: uploadData.readable_url,
+              musicalStyle,
+              isMaster: false,
+              fixClippingIssues: true,
+              fixDRCIssues: true,
+              fixStereoWidthIssues: true,
+              fixTonalProfileIssues: true,
+              fixLoudnessIssues: true,
+              applyMastering: false,
+              stemProcessing: false
+            }
+          }),
+          signal: AbortSignal.timeout(60000)
+        }
+      );
+
+      const previewData = await previewResponse.json();
+
+      if (!previewResponse.ok || !previewData.mixrevive_task_id) {
+        console.error("RoEx preview error:", previewData);
+
+        return res.status(502).json({
+          error: "ROEX_PREVIEW_FAILED",
+          message: "RoEx לא הצליח ליצור תצוגה מקדימה."
+        });
+      }
+
+      return res.json({
+        ok: true,
+        taskId: previewData.mixrevive_task_id,
+        message: "משימת התצוגה המקדימה נוצרה בהצלחה."
+      });
+
+    } catch (error) {
+      console.error("RoEx preview error:", error);
+
+      return res.status(500).json({
+        error: "ROEX_PREVIEW_ERROR",
+        message: "אירעה תקלה בחיבור ל-RoEx."
+      });
+    }
+  }
+);
 // ITZKO AI assistant
 app.post("/api/assistant", async (req, res) => {
   try {
