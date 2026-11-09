@@ -1305,7 +1305,15 @@ window.refreshIzikWaveform = buildWaveform;
 const waveExportButton = $("#itzikWaveExport");
 
 if (waveExportButton) {
-  waveExportButton.onclick = () => $("#exportBtn").click();
+  waveExportButton.onclick = () => {
+    if (!currentFile) {
+      alert("קודם צריך להעלות שיר.");
+      return;
+    }
+
+    $("#exportStatus").textContent = "";
+    $("#exportModal").hidden = false;
+  };
 }
       if (playButton) {
         playButton.onclick = async () => {
