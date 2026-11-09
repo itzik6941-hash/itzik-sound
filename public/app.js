@@ -1295,7 +1295,11 @@ window.refreshIzikWaveform = buildWaveform;
 
   render = function(page) {
     originalRender(page);
+    const bottomPlayer = $("#bottomPlayer");
 
+    if (bottomPlayer) {
+      bottomPlayer.hidden = page === "home";
+    }
     if (page === "home" && currentFile) {
       buildWaveform();
 
