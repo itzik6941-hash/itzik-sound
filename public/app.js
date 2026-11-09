@@ -1036,7 +1036,33 @@ init();
         font-size:13px;
         margin-top:12px;
       }
+      .itzik-mini-wave-area {
+        flex:1;
+        min-width:100px;
+        height:42px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:2px;
+        overflow:hidden;
+        padding:4px 8px;
+        border-radius:10px;
+        background:rgba(4,10,21,.65);
+        cursor:pointer;
+      }
 
+      .itzik-mini-wave-area .itzik-wave-bar {
+        min-width:2px;
+        max-width:5px;
+        height:3px;
+      }
+
+      @media(max-width:700px) {
+        .itzik-mini-wave-area {
+          min-width:100%;
+          height:34px;
+        }
+      }
       @media(max-width:600px) {
         .itzik-project-player {padding:16px}
         .itzik-wave-area {height:115px;gap:2px}
