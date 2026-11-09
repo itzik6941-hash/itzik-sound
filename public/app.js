@@ -1269,17 +1269,20 @@ init();
 
       const maxPeak = Math.max(...peaks, 0.001);
 
-      container.innerHTML = peaks.map((peak, index) => {
-        const normalized = peak / maxPeak;
-        const height = Math.max(3, normalized * 110);
+const waveformHtml = peaks.map((peak, index) => {
+  const normalized = peak / maxPeak;
+  const height = Math.max(3, normalized * 110);
 
-        return `
-          <div class="itzik-wave-bar"
-            data-wave-index="${index}"
-            style="height:${height}px">
-          </div>
-        `;
-      }).join("");
+  return `
+    <div class="itzik-wave-bar"
+      data-wave-index="${index}"
+      style="height:${height}px">
+    </div>
+  `;
+}).join("");
+
+if (container) container.innerHTML = waveformHtml;
+if (miniContainer) miniContainer.innerHTML = waveformHtml;
 
       updateWaveformProgress();
 
