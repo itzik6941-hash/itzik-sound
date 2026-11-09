@@ -1338,7 +1338,7 @@ window.refreshIzikWaveform = buildWaveform;
     if (bottomPlayer) {
       bottomPlayer.hidden = page === "home";
     }
-    if (page === "home" && currentFile) {
+    if (currentFile) {
       buildWaveform();
 
       const playButton = $("#itzikWavePlay");
