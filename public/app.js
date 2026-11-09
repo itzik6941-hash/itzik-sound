@@ -1339,3 +1339,47 @@ window.refreshIzikWaveform = buildWaveform;
   audio.addEventListener("loadedmetadata", updateWaveformProgress);
 
 })();
+async function deleteProject(id) {
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+
+  if (!confirm("למחוק את הפרויקט ואת קובץ האודיו שלו לצמיתות?")) {
+    return;
+  }
+
+  if (p.storage_path) {
+    const { error: storageError } = await supabaseClient
+      .storage
+      .from("project-audio")
+      .remove([p.storage_path]);
+
+    if (storageError) {
+      console.error(storageError);
+      alert("לא הצלחנו למחוק את קובץ האודיו.");
+      return;
+    }
+  }
+
+  const { error } = await supabaseClient
+    .from("projects")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    console.error(error);
+    alert("לא הצלחנו למחוק את הפרויקט.");
+    return;
+  }
+
+  if (currentProjectId === id) {
+    resetWorkspace();
+  }
+
+  await loadProjects();
+
+  if (currentPage === "projects") {
+    render("projects");
+  }
+
+  alert("הפרויקט נמחק בהצלחה!");
+}
