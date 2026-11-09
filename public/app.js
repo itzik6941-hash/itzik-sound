@@ -1474,3 +1474,4 @@ async function deleteProject(id) {
 
   alert("הפרויקט נמחק בהצלחה!");
 }
+})();
