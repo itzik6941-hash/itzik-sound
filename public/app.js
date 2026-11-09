@@ -471,8 +471,6 @@ async function loadFile(file,existingProjectId=null){
  $("#seek").disabled=false;
  $("#exportBtn").disabled=false;
 
-if(!existingProjectId)await saveNewProject(file);
-
 render("home");
 
 requestAnimationFrame(() => {
@@ -480,6 +478,14 @@ requestAnimationFrame(() => {
     window.refreshIzikWaveform();
   }
 });
+
+if (!existingProjectId) {
+  await saveNewProject(file);
+
+  if (currentPage === "home") {
+    render("home");
+  }
+}
 }
 
 async function saveNewProject(file){
