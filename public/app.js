@@ -1198,7 +1198,7 @@ init();
     return Math.floor(seconds / 60) + ":" +
       String(Math.floor(seconds % 60)).padStart(2, "0");
   }
-
+async function buildWaveform() {
   // ציור פסי הגל לפי עוצמת האודיו האמיתית
   const container = $("#itzikWaveform");
   const miniContainer = $("#itzikMiniWaveform");
