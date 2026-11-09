@@ -157,7 +157,9 @@ function bindDynamic(){
 
  document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>render(b.dataset.go));
  document.querySelectorAll("[data-open-project]").forEach(b=>b.onclick=()=>openProject(b.dataset.openProject));
-
+document.querySelectorAll("[data-delete-project]").forEach(b=>{
+  b.onclick=()=>deleteProject(b.dataset.deleteProject);
+});
  const send=$("#chatSend");
  if(send)send.onclick=sendAssistant;
  const studioSoundToggle=$("#studioSoundEnabled");
