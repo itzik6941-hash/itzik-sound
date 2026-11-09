@@ -1310,11 +1310,14 @@ if (!waveContainers.length) return;
       ? audio.currentTime / duration
       : 0;
 
-    const activeIndex = Math.floor(progress * bars.length);
+waveContainers.forEach(container => {
+  const bars = container.querySelectorAll(".itzik-wave-bar");
+  const activeIndex = Math.floor(progress * bars.length);
 
-    bars.forEach((bar, index) => {
-      bar.classList.toggle("active", index < activeIndex);
-    });
+  bars.forEach((bar, index) => {
+    bar.classList.toggle("active", index < activeIndex);
+  });
+});
 
     const seek = $("#itzikWaveSeek");
     const current = $("#itzikWaveCurrent");
