@@ -133,6 +133,52 @@ async function saveSoundPreference(enabled){
     }
   }
 }
+function mixPage() {
+  return `
+    <div class="workspace-title">
+      <div class="quick-icon">☷</div>
+      <div>
+        <h1>מיקס AI</h1>
+        <p>שיפור חכם של הסאונד באמצעות RoEx AI.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>הקובץ לעיבוד</h3>
+
+      ${currentFile ? `
+        <p>הקובץ הפעיל: <b>${escapeHtml(currentFile.name)}</b></p>
+
+        <label for="mixStyle">סגנון מוזיקלי</label>
+        <select id="mixStyle">
+          <option value="POP">Pop</option>
+          <option value="ROCK">Rock</option>
+          <option value="HIP_HOP_GRIME">Hip Hop</option>
+          <option value="RNB">R&B</option>
+          <option value="ELECTRONIC">Electronic</option>
+          <option value="HOUSE">House</option>
+          <option value="TECHNO">Techno</option>
+          <option value="JAZZ">Jazz</option>
+          <option value="METAL">Metal</option>
+          <option value="ACOUSTIC">Acoustic</option>
+        </select>
+
+        <button class="primary-btn" id="mixPreviewBtn">
+          יצירת תצוגה מקדימה
+        </button>
+
+        <p id="mixStatus"></p>
+      ` : `
+        <div class="empty-state">
+          <div class="big">♫</div>
+          <b>קודם נעלה שיר</b>
+          <p>אותו קובץ יהיה זמין בכל כלי הסטודיו.</p>
+          <button class="secondary-btn" data-go="home">העלאת שיר</button>
+        </div>
+      `}
+    </div>
+  `;
+}
 function toolPage(name,desc,icon){
  return `<div class="workspace-title"><div class="quick-icon">${icon}</div><div><h1>${name}</h1><p>${desc}</p></div></div><div class="panel"><h3>העבודה שלך</h3>${currentFile?`<p>הקובץ הפעיל: <b>${escapeHtml(currentFile.name)}</b></p><div class="notice">ממשק הכלי מוכן. בשלב הבא נחבר את מנוע העיבוד האמיתי ונוסיף בקרות מקצועיות.</div>`:`<div class="empty-state"><div class="big">♫</div><b>קודם נעלה שיר</b><p>אותו קובץ יהיה זמין בכל כלי הסטודיו.</p><button class="secondary-btn" data-go="home">העלאת שיר</button></div>`}</div>`;
 }
