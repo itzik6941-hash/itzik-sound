@@ -24,7 +24,7 @@ const pages = {
    <div class="quick-card" data-go="pitch"><div class="quick-icon">♬</div><b>תיקון זיופים</b><small>דיוק קולי בשליטה שלך</small></div>
   </div>`},
 
- mix:{title:"מיקס AI",html:()=>toolPage("מיקס AI","איזון ערוצים, EQ, קומפרסיה ואפקטים — עם אישור שלך לפני כל שינוי.","☷")},
+ mix:{title:"מיקס AI",html:()=>mixPage()},
  master:{title:"מאסטרינג AI",html:()=>toolPage("מאסטרינג AI","ליטוש הסאונד, עוצמה ודינמיקה לקראת הפצה.","◉")},
  pitch:{title:"תיקון זיופים",html:()=>`<div class="workspace-title"><div class="quick-icon">♬</div><div><h1>תיקון זיופים</h1><p>אתה מחליט כמה ואיך לתקן.</p></div></div><div class="panel"><h3>מצב תיקון</h3><p>בגרסה הבאה נחבר מנוע זיהוי תווים ותיקון גובה צליל. נבנה שליטה ידנית ואוטומטית, עוצמת תיקון, מהירות, ועריכת תווים בודדים.</p><div class="notice">לא יבוצע שינוי בקובץ המקורי. כל תיקון יישמר כגרסה חדשה לאחר אישורך.</div></div>${filePanel()}`},
 
