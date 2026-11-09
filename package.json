@@ -9,9 +9,9 @@
   "scripts": {
     "start": "node server.js"
   },
-"dependencies": {
-  "express": "^4.21.2",
-  "lamejs": "^1.2.1",
-  "multer": "^2.0.2"
-}
+  "dependencies": {
+    "express": "^4.21.2",
+    "lamejs": "^1.2.1",
+    "multer": "^2.0.2"
+  }
 }
