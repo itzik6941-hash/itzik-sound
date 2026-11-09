@@ -168,6 +168,13 @@ function mixPage() {
         </button>
 
         <p id="mixStatus"></p>
+
+<audio
+  id="mixPreviewAudio"
+  controls
+  hidden
+  style="width:100%; margin-top:15px;"
+></audio>
       ` : `
         <div class="empty-state">
           <div class="big">♫</div>
