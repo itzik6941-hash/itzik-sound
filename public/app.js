@@ -1359,6 +1359,22 @@ window.refreshIzikWaveform = buildWaveform;
       const playButton = $("#itzikWavePlay");
       const seek = $("#itzikWaveSeek");
       const newProjectButton = $("#itzikNewProject");
+      const miniWave = $("#itzikMiniWaveform");
+
+if (miniWave) {
+  miniWave.onclick = event => {
+    if (!audio.duration) return;
+
+    const rect = miniWave.getBoundingClientRect();
+    const ratio = Math.max(
+      0,
+      Math.min(1, (event.clientX - rect.left) / rect.width)
+    );
+
+    audio.currentTime = ratio * audio.duration;
+    updateWaveformProgress();
+  };
+}
 const waveExportButton = $("#itzikWaveExport");
 
 if (waveExportButton) {
