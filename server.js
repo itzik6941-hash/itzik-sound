@@ -252,6 +252,83 @@ app.post(
     }
   }
 );
+// ROEX GET FREE MIX PREVIEW
+app.post("/api/roex/preview-result", async (req, res) => {
+  try {
+    const user = await verifyUser(req);
+
+    if (!user) {
+      return res.status(401).json({
+        message: "צריך להתחבר מחדש לחשבון."
+      });
+    }
+
+    const apiKey = process.env.ROEX_API_KEY;
+    const taskId = req.body.taskId;
+
+    if (!apiKey || !taskId) {
+      return res.status(400).json({
+        message: "חסר חיבור RoEx או מזהה משימה."
+      });
+    }
+
+    const response = await fetch(
+      "https://tonn.roexaudio.com/retrieveenhancedtrack",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey
+        },
+        body: JSON.stringify({
+          mixReviveData: {
+            mixReviveTaskId: taskId
+          }
+        }),
+        signal: AbortSignal.timeout(60000)
+      }
+    );
+
+    const data = await response.json();
+
+    if (response.status === 202) {
+      return res.status(202).json({
+        processing: true,
+        message: "התצוגה המקדימה עדיין בעיבוד."
+      });
+    }
+
+    if (!response.ok || data.error) {
+      console.error("RoEx preview retrieval error:", data);
+
+      return res.status(502).json({
+        message: "לא הצלחנו לקבל את התצוגה המקדימה."
+      });
+    }
+
+    const previewUrl =
+      data.revived_track_tasks_results?.download_url_preview_revived;
+
+    if (!previewUrl) {
+      return res.status(202).json({
+        processing: true,
+        message: "התצוגה המקדימה עדיין בעיבוד."
+      });
+    }
+
+    return res.json({
+      ok: true,
+      previewUrl
+    });
+
+  } catch (error) {
+    console.error("RoEx preview retrieval error:", error);
+
+    return res.status(500).json({
+      message: "אירעה תקלה בקבלת התצוגה המקדימה."
+    });
+  }
+});
 // ITZKO AI assistant
 app.post("/api/assistant", async (req, res) => {
   try {
