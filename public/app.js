@@ -274,6 +274,62 @@ if(saveLanguageBtn && languageSelect){
     }
   };
 }
+   const mixPreviewBtn = $("#mixPreviewBtn");
+
+ if (mixPreviewBtn) {
+  mixPreviewBtn.onclick = async () => {
+   const status = $("#mixStatus");
+
+   if (!currentFile) {
+    status.textContent = "קודם צריך לבחור קובץ אודיו.";
+    return;
+   }
+
+   const extension = currentFile.name.split(".").pop().toLowerCase();
+
+   if (!["mp3", "wav", "flac"].includes(extension)) {
+    status.textContent = "Mix AI תומך כרגע בקובצי MP3, WAV או FLAC בלבד.";
+    return;
+   }
+
+   mixPreviewBtn.disabled = true;
+   status.textContent = "מתחבר ל-RoEx ומעלה את הקובץ...";
+
+   try {
+    const { data, error } = await supabaseClient.auth.getSession();
+
+    if (error || !data.session?.access_token) {
+     throw new Error("צריך להתחבר מחדש לחשבון.");
+    }
+
+    const formData = new FormData();
+    formData.append("audio", currentFile);
+    formData.append("musicalStyle", $("#mixStyle")?.value || "POP");
+
+    const response = await fetch("/api/roex/preview", {
+     method: "POST",
+     headers: {
+      Authorization: `Bearer ${data.session.access_token}`
+     },
+     body: formData
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+     throw new Error(result.message || "יצירת התצוגה המקדימה נכשלה.");
+    }
+
+    status.textContent = "הבקשה נשלחה בהצלחה! מזהה משימה: " + result.taskId;
+
+   } catch (error) {
+    console.error("Mix AI error:", error);
+    status.textContent = error.message || "אירעה תקלה בחיבור ל-RoEx.";
+   } finally {
+    mixPreviewBtn.disabled = false;
+   }
+  };
+ }
 }
 
 function showAuth(message=""){
