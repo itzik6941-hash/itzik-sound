@@ -592,7 +592,7 @@ const bottomPlayer = $("#bottomPlayer");
 
 if (bottomPlayer) {
   bottomPlayer.addEventListener("click", e => {
-    if (e.target.closest("#playBtn, #seek, #exportBtn")) return;
+    if (e.target.closest("#playBtn, #seek, #exportBtn, #itzikMiniWaveform")) return;
     if (currentFile) render("home");
   });
 }
