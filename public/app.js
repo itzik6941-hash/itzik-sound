@@ -1125,18 +1125,20 @@ init();
             type="range" min="0" max="100" value="0">
           <span class="itzik-wave-time" id="itzikWaveDuration">0:00</span>
         </div>
-
-        <div class="itzik-player-actions">
-          <button class="secondary-btn" id="itzikNewProject" type="button">
-            ＋ פרויקט חדש
-          </button>
-          <button class="secondary-btn" data-go="projects" type="button">
-            ▤ הפרויקטים שלי
-          </button>
-          <button class="secondary-btn" data-go="mix" type="button">
-            ☷ מעבר למיקס
-          </button>
-        </div>
+<div class="itzik-player-actions">
+  <button class="secondary-btn" id="itzikNewProject" type="button">
+    ＋ פרויקט חדש
+  </button>
+  <button class="secondary-btn" data-go="projects" type="button">
+    ▤ הפרויקטים שלי
+  </button>
+  <button class="secondary-btn" data-go="mix" type="button">
+    ☷ מעבר למיקס
+  </button>
+  <button class="export-button" id="itzikWaveExport" type="button">
+    ⇩ ייצוא WAV / MP3
+  </button>
+</div>
       </div>
 
       <div class="section-heading">
