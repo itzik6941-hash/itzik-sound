@@ -8,7 +8,27 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: "20mb" }));
 app.use(express.static(path.join(__dirname, "public")));
+const audioUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024
+  },
+  fileFilter: (_req, file, callback) => {
+    const allowedTypes = [
+      "audio/mpeg",
+      "audio/wav",
+      "audio/x-wav",
+      "audio/flac",
+      "audio/x-flac"
+    ];
 
+    if (allowedTypes.includes(file.mimetype)) {
+      callback(null, true);
+    } else {
+      callback(new Error("פורמט קובץ אודיו לא נתמך."));
+    }
+  }
+});
 // Supabase public configuration
 app.get("/config.js", (_req, res) => {
   const config = {
