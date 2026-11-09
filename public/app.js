@@ -579,7 +579,14 @@ $("#navigation").addEventListener("click",e=>{
  const b=e.target.closest("[data-page]");
  if(b)render(b.dataset.page);
 });
+const bottomPlayer = $("#bottomPlayer");
 
+if (bottomPlayer) {
+  bottomPlayer.addEventListener("click", e => {
+    if (e.target.closest("#playBtn, #seek, #exportBtn")) return;
+    if (currentFile) render("home");
+  });
+}
 document.addEventListener("click",e=>{
  const b=e.target.closest("[data-go]");
  if(b)render(b.dataset.go);
