@@ -1299,9 +1299,11 @@ if (miniContainer) miniContainer.innerHTML = waveformHtml;
 
   // עדכון ההתקדמות בנגן
   function updateWaveformProgress() {
-    const bars = document.querySelectorAll(".itzik-wave-bar");
+const waveContainers = document.querySelectorAll(
+  ".itzik-wave-area, .itzik-mini-wave-area"
+);
 
-    if (!bars.length) return;
+if (!waveContainers.length) return;
 
     const duration = audio.duration || 0;
     const progress = duration
