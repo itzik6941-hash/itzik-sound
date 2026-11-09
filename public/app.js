@@ -1429,7 +1429,7 @@ if (waveExportButton) {
   audio.addEventListener("pause", updateWaveformProgress);
   audio.addEventListener("loadedmetadata", updateWaveformProgress);
 
-})();
+
 async function deleteProject(id) {
   const p = projects.find(x => x.id === id);
   if (!p) return;
