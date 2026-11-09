@@ -327,7 +327,65 @@ if(saveLanguageBtn && languageSelect){
      throw new Error(result.message || "יצירת התצוגה המקדימה נכשלה.");
     }
 
-    status.textContent = "הבקשה נשלחה בהצלחה! מזהה משימה: " + result.taskId;
+    status.textContent = "הבקשה נשלחה! ממתין לתצוגה המקדימה...";
+
+const { data: sessionData, error: sessionError } =
+  await supabaseClient.auth.getSession();
+
+if (sessionError || !sessionData.session?.access_token) {
+  throw new Error("צריך להתחבר מחדש לחשבון.");
+}
+
+let previewReady = false;
+
+for (let attempt = 0; attempt < 12; attempt++) {
+  const previewResponse = await fetch("/api/roex/preview-result", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${sessionData.session.access_token}`
+    },
+    body: JSON.stringify({
+      taskId: result.taskId
+    })
+  });
+
+  const previewResult = await previewResponse.json();
+
+  if (previewResponse.status === 202) {
+    status.textContent = "RoEx עדיין מעבד את השיר...";
+
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    continue;
+  }
+
+  if (!previewResponse.ok) {
+    throw new Error(
+      previewResult.message || "קבלת התצוגה המקדימה נכשלה."
+    );
+  }
+
+  const previewAudio = $("#mixPreviewAudio");
+
+  if (!previewAudio || !previewResult.previewUrl) {
+    throw new Error("לא התקבל קישור לתצוגה המקדימה.");
+  }
+
+  previewAudio.src = previewResult.previewUrl;
+  previewAudio.hidden = false;
+  previewAudio.load();
+
+  status.textContent = "התצוגה המקדימה מוכנה! אפשר להאזין כאן. 🎧";
+
+  previewReady = true;
+  break;
+}
+
+if (!previewReady) {
+  status.textContent =
+    "השיר עדיין בעיבוד. אפשר לנסות לקבל את התוצאה שוב בעוד רגע. מזהה משימה: " +
+    result.taskId;
+}
 
    } catch (error) {
     console.error("Mix AI error:", error);
