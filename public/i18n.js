@@ -5,11 +5,6 @@
   const LANGUAGES = {
     he: { name: "עברית", direction: "rtl" },
     en: { name: "English", direction: "ltr" },
-    ar: { name: "العربية", direction: "rtl" },
-    ru: { name: "Русский", direction: "ltr" },
-    es: { name: "Español", direction: "ltr" },
-    fr: { name: "Français", direction: "ltr" },
-    de: { name: "Deutsch", direction: "ltr" }
   };
 
   const ROWS = [
@@ -92,6 +87,15 @@
     ["כלי הסטודיו","Studio Tools","أدوات الاستوديو","Инструменты студии","Herramientas del estudio","Outils du studio","Studio-Werkzeuge"],
     ["ביטול","Cancel","إلغاء","Отмена","Cancelar","Annuler","Abbrechen"],
     ["סגור","Close","إغلاق","Закрыть","Cerrar","Fermer","Schließen"]
+    ,["לחץ על ITZIK SOUND כדי להיכנס","Click ITZIK SOUND to enter"]
+    ,["התחבר כדי לשמור את הפרויקטים שלך בענן.","Sign in to save your projects in the cloud."]
+    ,["אין לך חשבון? ","Don't have an account? "]
+    ,["אין לך חשבון?","Don't have an account?"]
+    ,["חיבור החשבון עדיין לא הוגדר בשרת. בדוק את משתני Supabase ב-Render.","Account connection is not configured on the server. Check the Supabase settings in Render."]
+    ,["🔒 הפרויקטים וקובצי האודיו שלך פרטיים לחשבון שלך.","🔒 Your projects and audio files are private to your account."]
+    ,["שפת הממשק","Interface language"]
+    ,["YOUR PERSONAL MUSIC SPACE","YOUR PERSONAL MUSIC SPACE"]
+    ,["🔊 צליל פתיחה אוטומטי","🔊 Automatic startup sound"]
   ];
 
   const TRANSLATIONS = {

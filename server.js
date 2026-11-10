@@ -6,7 +6,16 @@ const multer = require("multer");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json({ limit: "20mb" }));
+app.disable("x-powered-by");
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  next();
+});
+
+app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 const audioUpload = multer({
   storage: multer.memoryStorage(),
@@ -89,21 +98,55 @@ async function verifyUser(req) {
   const user = await response.json();
   return user && user.id ? user : null;
 }
+
+async function requireUser(req, res, next) {
+  try {
+    const user = await verifyUser(req);
+    if (!user) {
+      return res.status(401).json({
+        error: "UNAUTHORIZED",
+        message: "צריך להתחבר לחשבון כדי להשתמש בשירות."
+      });
+    }
+
+    req.user = user;
+    return next();
+  } catch {
+    return res.status(503).json({
+      error: "AUTH_SERVICE_UNAVAILABLE",
+      message: "לא ניתן לאמת את החשבון כרגע. נסה שוב."
+    });
+  }
+}
+
+function safeRoexLogMessage(data, apiKey = process.env.ROEX_API_KEY) {
+  const message =
+    typeof data === "string"
+      ? data
+      : typeof data?.message === "string"
+        ? data.message
+        : typeof data?.error?.message === "string"
+          ? data.error.message
+          : typeof data?.error === "string"
+            ? data.error
+            : "";
+
+  const redactedKey = apiKey
+    ? message.split(apiKey).join("[REDACTED]")
+    : message;
+
+  return redactedKey
+    .replace(/https?:\/\/[^\s"'<>]+/gi, "[REDACTED_URL]")
+    .slice(0, 500);
+}
+
 // ROEX MIX ENHANCE PREVIEW
 app.post(
   "/api/roex/preview",
+  requireUser,
   audioUpload.single("audio"),
   async (req, res) => {
     try {
-      const user = await verifyUser(req);
-
-      if (!user) {
-        return res.status(401).json({
-          error: "UNAUTHORIZED",
-          message: "צריך להתחבר לחשבון כדי להשתמש ב-Mix AI."
-        });
-      }
-
       const apiKey = process.env.ROEX_API_KEY;
 
       if (!apiKey) {
@@ -175,7 +218,9 @@ app.post(
       const uploadData = await uploadResponse.json();
 
       if (!uploadResponse.ok || !uploadData.signed_url) {
-        console.error("RoEx upload error:", uploadData);
+        console.error("RoEx upload error", {
+          message: safeRoexLogMessage(uploadData, apiKey)
+        });
 
         return res.status(502).json({
           error: "ROEX_UPLOAD_FAILED",
@@ -225,10 +270,22 @@ app.post(
         }
       );
 
-      const previewData = await previewResponse.json();
+      console.info("RoEx mixenhancepreview HTTP response", {
+        status: previewResponse.status
+      });
 
-      if (!previewResponse.ok || !previewData.mixrevive_task_id) {
-        console.error("RoEx preview error:", previewData);
+      const previewData = await previewResponse.json();
+      const taskId = previewData.mixrevive_task_id;
+
+      console.info("RoEx mixenhancepreview task", {
+        receivedMixreviveTaskId: Boolean(taskId),
+        taskId
+      });
+
+      if (!previewResponse.ok || !taskId) {
+        console.error("RoEx mixenhancepreview error", {
+          message: safeRoexLogMessage(previewData, apiKey)
+        });
 
         return res.status(502).json({
           error: "ROEX_PREVIEW_FAILED",
@@ -238,12 +295,14 @@ app.post(
 
       return res.json({
         ok: true,
-        taskId: previewData.mixrevive_task_id,
+        taskId,
         message: "משימת התצוגה המקדימה נוצרה בהצלחה."
       });
 
     } catch (error) {
-      console.error("RoEx preview error:", error);
+      console.error("RoEx preview error", {
+        message: safeRoexLogMessage(error)
+      });
 
       return res.status(500).json({
         error: "ROEX_PREVIEW_ERROR",
@@ -252,6 +311,330 @@ app.post(
     }
   }
 );
+
+// ROEX MASTERING PREVIEW
+app.post(
+  "/api/roex/mastering-preview",
+  requireUser,
+  audioUpload.single("audio"),
+  async (req, res) => {
+    const apiKey = process.env.ROEX_API_KEY;
+
+    try {
+      if (!apiKey) {
+        return res.status(503).json({
+          error: "ROEX_NOT_CONFIGURED",
+          message: "חיבור RoEx עדיין לא הוגדר בשרת."
+        });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({
+          error: "NO_AUDIO_FILE",
+          message: "לא נבחר קובץ אודיו."
+        });
+      }
+
+      const extension = path.extname(req.file.originalname).toLowerCase();
+      const contentTypes = {
+        ".mp3": "audio/mpeg",
+        ".wav": "audio/wav",
+        ".flac": "audio/flac"
+      };
+      const contentType = contentTypes[extension];
+
+      if (!contentType) {
+        return res.status(400).json({
+          error: "INVALID_AUDIO_FORMAT",
+          message: "אפשר להעלות MP3, WAV או FLAC בלבד."
+        });
+      }
+
+      const musicalStyle = req.body.musicalStyle || "POP";
+      const desiredLoudness = req.body.desiredLoudness || "MEDIUM";
+      const sampleRate = String(req.body.sampleRate || "44100");
+      const validStyles = [
+        "ROCK_INDIE", "POP", "ACOUSTIC", "HIPHOP_GRIME",
+        "ELECTRONIC", "REGGAE_DUB", "METAL", "OTHER"
+      ];
+
+      if (!validStyles.includes(musicalStyle)) {
+        return res.status(400).json({
+          error: "INVALID_MUSICAL_STYLE",
+          message: "סגנון מוזיקלי לא נתמך."
+        });
+      }
+
+      if (!["LOW", "MEDIUM", "HIGH"].includes(desiredLoudness)) {
+        return res.status(400).json({
+          error: "INVALID_LOUDNESS",
+          message: "רמת העוצמה לא נתמכת."
+        });
+      }
+
+      if (!["44100", "48000"].includes(sampleRate)) {
+        return res.status(400).json({
+          error: "INVALID_SAMPLE_RATE",
+          message: "קצב הדגימה לא נתמך."
+        });
+      }
+
+      const uploadResponse = await fetch(
+        "https://tonn.roexaudio.com/upload",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-Key": apiKey
+          },
+          body: JSON.stringify({
+            filename: req.file.originalname,
+            contentType
+          }),
+          signal: AbortSignal.timeout(30000)
+        }
+      );
+      const uploadData = await uploadResponse.json();
+
+      if (!uploadResponse.ok || !uploadData.signed_url || !uploadData.readable_url) {
+        console.error("RoEx mastering upload error", {
+          status: uploadResponse.status,
+          message: safeRoexLogMessage(uploadData, apiKey)
+        });
+        return res.status(502).json({
+          error: "ROEX_UPLOAD_FAILED",
+          message: "RoEx לא הצליח להכין העלאת קובץ."
+        });
+      }
+
+      const fileResponse = await fetch(uploadData.signed_url, {
+        method: "PUT",
+        headers: { "Content-Type": contentType },
+        body: req.file.buffer,
+        signal: AbortSignal.timeout(120000)
+      });
+
+      if (!fileResponse.ok) {
+        console.error("RoEx mastering file upload failed", {
+          status: fileResponse.status
+        });
+        return res.status(502).json({
+          error: "ROEX_FILE_UPLOAD_FAILED",
+          message: "העלאת קובץ האודיו ל-RoEx נכשלה."
+        });
+      }
+
+      const previewResponse = await fetch(
+        "https://tonn.roexaudio.com/masteringpreview",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-Key": apiKey
+          },
+          body: JSON.stringify({
+            masteringData: {
+              trackData: [{ trackURL: uploadData.readable_url }],
+              musicalStyle,
+              desiredLoudness,
+              sampleRate
+            }
+          }),
+          signal: AbortSignal.timeout(60000)
+        }
+      );
+
+      console.info("RoEx masteringpreview HTTP response", {
+        status: previewResponse.status
+      });
+      const previewData = await previewResponse.json();
+      const taskId = previewData.mastering_task_id;
+
+      console.info("RoEx masteringpreview task", {
+        receivedTaskId: Boolean(taskId),
+        taskId
+      });
+
+      if (!previewResponse.ok || !taskId) {
+        console.error("RoEx masteringpreview error", {
+          message: safeRoexLogMessage(previewData, apiKey)
+        });
+        return res.status(502).json({
+          error: "ROEX_MASTERING_PREVIEW_FAILED",
+          message: "RoEx לא הצליח ליצור תצוגה מקדימה למאסטרינג."
+        });
+      }
+
+      return res.json({ ok: true, taskId });
+    } catch (error) {
+      console.error("RoEx mastering preview error", {
+        message: safeRoexLogMessage(error, apiKey)
+      });
+      return res.status(500).json({
+        error: "ROEX_MASTERING_PREVIEW_ERROR",
+        message: "אירעה תקלה ביצירת תצוגת המאסטרינג."
+      });
+    }
+  }
+);
+
+// ROEX MASTERING PREVIEW RESULT
+app.post("/api/roex/mastering-preview-result", async (req, res) => {
+  try {
+    const user = await verifyUser(req);
+    if (!user) {
+      return res.status(401).json({
+        error: "UNAUTHORIZED",
+        message: "צריך להתחבר מחדש לחשבון."
+      });
+    }
+
+    const apiKey = process.env.ROEX_API_KEY;
+    const taskId = req.body?.taskId;
+    if (!apiKey || typeof taskId !== "string" || !taskId.trim()) {
+      return res.status(400).json({
+        error: "INVALID_MASTERING_TASK",
+        message: "חסר חיבור RoEx או מזהה משימה תקין."
+      });
+    }
+
+    const response = await fetch(
+      "https://tonn.roexaudio.com/retrievepreviewmaster",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey
+        },
+        body: JSON.stringify({
+          masteringData: { masteringTaskId: taskId.trim() }
+        }),
+        signal: AbortSignal.timeout(60000)
+      }
+    );
+
+    console.info("RoEx retrievepreviewmaster HTTP response", {
+      status: response.status,
+      taskId: taskId.trim()
+    });
+    const data = await response.json();
+
+    if (response.status === 202) {
+      return res.status(202).json({ processing: true });
+    }
+
+    if (!response.ok || data.error) {
+      console.error("RoEx retrievepreviewmaster error", {
+        message: safeRoexLogMessage(data, apiKey)
+      });
+      return res.status(502).json({
+        error: "ROEX_MASTERING_PREVIEW_RETRIEVAL_FAILED",
+        message: "לא הצלחנו לקבל את תצוגת המאסטרינג."
+      });
+    }
+
+    const previewUrl =
+      data.previewMasterTaskResults?.download_url_mastered_preview;
+    if (!previewUrl) {
+      return res.status(202).json({ processing: true });
+    }
+
+    return res.json({
+      ok: true,
+      previewUrl,
+      previewStartTime: data.previewMasterTaskResults?.preview_start_time
+    });
+  } catch (error) {
+    console.error("RoEx retrievepreviewmaster error", {
+      message: safeRoexLogMessage(error)
+    });
+    return res.status(500).json({
+      error: "ROEX_MASTERING_PREVIEW_RETRIEVAL_ERROR",
+      message: "אירעה תקלה בקבלת תצוגת המאסטרינג."
+    });
+  }
+});
+
+// ROEX FINAL MASTER RETRIEVAL — charged by RoEx; client must confirm explicitly.
+app.post("/api/roex/mastering-final", async (req, res) => {
+  try {
+    const user = await verifyUser(req);
+    if (!user) {
+      return res.status(401).json({
+        error: "UNAUTHORIZED",
+        message: "צריך להתחבר מחדש לחשבון."
+      });
+    }
+
+    const apiKey = process.env.ROEX_API_KEY;
+    const taskId = req.body?.taskId;
+    if (!apiKey || typeof taskId !== "string" || !taskId.trim()) {
+      return res.status(400).json({
+        error: "INVALID_MASTERING_TASK",
+        message: "חסר חיבור RoEx או מזהה משימה תקין."
+      });
+    }
+
+    if (req.body?.confirmedCreditCharge !== true) {
+      return res.status(400).json({
+        error: "CREDIT_CHARGE_CONFIRMATION_REQUIRED",
+        message: "יש לאשר את החיוב לפני קבלת המאסטר המלא."
+      });
+    }
+
+    const response = await fetch(
+      "https://tonn.roexaudio.com/retrievefinalmaster",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey
+        },
+        body: JSON.stringify({
+          masteringData: { masteringTaskId: taskId.trim() }
+        }),
+        signal: AbortSignal.timeout(60000)
+      }
+    );
+
+    console.info("RoEx retrievefinalmaster HTTP response", {
+      status: response.status,
+      taskId: taskId.trim()
+    });
+    const data = await response.json();
+
+    if (!response.ok || data.error) {
+      console.error("RoEx retrievefinalmaster error", {
+        message: safeRoexLogMessage(data, apiKey)
+      });
+      return res.status(502).json({
+        error: "ROEX_FINAL_MASTER_FAILED",
+        message: "לא הצלחנו לקבל את המאסטר המלא."
+      });
+    }
+
+    const masterUrl =
+      typeof data.finalMasterTaskResults === "string"
+        ? data.finalMasterTaskResults
+        : data.finalMasterTaskResults?.download_url_mastered;
+    if (!masterUrl) {
+      return res.status(502).json({
+        error: "ROEX_FINAL_MASTER_URL_MISSING",
+        message: "RoEx לא החזיר קישור למאסטר המלא."
+      });
+    }
+
+    return res.json({ ok: true, masterUrl });
+  } catch (error) {
+    console.error("RoEx retrievefinalmaster error", {
+      message: safeRoexLogMessage(error)
+    });
+    return res.status(500).json({
+      error: "ROEX_FINAL_MASTER_ERROR",
+      message: "אירעה תקלה בקבלת המאסטר המלא."
+    });
+  }
+});
 // ROEX GET FREE MIX PREVIEW
 app.post("/api/roex/preview-result", async (req, res) => {
   try {
@@ -289,6 +672,11 @@ app.post("/api/roex/preview-result", async (req, res) => {
       }
     );
 
+    console.info("RoEx retrieveenhancedtrack HTTP response", {
+      status: response.status,
+      taskId
+    });
+
     const data = await response.json();
 
     if (response.status === 202) {
@@ -299,7 +687,9 @@ app.post("/api/roex/preview-result", async (req, res) => {
     }
 
     if (!response.ok || data.error) {
-      console.error("RoEx preview retrieval error:", data);
+      console.error("RoEx retrieveenhancedtrack error", {
+        message: safeRoexLogMessage(data, apiKey)
+      });
 
       return res.status(502).json({
         message: "לא הצלחנו לקבל את התצוגה המקדימה."
@@ -322,7 +712,9 @@ app.post("/api/roex/preview-result", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("RoEx preview retrieval error:", error);
+    console.error("RoEx preview retrieval error", {
+      message: safeRoexLogMessage(error)
+    });
 
     return res.status(500).json({
       message: "אירעה תקלה בקבלת התצוגה המקדימה."
@@ -442,6 +834,60 @@ app.post("/api/assistant", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`ITZIK SOUND is running on port ${PORT}`);
+app.use("/api", (_req, res) => {
+  return res.status(404).json({
+    error: "NOT_FOUND",
+    message: "הפעולה המבוקשת לא נמצאה."
+  });
 });
+
+app.use((error, _req, res, next) => {
+  if (res.headersSent) return next(error);
+
+  if (error instanceof multer.MulterError) {
+    const tooLarge = error.code === "LIMIT_FILE_SIZE";
+    return res.status(tooLarge ? 413 : 400).json({
+      error: tooLarge ? "FILE_TOO_LARGE" : "INVALID_UPLOAD",
+      message: tooLarge
+        ? "הקובץ גדול מ־50MB."
+        : "לא ניתן לקבל את קובץ האודיו."
+    });
+  }
+
+  if (error?.message === "פורמט קובץ אודיו לא נתמך.") {
+    return res.status(400).json({
+      error: "INVALID_AUDIO_FORMAT",
+      message: "אפשר להעלות MP3, WAV או FLAC בלבד."
+    });
+  }
+
+  if (error?.status === 400 || error?.type === "entity.parse.failed") {
+    return res.status(400).json({
+      error: "INVALID_REQUEST",
+      message: "הבקשה אינה תקינה."
+    });
+  }
+
+  if (error?.status === 413 || error?.type === "entity.too.large") {
+    return res.status(413).json({
+      error: "REQUEST_TOO_LARGE",
+      message: "הבקשה גדולה מדי."
+    });
+  }
+
+  console.error("Unhandled request error", {
+    name: typeof error?.name === "string" ? error.name : "Error"
+  });
+  return res.status(500).json({
+    error: "INTERNAL_ERROR",
+    message: "אירעה תקלה בשרת. נסה שוב."
+  });
+});
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`ITZIK SOUND is running on port ${PORT}`);
+  });
+}
+
+module.exports = app;

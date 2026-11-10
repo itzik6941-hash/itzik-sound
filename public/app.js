@@ -11,8 +11,7 @@ let supabaseClient = null;
 let currentUser = null;
 let authMode = "login";
 let authBusy = false;
-let soundEnabled =
-  localStorage.getItem("itzik_sound_enabled") === "true";
+let soundEnabled = (()=>{try{return localStorage.getItem("itzik_sound_enabled")==="true";}catch{return false;}})();
 const pages = {
  home: {title:"הסטודיו שלך, הסאונד שלך.", html: () => `
   <div class="welcome"><div><div class="eyebrow">WELCOME TO YOUR STUDIO</div><h1>בוא ניצור משהו שנשמע גדול.</h1><p>כל הכלים שלך להפקה מוזיקלית, במקום אחד.<br>העלה שיר והתחל לעבוד עם ITZIK SOUND.</p></div><span class="tag">✦ YOUR MUSIC. YOUR SOUND.</span></div>
@@ -25,7 +24,7 @@ const pages = {
   </div>`},
 
  mix:{title:"מיקס AI",html:()=>mixPage()},
- master:{title:"מאסטרינג AI",html:()=>toolPage("מאסטרינג AI","ליטוש הסאונד, עוצמה ודינמיקה לקראת הפצה.","◉")},
+ master:{title:"מאסטרינג AI",html:()=>masteringPage()},
  pitch:{title:"תיקון זיופים",html:()=>`<div class="workspace-title"><div class="quick-icon">♬</div><div><h1>תיקון זיופים</h1><p>אתה מחליט כמה ואיך לתקן.</p></div></div><div class="panel"><h3>מצב תיקון</h3><p>בגרסה הבאה נחבר מנוע זיהוי תווים ותיקון גובה צליל. נבנה שליטה ידנית ואוטומטית, עוצמת תיקון, מהירות, ועריכת תווים בודדים.</p><div class="notice">לא יבוצע שינוי בקובץ המקורי. כל תיקון יישמר כגרסה חדשה לאחר אישורך.</div></div>${filePanel()}`},
 
  ideas:{title:"רעיונות מוזיקליים",html:()=>toolPage("רעיונות מוזיקליים","אקורדים, מלודיות, קצב, עיבודים וכיווני הפקה לשיר שלך.","✧")},
@@ -51,11 +50,6 @@ settings:{title:"הגדרות ושפה",html:()=>`
     <select id="languageSelect" class="input">
       <option value="he">🇮🇱 עברית</option>
       <option value="en">🇬🇧 English</option>
-      <option value="ar">🇸🇦 العربية</option>
-      <option value="ru">🇷🇺 Русский</option>
-      <option value="es">🇪🇸 Español</option>
-      <option value="fr">🇫🇷 Français</option>
-      <option value="de">🇩🇪 Deutsch</option>
     </select>
 
     <button class="btn btn-primary" id="saveLanguageBtn">
@@ -186,6 +180,9 @@ function mixPage() {
     </div>
   `;
 }
+function masteringPage(){
+ return `<div class="workspace-title"><div class="quick-icon">◉</div><div><h1>מאסטרינג AI</h1><p>תצוגה מקדימה של מאסטרינג באמצעות RoEx AI.</p></div></div><div class="panel"><h3>הקובץ למאסטרינג</h3>${currentFile?`<p>הקובץ הפעיל: <b>${escapeHtml(currentFile.name)}</b></p><label for="masterStyle">סגנון</label><select id="masterStyle"><option value="POP">Pop</option><option value="ROCK_INDIE">Rock / Indie</option><option value="ACOUSTIC">Acoustic</option><option value="HIPHOP_GRIME">Hip Hop</option><option value="ELECTRONIC">Electronic</option><option value="REGGAE_DUB">Reggae / Dub</option><option value="METAL">Metal</option><option value="OTHER">Other</option></select><label for="masterLoudness">עוצמה רצויה</label><select id="masterLoudness"><option value="MEDIUM">Medium</option><option value="LOW">Low</option><option value="HIGH">High</option></select><label for="masterSampleRate">קצב דגימה</label><select id="masterSampleRate"><option value="44100">44.1 kHz</option><option value="48000">48 kHz</option></select><button class="primary-btn" id="masterPreviewBtn">יצירת Preview</button><p id="masterStatus" aria-live="polite"></p><p id="masterTaskId" hidden></p><audio id="masterPreviewAudio" controls hidden style="width:100%;margin-top:15px"></audio><button class="secondary-btn" id="masterFinalBtn" hidden>קבלת מאסטר מלא (עשוי לחייב קרדיטים)</button>`:`<div class="empty-state"><div class="big">♫</div><b>קודם נעלה שיר</b><p>העלה קובץ MP3, WAV או FLAC כדי ליצור Preview.</p><button class="secondary-btn" data-go="home">העלאת שיר</button></div>`}</div>`;
+}
 function toolPage(name,desc,icon){
  return `<div class="workspace-title"><div class="quick-icon">${icon}</div><div><h1>${name}</h1><p>${desc}</p></div></div><div class="panel"><h3>העבודה שלך</h3>${currentFile?`<p>הקובץ הפעיל: <b>${escapeHtml(currentFile.name)}</b></p><div class="notice">ממשק הכלי מוכן. בשלב הבא נחבר את מנוע העיבוד האמיתי ונוסיף בקרות מקצועיות.</div>`:`<div class="empty-state"><div class="big">♫</div><b>קודם נעלה שיר</b><p>אותו קובץ יהיה זמין בכל כלי הסטודיו.</p><button class="secondary-btn" data-go="home">העלאת שיר</button></div>`}</div>`;
 }
@@ -215,6 +212,7 @@ document.querySelectorAll("[data-delete-project]").forEach(b=>{
 });
  const send=$("#chatSend");
  if(send)send.onclick=sendAssistant;
+ bindMastering();
  const studioSoundToggle=$("#studioSoundEnabled");
  const soundStatus=$("#soundStatus");
 
@@ -280,6 +278,54 @@ if(saveLanguageBtn && languageSelect){
       languageStatus.textContent="השפה נשמרה בהצלחה בחשבון שלך!";
     }
   };
+}
+
+function bindMastering(){
+ const button=$("#masterPreviewBtn");
+ if(!button)return;
+ button.onclick=async()=>{
+  const status=$("#masterStatus");
+  button.disabled=true;
+  try{
+   const {data,error}=await supabaseClient.auth.getSession();
+   if(error||!data.session?.access_token)throw new Error("צריך להתחבר מחדש לחשבון.");
+   const ext=currentFile?.name.split(".").pop().toLowerCase();
+   if(!["mp3","wav","flac"].includes(ext))throw new Error("מאסטרינג תומך בקובצי MP3, WAV או FLAC בלבד.");
+   const form=new FormData(); form.append("audio",currentFile);
+   form.append("musicalStyle",$("#masterStyle").value);
+   form.append("desiredLoudness",$("#masterLoudness").value);
+   form.append("sampleRate",$("#masterSampleRate").value);
+   status.textContent="מעלה את הקובץ ומבקש Preview...";
+   const response=await fetch("/api/roex/mastering-preview",{method:"POST",headers:{Authorization:`Bearer ${data.session.access_token}`},body:form});
+   const result=await response.json(); if(!response.ok)throw new Error(result.message||"יצירת Preview נכשלה.");
+   const taskLabel=$("#masterTaskId"); taskLabel.hidden=false; taskLabel.textContent=`מזהה משימה: ${result.taskId}`;
+   status.textContent="ממתין ל-RoEx...";
+   let ready=false;
+   for(let i=0;i<12;i++){
+    const poll=await fetch("/api/roex/mastering-preview-result",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${data.session.access_token}`},body:JSON.stringify({taskId:result.taskId})});
+    const out=await poll.json();
+    if(poll.status===202){status.textContent="RoEx עדיין מעבד את ה-Preview...";await new Promise(r=>setTimeout(r,5000));continue;}
+    if(!poll.ok)throw new Error(out.message||"קבלת ה-Preview נכשלה.");
+    const player=$("#masterPreviewAudio"); player.src=out.previewUrl;player.hidden=false;player.load();
+    $("#masterFinalBtn").hidden=false; status.textContent="ה-Preview מוכן להאזנה.";ready=true;break;
+   }
+   if(!ready)status.textContent=`העיבוד עדיין נמשך. מזהה משימה: ${result.taskId}`;
+  }catch(error){status.textContent=error.message||"אירעה תקלה ביצירת Preview.";}
+  finally{button.disabled=false;}
+ };
+ const finalButton=$("#masterFinalBtn");
+ if(finalButton)finalButton.onclick=async()=>{
+  const id=$("#masterTaskId")?.textContent.replace("מזהה משימה: ","");
+  if(!id||!confirm("קבלת מאסטר מלא עשויה לחייב קרדיטים בחשבון RoEx. להמשיך?"))return;
+  finalButton.disabled=true;
+  try{
+   const {data,error}=await supabaseClient.auth.getSession(); if(error||!data.session?.access_token)throw new Error("צריך להתחבר מחדש לחשבון.");
+   const response=await fetch("/api/roex/mastering-final",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${data.session.access_token}`},body:JSON.stringify({taskId:id,confirmedCreditCharge:true})});
+   const out=await response.json();if(!response.ok)throw new Error(out.message||"קבלת המאסטר נכשלה.");
+   const link=document.createElement("a");link.href=out.masterUrl;link.target="_blank";link.rel="noopener";link.textContent="הורדת המאסטר המלא";$("#masterStatus").append(" ",link);
+  }catch(error){$("#masterStatus").textContent=error.message||"אירעה תקלה בקבלת המאסטר.";}
+  finally{finalButton.disabled=false;}
+ };
 }
    const mixPreviewBtn = $("#mixPreviewBtn");
 
@@ -763,10 +809,7 @@ if (bottomPlayer) {
     if (currentFile) render("home");
   });
 }
-document.addEventListener("click",e=>{
- const b=e.target.closest("[data-go]");
- if(b)render(b.dataset.go);
-});
+// data-go buttons are bound once per render by bindDynamic().
 
 $("#playBtn").onclick=()=>{
  if(audio.paused)audio.play();
@@ -995,6 +1038,14 @@ async function sendAssistant(){
 }
 
 async function init(){
+ const authLanguageSelect=$("#authLanguageSelect");
+ if(authLanguageSelect){
+  authLanguageSelect.value=window.ITZIK_I18N?.getLanguage?.()||"he";
+  authLanguageSelect.onchange=()=>{
+   try{localStorage.setItem("itzik_login_language_selected","1");}catch{}
+   window.ITZIK_I18N?.applyLanguage(authLanguageSelect.value);
+  };
+ }
  const config=window.ITZIK_CONFIG||{};
 
  if(!config.supabaseUrl||!config.supabaseKey||!window.supabase?.createClient){
@@ -1028,28 +1079,6 @@ if(authSoundToggle){
   }
  };
 } 
-const authLanguageSelect=$("#authLanguageSelect");
-
-
-if(authLanguageSelect){
- const initialLanguage=window.ITZIK_I18N?.getLanguage?.()||"he";
- authLanguageSelect.value=initialLanguage;
-
- authLanguageSelect.onchange=()=>{
-  const selected=authLanguageSelect.value;
-  localStorage.setItem("itzik_login_language_selected","1");
-
-  if(window.ITZIK_I18N){
-   window.ITZIK_I18N.applyLanguage(selected);
-  }
-
-  const settingsLanguageSelect=$("#languageSelect");
-  if(settingsLanguageSelect){
-   settingsLanguageSelect.value=selected;
-  }
- };
-} 
-
  // Handle both Google OAuth return and normal sign-in events.
  // setTimeout avoids doing Supabase work inside its auth callback.
  supabaseClient.auth.onAuthStateChange((event,session)=>{
