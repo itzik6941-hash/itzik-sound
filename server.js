@@ -38,6 +38,11 @@ const audioUpload = multer({
     }
   }
 });
+// Avoid duplicate paid final-master retrievals within a server process.
+// A failed request remains locked because the provider may have processed it
+// even when the response was lost.
+const finalMasterAttempts = new Map();
+const finalMixAttempts = new Map();
 // Supabase public configuration
 app.get("/config.js", (_req, res) => {
   const config = {
@@ -97,6 +102,25 @@ async function verifyUser(req) {
 
   const user = await response.json();
   return user && user.id ? user : null;
+}
+
+async function getOwnedProject(req, user, projectId) {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
+  if (!supabaseUrl || !supabaseKey || typeof projectId !== "string" || projectId.length > 100) return null;
+  const query = new URLSearchParams({ id: `eq.${projectId}`, user_id: `eq.${user.id}`, select: "metadata", limit: "1" });
+  const response = await fetch(`${supabaseUrl.replace(/\/$/, "")}/rest/v1/projects?${query}`, {
+    headers: { apikey: supabaseKey, Authorization: req.headers.authorization },
+    signal: AbortSignal.timeout(10000)
+  });
+  if (!response.ok) return null;
+  const rows = await response.json();
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+async function ownsTask(req, user, projectId, metadataKey, taskId) {
+  const project = await getOwnedProject(req, user, projectId);
+  return project?.metadata?.[metadataKey]?.taskId === taskId;
 }
 
 async function requireUser(req, res, next) {
@@ -582,6 +606,23 @@ app.post("/api/roex/mastering-final", async (req, res) => {
       });
     }
 
+    if (!await ownsTask(req, user, req.body?.projectId, "mastering", taskId.trim())) {
+      return res.status(403).json({ error: "MASTERING_TASK_NOT_OWNED", message: "המשימה אינה משויכת לפרויקט שלך." });
+    }
+
+    const attemptKey = `${user.id}:${taskId.trim()}`;
+    const priorAttempt = finalMasterAttempts.get(attemptKey);
+    if (priorAttempt) {
+      if (priorAttempt.state === "complete") {
+        return res.json({ ok: true, masterUrl: priorAttempt.masterUrl });
+      }
+      return res.status(409).json({
+        error: "FINAL_MASTER_ALREADY_ATTEMPTED",
+        message: "הבקשה למשימה זו כבר נשלחה. כדי למנוע חיוב כפול, אין לשלוח אותה שוב. בדוק את היסטוריית המשימות של RoEx."
+      });
+    }
+    finalMasterAttempts.set(attemptKey, { state: "pending" });
+
     const response = await fetch(
       "https://tonn.roexaudio.com/retrievefinalmaster",
       {
@@ -607,6 +648,7 @@ app.post("/api/roex/mastering-final", async (req, res) => {
       console.error("RoEx retrievefinalmaster error", {
         message: safeRoexLogMessage(data, apiKey)
       });
+      finalMasterAttempts.set(attemptKey, { state: "failed" });
       return res.status(502).json({
         error: "ROEX_FINAL_MASTER_FAILED",
         message: "לא הצלחנו לקבל את המאסטר המלא."
@@ -618,11 +660,14 @@ app.post("/api/roex/mastering-final", async (req, res) => {
         ? data.finalMasterTaskResults
         : data.finalMasterTaskResults?.download_url_mastered;
     if (!masterUrl) {
+      finalMasterAttempts.set(attemptKey, { state: "failed" });
       return res.status(502).json({
         error: "ROEX_FINAL_MASTER_URL_MISSING",
         message: "RoEx לא החזיר קישור למאסטר המלא."
       });
     }
+
+    finalMasterAttempts.set(attemptKey, { state: "complete", masterUrl });
 
     return res.json({ ok: true, masterUrl });
   } catch (error) {
@@ -721,6 +766,101 @@ app.post("/api/roex/preview-result", async (req, res) => {
     });
   }
 });
+
+// Full Mix Enhance is started and retrieved only after an explicit user confirmation.
+app.post("/api/roex/enhance-final", requireUser, audioUpload.single("audio"), async (req, res) => {
+  try {
+    const apiKey = process.env.ROEX_API_KEY;
+    if (!apiKey) return res.status(503).json({ error: "ROEX_NOT_CONFIGURED", message: "חיבור RoEx עדיין לא הוגדר בשרת." });
+    if (req.body?.confirmedCreditCharge !== "true") return res.status(400).json({ error: "CREDIT_CHARGE_CONFIRMATION_REQUIRED", message: "יש לאשר את חיוב הקרדיטים לפני הפעלת Mix Enhance מלא." });
+    if (!await getOwnedProject(req, req.user, req.body?.projectId)) return res.status(403).json({ error: "PROJECT_NOT_OWNED", message: "לא ניתן לאמת שהפרויקט שייך לחשבון המחובר." });
+    if (!req.file) return res.status(400).json({ error: "NO_AUDIO_FILE", message: "לא נבחר קובץ אודיו." });
+    const ext = path.extname(req.file.originalname).toLowerCase();
+    const contentType = ({ ".mp3": "audio/mpeg", ".wav": "audio/wav", ".flac": "audio/flac" })[ext];
+    if (!contentType) return res.status(400).json({ error: "INVALID_AUDIO_FORMAT", message: "אפשר להעלות MP3, WAV או FLAC בלבד." });
+    const styles = ["ROCK", "POP", "TECHNO", "TRAP", "JAZZ", "METAL", "SOUL", "FOLK", "ORCHESTRAL", "PUNK", "BLUES", "AMBIENT", "ACOUSTIC", "EXPERIMENTAL", "HIP_HOP_GRIME", "COUNTRY", "FUNK", "RNB", "INDIE_POP", "INDIE_ROCK", "AFROBEAT", "DRUM_N_BASS", "HOUSE", "TRANCE", "LO_FI", "ELECTRONIC"];
+    const musicalStyle = req.body?.musicalStyle || "POP";
+    if (!styles.includes(musicalStyle)) return res.status(400).json({ error: "INVALID_MUSICAL_STYLE", message: "סגנון מוזיקלי לא נתמך." });
+
+    const uploadResponse = await fetch("https://tonn.roexaudio.com/upload", {
+      method: "POST", headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+      body: JSON.stringify({ filename: req.file.originalname, contentType }), signal: AbortSignal.timeout(30000)
+    });
+    const uploadData = await uploadResponse.json();
+    if (!uploadResponse.ok || !uploadData.signed_url || !uploadData.readable_url) {
+      console.error("RoEx full enhance upload failed", { status: uploadResponse.status, message: safeRoexLogMessage(uploadData, apiKey) });
+      return res.status(502).json({ error: "ROEX_UPLOAD_FAILED", message: "RoEx לא הצליח להכין את העלאת הקובץ." });
+    }
+    const putResponse = await fetch(uploadData.signed_url, { method: "PUT", headers: { "Content-Type": contentType }, body: req.file.buffer, signal: AbortSignal.timeout(120000) });
+    if (!putResponse.ok) return res.status(502).json({ error: "ROEX_FILE_UPLOAD_FAILED", message: "העלאת הקובץ ל-RoEx נכשלה." });
+    const response = await fetch("https://tonn.roexaudio.com/mixenhance", {
+      method: "POST", headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+      body: JSON.stringify({ mixReviveData: {
+        audioFileLocation: uploadData.readable_url, musicalStyle, isMaster: false,
+        fixClippingIssues: true, fixDRCIssues: true, fixStereoWidthIssues: true,
+        fixTonalProfileIssues: true, fixLoudnessIssues: true, applyMastering: true,
+        stemProcessing: false
+      } }), signal: AbortSignal.timeout(60000)
+    });
+    console.info("RoEx mixenhance HTTP response", { status: response.status });
+    const result = await response.json();
+    const taskId = result.mixrevive_task_id;
+    if (!response.ok || !taskId || result.error) {
+      console.error("RoEx mixenhance error", { message: safeRoexLogMessage(result, apiKey) });
+      return res.status(502).json({ error: "ROEX_ENHANCE_FAILED", message: "RoEx לא הצליח להתחיל Mix Enhance מלא." });
+    }
+    return res.json({ ok: true, taskId });
+  } catch (error) {
+    console.error("RoEx full enhance request failed", { message: safeRoexLogMessage(error) });
+    return res.status(500).json({ error: "ROEX_ENHANCE_ERROR", message: "אירעה תקלה בהפעלת Mix Enhance." });
+  }
+});
+
+app.post("/api/roex/enhance-result", async (req, res) => {
+  try {
+    const user = await verifyUser(req);
+    if (!user) return res.status(401).json({ error: "UNAUTHORIZED", message: "צריך להתחבר מחדש לחשבון." });
+    const apiKey = process.env.ROEX_API_KEY;
+    const taskId = req.body?.taskId;
+    if (!apiKey || typeof taskId !== "string" || !taskId.trim()) return res.status(400).json({ error: "INVALID_ENHANCE_TASK", message: "חסר מזהה משימת Mix Enhance." });
+    if (req.body?.confirmedCreditCharge !== true) return res.status(400).json({ error: "CREDIT_CHARGE_CONFIRMATION_REQUIRED", message: "יש לאשר את חיוב הקרדיטים לפני שליפת Mix Enhance מלא." });
+    const key = `${user.id}:${taskId.trim()}`;
+    if (!await ownsTask(req, user, req.body?.projectId, "mixEnhance", taskId.trim())) {
+      return res.status(403).json({ error: "ENHANCE_TASK_NOT_OWNED", message: "המשימה אינה משויכת לפרויקט שלך." });
+    }
+    const prior = finalMixAttempts.get(key);
+    if (prior) {
+      if (prior.state === "complete") return res.json({ ok: true, masterUrl: prior.url });
+      return res.status(409).json({ error: "FINAL_MIX_ALREADY_ATTEMPTED", message: "שליפת המשימה כבר נשלחה. כדי למנוע ניסיון כפול, בדוק את היסטוריית RoEx לפני ניסיון נוסף." });
+    }
+    finalMixAttempts.set(key, { state: "pending" });
+    const response = await fetch("https://tonn.roexaudio.com/retrieveenhancedtrack", {
+      method: "POST", headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+      body: JSON.stringify({ mixReviveData: { mixReviveTaskId: taskId.trim() } }), signal: AbortSignal.timeout(60000)
+    });
+    console.info("RoEx full enhance retrieval HTTP response", { status: response.status, taskId: taskId.trim() });
+    const data = await response.json();
+    if (response.status === 202) {
+      finalMixAttempts.delete(key);
+      return res.status(202).json({ processing: true, message: "Mix Enhance עדיין בעיבוד." });
+    }
+    if (!response.ok || data.error) {
+      console.error("RoEx full enhance retrieval error", { message: safeRoexLogMessage(data, apiKey) });
+      finalMixAttempts.set(key, { state: "failed" });
+      return res.status(502).json({ error: "ROEX_ENHANCE_RETRIEVAL_FAILED", message: "לא הצלחנו לקבל את Mix Enhance המלא." });
+    }
+    const url = data.revived_track_tasks_results?.download_url_revived;
+    if (!url) {
+      finalMixAttempts.delete(key);
+      return res.status(202).json({ processing: true, message: "Mix Enhance עדיין בעיבוד." });
+    }
+    finalMixAttempts.set(key, { state: "complete", url });
+    return res.json({ ok: true, masterUrl: url });
+  } catch (error) {
+    console.error("RoEx full enhance retrieval failed", { message: safeRoexLogMessage(error) });
+    return res.status(500).json({ error: "ROEX_ENHANCE_RETRIEVAL_ERROR", message: "אירעה תקלה בקבלת Mix Enhance." });
+  }
+});
 // ITZKO AI assistant
 app.post("/api/assistant", async (req, res) => {
   try {
@@ -744,6 +884,7 @@ app.post("/api/assistant", async (req, res) => {
       typeof req.body?.message === "string"
         ? req.body.message.trim()
         : "";
+    const language = req.body?.language === "en" ? "en" : "he";
 
     if (!message) {
       return res.status(400).json({
@@ -769,7 +910,17 @@ app.post("/api/assistant", async (req, res) => {
         },
         body: JSON.stringify({
           model: "gpt-4.1-mini",
-          instructions: `
+          instructions: language === "en" ? `
+You are ITZKO, the music assistant for ITZIK SOUND.
+Respond in clear, friendly, professional English. Help with mixing, mastering,
+production, pitch, arrangement, chords, melody, rhythm, and sound.
+Never claim to have heard, analyzed, processed, or changed audio unless actual
+measurements are provided in this request. Any provided measurements are rough
+signal statistics, not a perceptual or standards-based audio analysis.
+Do not claim to have changed a project, run a processor, or exported a file.
+You can advise and answer questions, but cannot directly alter projects or run
+audio processing. Explain when an external processing tool is required.
+          `.trim() : `
 אתה איצקו (ITZKO), העוזר המוזיקלי של ITZIK SOUND.
 
 דבר בעברית ברורה, ידידותית ומקצועית.
@@ -796,7 +947,7 @@ app.post("/api/assistant", async (req, res) => {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("OpenAI API error:", response.status, data);
+      console.error("OpenAI API error", { status: response.status });
 
       return res.status(502).json({
         error: "AI_PROVIDER_ERROR",
@@ -825,7 +976,10 @@ app.post("/api/assistant", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Assistant error:", error);
+    console.error("Assistant request failed", {
+      name: error?.name || "Error",
+      code: error?.code || "UNKNOWN"
+    });
 
     return res.status(500).json({
       error: "ASSISTANT_ERROR",
