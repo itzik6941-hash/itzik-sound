@@ -2,9 +2,18 @@
 const express = require("express");
 const path = require("path");
 const multer = require("multer");
+const crypto = require("crypto");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const ADMIN_COOKIE = "itzik_admin_session";
+const ADMIN_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+const ADMIN_MAX_ATTEMPTS = 5;
+const ADMIN_WINDOW_MS = 15 * 60 * 1000;
+const adminSessions = new Map();
+const adminAttempts = new Map();
+
+app.set("trust proxy", 1);
 
 app.disable("x-powered-by");
 app.use((_req, res, next) => {
@@ -16,6 +25,125 @@ app.use((_req, res, next) => {
 });
 
 app.use(express.json({ limit: "1mb" }));
+
+function maintenanceEnabled() {
+  return process.env.MAINTENANCE_MODE === "true";
+}
+
+function cookieValue(req, name) {
+  const prefix = `${name}=`;
+  for (const part of String(req.headers.cookie || "").split(";")) {
+    const trimmed = part.trim();
+    if (trimmed.startsWith(prefix)) {
+      try { return decodeURIComponent(trimmed.slice(prefix.length)); }
+      catch { return ""; }
+    }
+  }
+  return "";
+}
+
+function signAdminPayload(payload, secret) {
+  return crypto.createHmac("sha256", secret).update(payload).digest("base64url");
+}
+
+function validAdminSession(req) {
+  const secret = process.env.ADMIN_SESSION_SECRET;
+  if (!secret || Buffer.byteLength(secret) < 32) return false;
+  const token = cookieValue(req, ADMIN_COOKIE);
+  const dot = token.lastIndexOf(".");
+  if (dot < 1) return false;
+  const payload = token.slice(0, dot);
+  const supplied = Buffer.from(token.slice(dot + 1));
+  const expected = Buffer.from(signAdminPayload(payload, secret));
+  if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) return false;
+  let decoded;
+  try { decoded = Buffer.from(payload, "base64url").toString("utf8").split("."); }
+  catch { return false; }
+  const expiresAt = Number(decoded[0]);
+  const nonce = decoded[1];
+  return Number.isFinite(expiresAt) && expiresAt > Date.now() &&
+    Boolean(nonce) && adminSessions.get(nonce) === expiresAt;
+}
+
+function clearAdminCookie(res) {
+  res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict`);
+}
+
+function maintenanceGate(req, res, next) {
+  if (!maintenanceEnabled() || validAdminSession(req)) return next();
+  const allowed = req.method === "POST" && ["/api/admin/login", "/api/admin/logout"].includes(req.path);
+  if (allowed) return next();
+  if (req.method === "GET" && req.path === "/api/health") return next();
+  if (req.method === "GET" && ["/maintenance.html", "/maintenance.css", "/maintenance.js", "/favicon.png"].includes(req.path)) return next();
+
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Retry-After", "60");
+  if (req.path.startsWith("/api/")) {
+    return res.status(503).json({ error: "MAINTENANCE_MODE", message: "השירות מוגבל זמנית." });
+  }
+  return res.status(503).sendFile(path.join(__dirname, "public", "maintenance.html"));
+}
+
+app.use(maintenanceGate);
+app.locals.maintenanceGate = maintenanceGate;
+
+app.post("/api/admin/login", async (req, res) => {
+  const expectedCode = process.env.MAINTENANCE_ADMIN_CODE;
+  const sessionSecret = process.env.ADMIN_SESSION_SECRET;
+  if (!expectedCode || !sessionSecret || Buffer.byteLength(sessionSecret) < 32) {
+    return res.status(503).json({ error: "ADMIN_ACCESS_NOT_CONFIGURED", message: "כניסת מנהל אינה מוגדרת בשרת." });
+  }
+  const ip = req.ip || req.socket?.remoteAddress || "unknown";
+  const attempt = adminAttempts.get(ip) || { count: 0, resetAt: Date.now() + ADMIN_WINDOW_MS };
+  if (attempt.resetAt <= Date.now()) { attempt.count = 0; attempt.resetAt = Date.now() + ADMIN_WINDOW_MS; }
+  if (attempt.count >= ADMIN_MAX_ATTEMPTS) {
+    res.setHeader("Retry-After", String(Math.max(1, Math.ceil((attempt.resetAt - Date.now()) / 1000))));
+    return res.status(429).json({ error: "TOO_MANY_ATTEMPTS", message: "יותר מדי ניסיונות. נסה שוב מאוחר יותר." });
+  }
+  const provided = typeof req.body?.code === "string" ? req.body.code : "";
+  const matches = crypto.timingSafeEqual(
+    crypto.createHash("sha256").update(provided).digest(),
+    crypto.createHash("sha256").update(expectedCode).digest()
+  );
+  if (!matches) {
+    attempt.count++;
+    adminAttempts.set(ip, attempt);
+    await new Promise(resolve => setTimeout(resolve, Math.min(attempt.count * 250, 1500)));
+    return res.status(401).json({ error: "INVALID_ADMIN_CODE", message: "קוד מנהל שגוי. בדוק ונסה שוב." });
+  }
+
+  adminAttempts.delete(ip);
+  const expiresAt = Date.now() + ADMIN_SESSION_TTL_MS;
+  for (const [sessionId, expiry] of adminSessions) if (expiry <= Date.now()) adminSessions.delete(sessionId);
+  for (const [address, state] of adminAttempts) if (state.resetAt <= Date.now()) adminAttempts.delete(address);
+  const nonce = crypto.randomBytes(24).toString("base64url");
+  adminSessions.set(nonce, expiresAt);
+  const payload = Buffer.from(`${expiresAt}.${nonce}`).toString("base64url");
+  const token = `${payload}.${signAdminPayload(payload, sessionSecret)}`;
+  res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${ADMIN_SESSION_TTL_MS / 1000}; HttpOnly; Secure; SameSite=Strict`);
+  res.setHeader("Cache-Control", "no-store");
+  return res.json({ ok: true, expiresAt });
+});
+
+app.post("/api/admin/logout", (req, res) => {
+  const token = cookieValue(req, ADMIN_COOKIE);
+  const dot = token.lastIndexOf(".");
+  if (dot > 0) {
+    try {
+      const [, nonce] = Buffer.from(token.slice(0, dot), "base64url").toString("utf8").split(".");
+      if (nonce) adminSessions.delete(nonce);
+    } catch { /* Invalid cookies are simply cleared. */ }
+  }
+  clearAdminCookie(res);
+  res.setHeader("Cache-Control", "no-store");
+  return res.json({ ok: true });
+});
+
+app.get("/api/admin/status", (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  return res.json({ admin: validAdminSession(req) });
+});
+
 app.use(express.static(path.join(__dirname, "public")));
 const audioUpload = multer({
   storage: multer.memoryStorage(),
@@ -67,6 +195,7 @@ app.get("/vendor/lame.min.js", (_req, res) => {
 
 // Health check
 app.get("/api/health", (_req, res) => {
+  if (maintenanceEnabled()) return res.json({ ok: true, maintenance: true });
   res.json({
     ok: true,
     app: "ITZIK SOUND",

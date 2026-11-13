@@ -1,0 +1,31 @@
+:root{color-scheme:dark;--bg:#070b12;--panel:#0c1422;--line:#1c2b42;--cyan:#52d9d0;--blue:#648cff;--violet:#a879ff;--text:#f4f7fb;--muted:#a6b2c4;--error:#ff777e}
+*{box-sizing:border-box}
+html,body{min-height:100%;margin:0}
+body{display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 18% 18%,#142546 0,transparent 38%),radial-gradient(ellipse at 82% 82%,#24153d 0,transparent 38%),var(--bg);font-family:Inter,"Segoe UI",Arial,sans-serif;color:var(--text)}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.2;background-image:linear-gradient(#8ba7ff0a 1px,transparent 1px),linear-gradient(90deg,#8ba7ff0a 1px,transparent 1px);background-size:54px 54px;mask-image:linear-gradient(transparent,#000 22%,#000 78%,transparent)}
+.maintenance-card{position:relative;width:min(100%,590px);padding:clamp(28px,7vw,58px);border:1px solid #273950;border-radius:28px;background:linear-gradient(145deg,#101b2bcc,#0a101beF);box-shadow:0 28px 100px #0009,0 0 70px #3987ff18,inset 0 1px #ffffff12;backdrop-filter:blur(18px);text-align:center;overflow:hidden}
+.maintenance-card:before{content:"";position:absolute;top:0;right:15%;left:15%;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),var(--blue),var(--violet),transparent);box-shadow:0 0 18px #52d9d099}
+.brand-mark{display:grid;place-items:center;width:74px;height:74px;margin:0 auto 18px;border:1px solid #5e8fff80;border-radius:22px;background:linear-gradient(145deg,#52d9d022,#648cff24);color:#fff;font-size:24px;font-weight:800;letter-spacing:-2px;box-shadow:0 0 38px #4d8bff30;animation:float 5s ease-in-out infinite}
+.eyebrow{margin:0 0 15px;color:var(--cyan);font-size:12px;font-weight:800;letter-spacing:.3em;direction:ltr}
+h1{margin:0 auto 16px;max-width:15ch;font-size:clamp(27px,5vw,42px);line-height:1.22;letter-spacing:-.04em}
+.intro{max-width:43ch;margin:0 auto;color:#c1cada;font-size:16px;line-height:1.85}
+.access-note{margin:12px 0 30px;color:var(--muted);font-size:13px}
+form{text-align:right}
+label{display:block;margin:0 0 9px;color:#dce5f2;font-size:13px;font-weight:700}
+.input-row{display:flex;gap:10px}
+input{min-width:0;flex:1;height:52px;padding:0 15px;border:1px solid #30445f;border-radius:13px;outline:none;background:#070d18;color:#fff;font-size:18px;letter-spacing:.3em;transition:border-color .18s,box-shadow .18s}
+input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px #52d9d024}
+button{position:relative;min-width:150px;height:52px;padding:0 18px;border:1px solid #71e6df;border-radius:13px;background:linear-gradient(110deg,#43cfc8,#578bff 64%,#8463e9);color:#06101b;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 8px 26px #397eff30;transition:transform .18s,filter .18s,box-shadow .18s}
+button:hover:not(:disabled){transform:translateY(-2px);filter:brightness(1.08);box-shadow:0 12px 32px #397eff55}
+button:active:not(:disabled){transform:translateY(0) scale(.98)}
+button:focus-visible{outline:3px solid #fff;outline-offset:3px}
+button:disabled{cursor:wait;opacity:.75}
+.spinner{display:none;width:17px;height:17px;margin:auto;border:2px solid #06101b55;border-top-color:#06101b;border-radius:50%;animation:spin .7s linear infinite}
+button[aria-busy=true] .spinner{display:block}button[aria-busy=true] .button-label{display:none}
+.message{min-height:22px;margin:10px 0 0;color:var(--error);font-size:13px}
+.message.success{color:var(--cyan)}
+.status-line{display:flex;justify-content:center;align-items:center;gap:9px;margin-top:28px;color:#8392a8;font-size:10px;letter-spacing:.18em;direction:ltr}
+.status-line i{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 12px var(--cyan)}
+@keyframes spin{to{transform:rotate(360deg)}}@keyframes float{50%{transform:translateY(-5px)}}
+@media(max-width:520px){body{padding:14px}.maintenance-card{padding:30px 22px;border-radius:22px}.input-row{flex-direction:column}button{width:100%}.intro{font-size:15px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}

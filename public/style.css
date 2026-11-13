@@ -853,6 +853,13 @@ button {
   font-size: 11px;
 }
 
+.admin-mode-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid #52d9d055;border-radius:999px;background:#52d9d012;color:#52d9d0;font-size:11px;font-weight:700;white-space:nowrap}
+.admin-mode-badge:before{content:"";width:6px;height:6px;border-radius:50%;background:#52d9d0;box-shadow:0 0 9px #52d9d0}
+.admin-mode-exit{padding:7px 10px;border:1px solid #e6b84d66;border-radius:9px;background:#e6b84d12;color:#f1c567;font:inherit;font-size:11px;cursor:pointer;transition:background .16s,border-color .16s}
+.admin-mode-exit:hover{background:#e6b84d24;border-color:#e6b84d}
+.admin-mode-exit:active{transform:scale(.97)}
+.admin-mode-exit:focus-visible{outline:2px solid #f1c567;outline-offset:2px}
+
 .signout-button {
   border: 1px solid #304765;
   background: #142238;
@@ -1018,6 +1025,12 @@ button {
 
   .signout-button {
     padding: 7px;
+  }
+
+  .admin-mode-exit {
+    padding: 6px 7px;
+    font-size: 10px;
+    white-space: nowrap;
   }
 
   .auth-card {

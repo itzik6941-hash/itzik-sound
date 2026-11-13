@@ -1942,6 +1942,29 @@ if (waveExportButton) {
   audio.addEventListener("pause", updateWaveformProgress);
   audio.addEventListener("loadedmetadata", updateWaveformProgress);
 
+  // The maintenance administrator session is separate from Supabase login.
+  async function initializeAdminMode() {
+    const badge = $("#adminModeBadge");
+    const exit = $("#adminModeExit");
+    if (!badge || !exit) return;
+    try {
+      const response = await fetch("/api/admin/status", { credentials: "same-origin", cache: "no-store" });
+      const state = await response.json();
+      if (!response.ok || state.admin !== true) return;
+      badge.hidden = false;
+      exit.hidden = false;
+      exit.addEventListener("click", async () => {
+        exit.disabled = true;
+        try {
+          await fetch("/api/admin/logout", { method: "POST", credentials: "same-origin" });
+        } finally {
+          window.location.replace("/");
+        }
+      }, { once: true });
+    } catch { /* Admin badge is non-critical to the studio. */ }
+  }
+  initializeAdminMode();
+
 
 async function deleteProject(id) {
   const p = projects.find(x => x.id === id);
