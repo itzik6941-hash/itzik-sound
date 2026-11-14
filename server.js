@@ -145,21 +145,40 @@ app.get("/api/admin/status", (req, res) => {
 });
 
 app.use(express.static(path.join(__dirname, "public")));
+const AUDIO_UPLOAD_TYPES = Object.freeze({
+  ".mp3": new Set(["audio/mpeg", "audio/mp3", "audio/x-mpeg", "application/octet-stream"]),
+  ".wav": new Set(["audio/wav", "audio/wave", "audio/x-wav", "audio/vnd.wave", "application/octet-stream"]),
+  ".m4a": new Set(["audio/mp4", "audio/m4a", "audio/x-m4a", "application/octet-stream"]),
+  ".aac": new Set(["audio/aac", "audio/x-aac", "audio/mp4a-latm", "audio/aacp", "application/octet-stream"]),
+  ".flac": new Set(["audio/flac", "audio/x-flac", "application/octet-stream"])
+});
+
+function getAudioContentType(fileName) {
+  return ({
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".m4a": "audio/mp4",
+    ".aac": "audio/aac",
+    ".flac": "audio/flac"
+  })[path.extname(String(fileName || "")).toLowerCase()] || null;
+}
+
+function isSupportedAudioUpload(file = {}) {
+  const extension = path.extname(String(file.originalname || "")).toLowerCase();
+  const mimeType = String(file.mimetype || "").toLowerCase();
+  return AUDIO_UPLOAD_TYPES[extension]?.has(mimeType) === true;
+}
+
+app.locals.getAudioContentType = getAudioContentType;
+app.locals.isSupportedAudioUpload = isSupportedAudioUpload;
+
 const audioUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 50 * 1024 * 1024
   },
   fileFilter: (_req, file, callback) => {
-    const allowedTypes = [
-      "audio/mpeg",
-      "audio/wav",
-      "audio/x-wav",
-      "audio/flac",
-      "audio/x-flac"
-    ];
-
-    if (allowedTypes.includes(file.mimetype)) {
+    if (isSupportedAudioUpload(file)) {
       callback(null, true);
     } else {
       callback(new Error("פורמט קובץ אודיו לא נתמך."));
@@ -319,20 +338,12 @@ app.post(
         });
       }
 
-      const extension = path.extname(req.file.originalname).toLowerCase();
-
-      const contentTypes = {
-        ".mp3": "audio/mpeg",
-        ".wav": "audio/wav",
-        ".flac": "audio/flac"
-      };
-
-      const contentType = contentTypes[extension];
+      const contentType = getAudioContentType(req.file.originalname);
 
       if (!contentType) {
         return res.status(400).json({
           error: "INVALID_AUDIO_FORMAT",
-          message: "אפשר להעלות MP3, WAV או FLAC בלבד."
+          message: "אפשר להעלות MP3, WAV, M4A, AAC או FLAC בלבד."
         });
       }
 
@@ -494,18 +505,12 @@ app.post(
         });
       }
 
-      const extension = path.extname(req.file.originalname).toLowerCase();
-      const contentTypes = {
-        ".mp3": "audio/mpeg",
-        ".wav": "audio/wav",
-        ".flac": "audio/flac"
-      };
-      const contentType = contentTypes[extension];
+      const contentType = getAudioContentType(req.file.originalname);
 
       if (!contentType) {
         return res.status(400).json({
           error: "INVALID_AUDIO_FORMAT",
-          message: "אפשר להעלות MP3, WAV או FLAC בלבד."
+          message: "אפשר להעלות MP3, WAV, M4A, AAC או FLAC בלבד."
         });
       }
 
@@ -915,9 +920,8 @@ app.post("/api/roex/enhance-final", requireUser, audioUpload.single("audio"), as
     if (req.body?.confirmedCreditCharge !== "true") return res.status(400).json({ error: "CREDIT_CHARGE_CONFIRMATION_REQUIRED", message: "יש לאשר את חיוב הקרדיטים לפני הפעלת Mix Enhance מלא." });
     if (!await getOwnedProject(req, req.user, req.body?.projectId)) return res.status(403).json({ error: "PROJECT_NOT_OWNED", message: "לא ניתן לאמת שהפרויקט שייך לחשבון המחובר." });
     if (!req.file) return res.status(400).json({ error: "NO_AUDIO_FILE", message: "לא נבחר קובץ אודיו." });
-    const ext = path.extname(req.file.originalname).toLowerCase();
-    const contentType = ({ ".mp3": "audio/mpeg", ".wav": "audio/wav", ".flac": "audio/flac" })[ext];
-    if (!contentType) return res.status(400).json({ error: "INVALID_AUDIO_FORMAT", message: "אפשר להעלות MP3, WAV או FLAC בלבד." });
+    const contentType = getAudioContentType(req.file.originalname);
+    if (!contentType) return res.status(400).json({ error: "INVALID_AUDIO_FORMAT", message: "אפשר להעלות MP3, WAV, M4A, AAC או FLAC בלבד." });
     const styles = ["ROCK", "POP", "TECHNO", "TRAP", "JAZZ", "METAL", "SOUL", "FOLK", "ORCHESTRAL", "PUNK", "BLUES", "AMBIENT", "ACOUSTIC", "EXPERIMENTAL", "HIP_HOP_GRIME", "COUNTRY", "FUNK", "RNB", "INDIE_POP", "INDIE_ROCK", "AFROBEAT", "DRUM_N_BASS", "HOUSE", "TRANCE", "LO_FI", "ELECTRONIC"];
     const musicalStyle = req.body?.musicalStyle || "POP";
     if (!styles.includes(musicalStyle)) return res.status(400).json({ error: "INVALID_MUSICAL_STYLE", message: "סגנון מוזיקלי לא נתמך." });
@@ -1151,7 +1155,7 @@ app.use((error, _req, res, next) => {
   if (error?.message === "פורמט קובץ אודיו לא נתמך.") {
     return res.status(400).json({
       error: "INVALID_AUDIO_FORMAT",
-      message: "אפשר להעלות MP3, WAV או FLAC בלבד."
+      message: "אפשר להעלות MP3, WAV, M4A, AAC או FLAC בלבד."
     });
   }
 

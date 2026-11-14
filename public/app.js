@@ -221,7 +221,7 @@ function referencePage(){
 function masteringPage(){
  const storedTask=projects.find(p=>p.id===currentProjectId)?.metadata?.mastering?.taskId||"";
  const storedPath=projects.find(p=>p.id===currentProjectId)?.metadata?.mastering?.storagePath||"";
- return `<div class="workspace-title"><div class="quick-icon">◉</div><div><h1>מאסטרינג AI</h1><p>${uiText("תצוגת Preview אמיתית של RoEx. בקשת מאסטר מלא מחויבת רק לאחר אישור מפורש.","Real RoEx mastering preview. A full master is requested only after explicit confirmation.")}</p></div></div><div class="panel"><h3>${uiText("הקובץ למאסטרינג","Track to master")}</h3>${currentFile?`<p>${escapeHtml(currentFile.name)}</p><label for="masterStyle">${uiText("סגנון","Style")}</label><select id="masterStyle"><option value="POP">Pop</option><option value="ROCK_INDIE">Rock / Indie</option><option value="ACOUSTIC">Acoustic</option><option value="HIPHOP_GRIME">Hip Hop</option><option value="ELECTRONIC">Electronic</option><option value="REGGAE_DUB">Reggae / Dub</option><option value="METAL">Metal</option><option value="OTHER">Other</option></select><label for="masterLoudness">${uiText("עוצמה רצויה","Target loudness")}</label><select id="masterLoudness"><option value="MEDIUM">Medium</option><option value="LOW">Low</option><option value="HIGH">High</option></select><label for="masterSampleRate">${uiText("קצב דגימה","Sample rate")}</label><select id="masterSampleRate"><option value="44100">44.1 kHz</option><option value="48000">48 kHz</option></select><button class="primary-btn" id="masterPreviewBtn">${uiText("יצירת Preview","Create preview")}</button><button class="secondary-btn" id="masterResumeBtn" ${storedTask?"":"hidden"}>${uiText("חזרה למשימת Preview שמורה","Resume saved preview task")}</button><p id="masterStatus" aria-live="polite"></p><p id="masterTaskId" ${storedTask?"":"hidden"} data-taskid="${escapeHtml(storedTask)}">${storedTask?`${uiText("מזהה משימה","Task ID")}: ${escapeHtml(storedTask)}`:""}</p><div class="comparison-grid" id="masterCompare" hidden><section><h4>${uiText("מקור","Original")}</h4><audio id="masterOriginalAudio" controls style="width:100%"></audio></section><section><h4>${uiText("Preview","Preview")}</h4><audio id="masterPreviewAudio" controls style="width:100%"></audio></section></div><button class="secondary-btn" id="masterFinalBtn" hidden>${uiText("בקשת מאסטר מלא · 220 קרדיטים","Request full master · 220 credits")}</button><audio id="masterFinalAudio" controls ${storedPath?"":"hidden"} style="width:100%;margin-top:15px"></audio><a id="masterDownload" ${storedPath?"":"hidden"} download>${uiText("הורדת קובץ המאסטר","Download mastered file")}</a><p id="masterSaveStatus" aria-live="polite">${storedPath?uiText("קיים קובץ מאסטר שמור בפרויקט.","A mastered file is saved in this project."):""}</p>`:`<div class="empty-state"><div class="big">♫</div><b>${uiText("קודם נעלה שיר","Upload a track first")}</b><p>${uiText("MP3, WAV או FLAC עד 50MB.","MP3, WAV, or FLAC up to 50 MB.")}</p><button class="secondary-btn" data-go="home">${uiText("העלאת שיר","Upload a track")}</button></div>`}</div>`;
+ return `<div class="workspace-title"><div class="quick-icon">◉</div><div><h1>מאסטרינג AI</h1><p>${uiText("תצוגת Preview אמיתית של RoEx. בקשת מאסטר מלא מחויבת רק לאחר אישור מפורש.","Real RoEx mastering preview. A full master is requested only after explicit confirmation.")}</p></div></div><div class="panel"><h3>${uiText("הקובץ למאסטרינג","Track to master")}</h3>${currentFile?`<p>${escapeHtml(currentFile.name)}</p><label for="masterStyle">${uiText("סגנון","Style")}</label><select id="masterStyle"><option value="POP">Pop</option><option value="ROCK_INDIE">Rock / Indie</option><option value="ACOUSTIC">Acoustic</option><option value="HIPHOP_GRIME">Hip Hop</option><option value="ELECTRONIC">Electronic</option><option value="REGGAE_DUB">Reggae / Dub</option><option value="METAL">Metal</option><option value="OTHER">Other</option></select><label for="masterLoudness">${uiText("עוצמה רצויה","Target loudness")}</label><select id="masterLoudness"><option value="MEDIUM">Medium</option><option value="LOW">Low</option><option value="HIGH">High</option></select><label for="masterSampleRate">${uiText("קצב דגימה","Sample rate")}</label><select id="masterSampleRate"><option value="44100">44.1 kHz</option><option value="48000">48 kHz</option></select><button class="primary-btn" id="masterPreviewBtn">${uiText("יצירת Preview","Create preview")}</button><button class="secondary-btn" id="masterResumeBtn" ${storedTask?"":"hidden"}>${uiText("חזרה למשימת Preview שמורה","Resume saved preview task")}</button><p id="masterStatus" aria-live="polite"></p><p id="masterTaskId" ${storedTask?"":"hidden"} data-taskid="${escapeHtml(storedTask)}">${storedTask?`${uiText("מזהה משימה","Task ID")}: ${escapeHtml(storedTask)}`:""}</p><div class="comparison-grid" id="masterCompare" hidden><section><h4>${uiText("מקור","Original")}</h4><audio id="masterOriginalAudio" controls style="width:100%"></audio></section><section><h4>${uiText("Preview","Preview")}</h4><audio id="masterPreviewAudio" controls style="width:100%"></audio></section></div><button class="secondary-btn" id="masterFinalBtn" hidden>${uiText("בקשת מאסטר מלא · 220 קרדיטים","Request full master · 220 credits")}</button><audio id="masterFinalAudio" controls ${storedPath?"":"hidden"} style="width:100%;margin-top:15px"></audio><a id="masterDownload" ${storedPath?"":"hidden"} download>${uiText("הורדת קובץ המאסטר","Download mastered file")}</a><p id="masterSaveStatus" aria-live="polite">${storedPath?uiText("קיים קובץ מאסטר שמור בפרויקט.","A mastered file is saved in this project."):""}</p>`:`<div class="empty-state"><div class="big">♫</div><b>${uiText("קודם נעלה שיר","Upload a track first")}</b><p>${uiText("MP3, WAV, M4A, AAC או FLAC עד 50MB.","MP3, WAV, or FLAC up to 50 MB.")}</p><button class="secondary-btn" data-go="home">${uiText("העלאת שיר","Upload a track")}</button></div>`}</div>`;
 }
 function render(page){
  currentPage=page;
@@ -410,6 +410,26 @@ function bindMixer(){
  };
 }
 
+async function prepareRoexAudio(file){
+ const extension=file?.name?.split(".").pop()?.toLowerCase();
+ if(["mp3","wav","flac"].includes(extension))return file;
+ if(!["m4a","aac"].includes(extension))throw new Error(uiText("RoEx תומך בקובצי MP3, WAV ו-FLAC. ניתן להמיר M4A או AAC ל-WAV לפני השליחה.","RoEx accepts MP3, WAV, and FLAC. M4A or AAC must be converted to WAV first."));
+ const AudioCtx=window.AudioContext||window.webkitAudioContext;
+ if(!AudioCtx)throw new Error(uiText("הדפדפן אינו תומך בהמרת M4A/AAC ל-WAV.","This browser cannot convert M4A/AAC to WAV."));
+ let context;
+ try{
+  context=new AudioCtx();
+  const decoded=await context.decodeAudioData((await file.arrayBuffer()).slice(0));
+  if(decoded.duration>600)throw new Error(uiText("המרת M4A/AAC ל-RoEx מוגבלת ל-10 דקות.","M4A/AAC conversion for RoEx is limited to 10 minutes."));
+  const wav=encodeWav(decoded);
+  if(wav.size>50*1024*1024)throw new Error(uiText("קובץ ה-WAV שנוצר גדול מ-50MB. נסה קובץ קצר יותר או WAV/MP3.","The converted WAV exceeds 50 MB. Try a shorter file or use WAV/MP3."));
+  const name=(file.name.replace(/\.[^.]+$/,"")||"audio")+".wav";
+  return new File([wav],name,{type:"audio/wav"});
+ }finally{
+  if(context)await context.close().catch(()=>{});
+ }
+}
+
 function bindMastering(){
  const button=$("#masterPreviewBtn");
  if(!button)return;
@@ -423,9 +443,10 @@ function bindMastering(){
    const {data,error}=await supabaseClient.auth.getSession();
    if(error||!data.session?.access_token)throw new Error("צריך להתחבר מחדש לחשבון.");
    const ext=currentFile?.name.split(".").pop().toLowerCase();
-   if(!["mp3","wav","flac"].includes(ext))throw new Error("מאסטרינג תומך בקובצי MP3, WAV או FLAC בלבד.");
+   if(!["mp3","wav","m4a","aac","flac"].includes(ext))throw new Error("מאסטרינג תומך בקובצי MP3, WAV, M4A, AAC או FLAC בלבד.");
    if(!currentProjectId)throw new Error(uiText("יש לשמור את הפרויקט בענן לפני יצירת Preview.","Save the project to the cloud before creating a preview."));
-   const form=new FormData(); form.append("audio",currentFile);
+   const roexFile=await prepareRoexAudio(currentFile);
+   const form=new FormData(); form.append("audio",roexFile);
    form.append("projectId",currentProjectId);
    form.append("musicalStyle",$("#masterStyle").value);
    form.append("desiredLoudness",$("#masterLoudness").value);
@@ -490,7 +511,8 @@ function bindRoexFullMix(){
    if(!taskId){
     if(!currentFile)throw new Error(uiText("לא נמצא קובץ אודיו פעיל.","No active audio file was found."));
     status.textContent=uiText("מכין את משימת Mix Enhance המלאה...","Preparing the full Mix Enhance task...");
-    const form=new FormData();form.append("audio",currentFile);form.append("musicalStyle",$("#mixStyle")?.value||"POP");form.append("projectId",currentProjectId);form.append("confirmedCreditCharge","true");
+    const roexFile=await prepareRoexAudio(currentFile);
+    const form=new FormData();form.append("audio",roexFile);form.append("musicalStyle",$("#mixStyle")?.value||"POP");form.append("projectId",currentProjectId);form.append("confirmedCreditCharge","true");
     const start=await fetch("/api/roex/enhance-final",{method:"POST",headers:{Authorization:`Bearer ${token}`},body:form}),created=await start.json();
     if(!start.ok)throw new Error(created.message||uiText("לא ניתן להתחיל Mix Enhance.","Could not start Mix Enhance."));
     taskId=created.taskId;button.dataset.taskid=taskId;
@@ -571,8 +593,8 @@ async function loadSavedMasterResult(){
 
    const extension = currentFile.name.split(".").pop().toLowerCase();
 
-   if (!["mp3", "wav", "flac"].includes(extension)) {
-    status.textContent = "Mix AI תומך כרגע בקובצי MP3, WAV או FLAC בלבד.";
+   if (!["mp3", "wav", "m4a", "aac", "flac"].includes(extension)) {
+    status.textContent = "Mix AI תומך בקובצי MP3, WAV, M4A, AAC או FLAC בלבד.";
     return;
    }
 
@@ -590,8 +612,9 @@ async function loadSavedMasterResult(){
     status.textContent="יש לשמור את הפרויקט בענן לפני יצירת Preview.";
     return;
    }
-   const formData = new FormData();
-    formData.append("audio", currentFile);
+   const roexFile = await prepareRoexAudio(currentFile);
+    const formData = new FormData();
+    formData.append("audio", roexFile);
     formData.append("projectId", currentProjectId);
     formData.append("musicalStyle", $("#mixStyle")?.value || "POP");
 

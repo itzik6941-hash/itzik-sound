@@ -44,6 +44,27 @@ async function invokeRoute(routePath, { headers = {}, body = {}, file } = {}) {
   return { status: res.statusCode, body: res.payload };
 }
 
+test("audio upload accepts every format advertised by the studio", () => {
+  const isSupported = app.locals.isSupportedAudioUpload;
+  const getContentType = app.locals.getAudioContentType;
+  assert.equal(isSupported({ originalname: "track.mp3", mimetype: "audio/mpeg" }), true);
+  assert.equal(isSupported({ originalname: "track.wav", mimetype: "audio/x-wav" }), true);
+  assert.equal(isSupported({ originalname: "track.m4a", mimetype: "audio/mp4" }), true);
+  assert.equal(isSupported({ originalname: "track.m4a", mimetype: "application/octet-stream" }), true);
+  assert.equal(isSupported({ originalname: "track.aac", mimetype: "audio/aac" }), true);
+  assert.equal(isSupported({ originalname: "track.flac", mimetype: "audio/flac" }), true);
+  assert.equal(getContentType("track.m4a"), "audio/mp4");
+  assert.equal(getContentType("track.aac"), "audio/aac");
+});
+
+test("audio upload rejects unsupported extensions and mismatched MIME types", () => {
+  const isSupported = app.locals.isSupportedAudioUpload;
+  assert.equal(isSupported({ originalname: "track.exe", mimetype: "audio/mpeg" }), false);
+  assert.equal(isSupported({ originalname: "track.m4a", mimetype: "application/pdf" }), false);
+  assert.equal(isSupported({ originalname: "track.mp3", mimetype: "video/mp4" }), false);
+  assert.equal(app.locals.getAudioContentType("track.exe"), null);
+});
+
 test("RoEx preview and retrieval routes keep task ID and use authenticated calls", async () => {
   const requests = [];
   global.fetch = async (url, options = {}) => {
