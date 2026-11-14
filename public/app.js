@@ -573,7 +573,7 @@ function bindMastering(){
 }
 
 
-async async function bindStemAudioPlayers(){
+async function bindStemAudioPlayers(){
  const mixer=$("#stemMixer");
  if(!mixer||!currentProjectId)return;
  const project=projects.find(p=>p.id===currentProjectId);
@@ -599,12 +599,12 @@ async async function bindStemAudioPlayers(){
    tracks.push({id:name,audio:audioPlayer,settings:{gainDb:gain?Number(gain.value):0,pan:pan?Number(pan.value):0,mute:saved.mute===true,solo:saved.solo===true}});
   }
   if(!tracks.length){if(status)status.textContent=uiText("לא נמצאו ערוצים שמורים בפרויקט.","No saved stems were found in this project.");return;}
-  window.ITZIK_STEM_MIXER.init(tracks);
+  await window.ITZIK_STEM_MIXER.init(tracks);
   const refresh=()=>tracks.forEach(track=>{
    const gain=$(`[data-stem-gain-value="${track.id}"]`),pan=$(`[data-stem-pan-value="${track.id}"]`);
    const state=window.ITZIK_STEM_MIXER.getTrack(track.id);
    if(gain)gain.textContent=`${state.gainDb.toFixed(1)} dB`;
-   if(pan)pan.textContent=state.pan<=-0.98?"L":state.pan>=0.98?"R":state.pan===0?uiText("מרכז","Center"):state.pan<0?`L ${Math.round(-state.pan*100)}%`:`R ${Math.round(state.pan*100)}%`;
+   if(pan)pan.textContent=window.ITZIK_STEM_MIXER.formatPan(state.pan).replace("C",uiText("מרכז","Center"));
    const mute=$(`[data-stem-mute="${track.id}"]`),solo=$(`[data-stem-solo="${track.id}"]`);
    if(mute){mute.setAttribute("aria-pressed",String(state.mute));mute.textContent=state.mute?uiText("בטל השתקה","Unmute"):uiText("השתק","Mute");}
    if(solo)solo.setAttribute("aria-pressed",String(state.solo));
