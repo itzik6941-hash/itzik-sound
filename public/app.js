@@ -142,8 +142,8 @@ function mixPage() {
     <div class="workspace-title">
       <div class="quick-icon">☷</div>
       <div>
-        <h1>${uiText("מיקס לערוץ הסטריאו","Stereo Track Mixer")}</h1>
-        <p>${uiText("הקובץ בפרויקט הוא ערוץ סטריאו יחיד; כל שינוי כאן מעבד את האודיו בפועל.","This project contains one stereo mix; every control below processes the audio signal.")}</p>
+        <h1>${uiText("מיקס וערוצים נפרדים","Mix & separated tracks")}</h1>
+        <p>${uiText("עבד את המיקס המקורי או הפרד אותו לערוצים עצמאיים לשליטה נפרדת.","Process the original mix or separate it into independent tracks for individual control.")}</p>
       </div>
     </div>
 
@@ -166,8 +166,29 @@ function mixPage() {
       <section class="mixer-strip"><h4>${uiText("קומפרסור","Compressor")}</h4>${control("threshold","סף","Threshold",-60,0,1,s.threshold??-18," dB")}${control("ratio","יחס","Ratio",1,20,0.5,s.ratio??1,":1")}</section>
       <section class="mixer-strip"><h4>${uiText("אפקטים","Effects")}</h4>${control("reverb","Reverb","Reverb",0,0.6,0.01,s.reverb??0)}${control("delay","Delay","Delay",0,0.6,0.01,s.delay??0)}${control("width","רוחב סטריאו","Stereo width",0,2,0.01,s.width??1)}</section>
       <section class="mixer-strip"><h4>${uiText("יציאה","Output")}</h4>${control("masterDb","עוצמת Master","Master output",-18,6,0.5,s.masterDb??0," dB")}</section></div>
-      <p class="mixer-note">${uiText("A/B משווה בין האות המקורי לעיבוד. הייצוא משתמש בעיבוד הפעיל. אין ערוצי stems בפרויקט הזה.","A/B switches between the original signal and processing. Export uses the processed signal. This project has no separate stems.")}</p>
+      <p class="mixer-note">${uiText("A/B משווה בין האות המקורי לעיבוד. הייצוא משתמש בעיבוד הפעיל.","A/B switches between the original signal and processing. Export uses the active processing.")}</p>
     </div>` : `<div class="panel empty-state"><div class="big">♫</div><b>${uiText("קודם נעלה שיר","Upload a track first")}</b><p>${uiText("המיקסר יופעל על ערוץ הסטריאו שבפרויקט.","The mixer works on the stereo track in your project.")}</p><button class="secondary-btn" data-go="home">${uiText("העלאת שיר","Upload a track")}</button></div>`}
+
+    ${currentFile ? (() => {
+      const stemMeta=projects.find(p=>p.id===currentProjectId)?.metadata?.stemSeparation||{};
+      const stemNames=stemMeta.separationMode==="vocals_instrumental"?["vocals","instrumental"]:["vocals","drums","bass","other"];
+      const stemLabels={vocals:uiText("שירה","Vocals"),drums:uiText("תופים","Drums"),bass:uiText("בס","Bass"),other:uiText("כלים נוספים","Other instruments"),instrumental:uiText("פלייבק ללא שירה","Instrumental")};
+      const saved=stemNames.filter(name=>stemMeta.stems?.[name]);
+      return `<section class="panel stem-panel">
+        <div class="workspace-title"><div class="quick-icon">♫</div><div><h2>${uiText("הפרדת ערוצים עם AI","AI stem separation")}</h2><p>${uiText("הפרד את הקובץ לשירה, תופים, בס וכלים נוספים. הקבצים יישמרו בפרויקט שלך.","Split the mix into vocals, drums, bass and other instruments. Files are saved in your project.")}</p></div></div>
+        <div class="stem-cost-note">${uiText("הפרדת 4 ערוצים עולה 75 קרדיטים ב-RoEx רק אם ההפרדה מצליחה. מצב 2 ערוצים מפריד שירה ופלייבק.","4-stem separation costs 75 RoEx credits only if successful. The 2-stem mode separates vocals and instrumental.")}</div>
+        <div class="stem-controls">
+          <label for="stemSeparationMode">${uiText("סוג הפרדה","Separation mode")}</label>
+          <select id="stemSeparationMode">
+            <option value="four" ${stemMeta.separationMode!=="vocals_instrumental"?"selected":""}>${uiText("4 ערוצים: שירה, תופים, בס וכל השאר","4 stems: vocals, drums, bass & other")}</option>
+            <option value="vocals_instrumental" ${stemMeta.separationMode==="vocals_instrumental"?"selected":""}>${uiText("2 ערוצים: שירה ופלייבק","2 stems: vocals & instrumental")}</option>
+          </select>
+          <button id="separateStemsBtn" class="primary-btn">${stemMeta.taskId?uiText("בדיקת מצב / המשך שמירה","Check status / resume saving"):uiText("הפרד ערוצים · 75 קרדיטים","Separate stems · 75 credits")}</button>
+        </div>
+        <p id="stemSeparationStatus" aria-live="polite">${stemMeta.taskId?uiText("נמצאה משימת הפרדה קודמת. אפשר להמשיך לבדוק אותה.","A previous separation task was found. You can resume checking it."):""}</p>
+        ${saved.length?`<div class="stem-list"><h3>${uiText("הערוצים השמורים בפרויקט","Stems saved in this project")}</h3>${saved.map(name=>`<article class="stem-card"><div><b>${stemLabels[name]}</b><small>WAV · 44.1 kHz · Stereo</small></div><audio controls preload="none" data-stem-audio="${name}"></audio><a class="secondary-btn" data-stem-download="${name}" download="${name}.wav">${uiText("הורדה","Download")}</a></article>`).join("")}</div>`: ""}
+      </section>`;
+    })() : ""}
 
     <div class="panel">
       <h3>${uiText("RoEx Mix Enhance Preview","RoEx Mix Enhance Preview")}</h3>
@@ -263,6 +284,8 @@ document.querySelectorAll("[data-delete-project]").forEach(b=>{
  bindAssistantAudioReview();
  bindMastering();
  bindMixer();
+ bindStemSeparation();
+ bindStemAudioPlayers();
  bindRoexFullMix();
  bindIdeas();
  bindPitchAnalysis();
@@ -522,6 +545,88 @@ function bindMastering(){
    const status=$("#masterSaveStatus");status.textContent=uiText("הקישור לקובץ המאסטר מוכן להורדה. הקובץ לא הועתק לאחסון הפרויקט.","The mastered file is ready to download. It has not been copied into project storage.");
   }catch(error){$("#masterStatus").textContent=error.message||uiText("אירעה תקלה בקבלת המאסטר.","There was a problem retrieving the master.");}
   finally{finalButton.disabled=false;}
+ };
+}
+
+
+async function bindStemAudioPlayers(){
+ const project=projects.find(p=>p.id===currentProjectId);
+ const paths=project?.metadata?.stemSeparation?.stems||{};
+ for(const [name,path] of Object.entries(paths)){
+  const audioPlayer=$(`[data-stem-audio="${name}"]`);
+  const download=$(`[data-stem-download="${name}"]`);
+  if(!audioPlayer&&!download)continue;
+  const {data,error}=await supabaseClient.storage.from("project-audio").createSignedUrl(path,3600);
+  if(error||!data?.signedUrl)continue;
+  if(audioPlayer){audioPlayer.src=data.signedUrl;audioPlayer.load();}
+  if(download)download.href=data.signedUrl;
+ }
+}
+
+async function bindStemSeparation(){
+ const button=$("#separateStemsBtn");
+ if(!button||!currentFile||!currentProjectId)return;
+ button.onclick=async()=>{
+  button.disabled=true;
+  const status=$("#stemSeparationStatus");
+  try{
+   const {data,error}=await supabaseClient.auth.getSession();
+   const token=data?.session?.access_token;
+   if(error||!token)throw new Error(uiText("צריך להתחבר מחדש לחשבון.","Please sign in again."));
+   let meta=projects.find(p=>p.id===currentProjectId)?.metadata?.stemSeparation||{};
+   let taskId=meta.taskId;
+   if(!taskId){
+    const mode=$("#stemSeparationMode")?.value||"four";
+    const chargeText=uiText("הפרדת ערוצים צורכת 75 קרדיטים ב-RoEx, והחיוב מתבצע רק אם ההפרדה מצליחה. יש לך זכויות לעבד את הקובץ. להמשיך?","Stem separation reserves 75 RoEx credits and charges only if it succeeds. You confirm you have the rights to process this audio. Continue?");
+    if(!confirm(chargeText))return;
+    status.textContent=uiText("מכין את הקובץ ושולח ל-RoEx...","Preparing the audio and submitting to RoEx...");
+    const prepared=await prepareRoexAudio(currentFile);
+    const form=new FormData();
+    form.append("audio",prepared);
+    form.append("projectId",currentProjectId);
+    form.append("separationMode",mode);
+    form.append("confirmedCreditCharge","true");
+    const response=await fetch("/api/roex/separate",{method:"POST",headers:{Authorization:`Bearer ${token}`},body:form});
+    const result=await response.json();
+    if(!response.ok)throw new Error(result.message||uiText("לא ניתן להתחיל הפרדת ערוצים.","Could not start stem separation."));
+    taskId=result.taskId;
+    meta={...meta,taskId,separationMode:mode,createdAt:new Date().toISOString(),stems:{}};
+    if(!await updateProjectMetadata({stemSeparation:meta}))throw new Error(uiText("המשימה נוצרה, אך שמירת המזהה בפרויקט נכשלה. לא ניתן להמשיך לשלוף ערוצים עד שהשמירה תצליח.","The task was created, but saving its ID to the project failed. Retrieval is blocked until it is saved."));
+   }
+   const names=meta.separationMode==="vocals_instrumental"?["vocals","instrumental"]:["vocals","drums","bass","other"];
+   let complete=false;
+   for(let attempt=0;attempt<60;attempt++){
+    status.textContent=uiText(`ממתין להפרדה ב-RoEx... בדיקה ${attempt+1}/60`,`Waiting for RoEx separation... check ${attempt+1}/60`);
+    const check=await fetch("/api/roex/separate-status",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({projectId:currentProjectId,taskId})});
+    const state=await check.json();
+    if(check.status===202){await new Promise(resolve=>setTimeout(resolve,5000));continue;}
+    if(!check.ok)throw new Error(state.message||uiText("בדיקת מצב ההפרדה נכשלה.","Could not check separation status."));
+    if(state.status==="failed")throw new Error(state.message||uiText("RoEx דיווח שההפרדה נכשלה.","RoEx reported that separation failed."));
+    if(state.status==="complete"){complete=true;break;}
+   }
+   if(!complete){status.textContent=uiText("ההפרדה עדיין בעיבוד. אפשר ללחוץ שוב כדי להמשיך לבדוק את אותה משימה.","Separation is still processing. Click again to resume the same task.");return;}
+   meta=projects.find(p=>p.id===currentProjectId)?.metadata?.stemSeparation||meta;
+   const stored={...(meta.stems||{})};
+   for(const name of names){
+    if(stored[name])continue;
+    status.textContent=uiText(`מוריד ושומר את הערוץ: ${name}...`,`Downloading and saving stem: ${name}...`);
+    const fileResponse=await fetch("/api/roex/retrieve-stem",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({projectId:currentProjectId,taskId,stem:name})});
+    if(!fileResponse.ok){let failure={};try{failure=await fileResponse.json();}catch{}throw new Error(failure.message||uiText("הורדת אחד הערוצים נכשלה.","One of the stem downloads failed."));}
+    const blob=await fileResponse.blob();
+    const path=`${currentUser.id}/${currentProjectId}/stems/${name}.wav`;
+    const {error:uploadError}=await supabaseClient.storage.from("project-audio").upload(path,blob,{contentType:"audio/wav",upsert:true});
+    if(uploadError)throw new Error(uiText(`שמירת הערוץ ${name} בענן נכשלה: ${uploadError.message}`,`Saving stem ${name} to cloud failed: ${uploadError.message}`));
+    stored[name]=path;
+    meta={...meta,taskId,separationMode:meta.separationMode,stems:stored,savedAt:new Date().toISOString()};
+    if(!await updateProjectMetadata({stemSeparation:meta}))throw new Error(uiText("הערוץ נשמר באחסון, אך עדכון הפרויקט נכשל. אפשר לנסות שוב.","The stem was uploaded, but project metadata did not update. You can retry."));
+   }
+   status.textContent=uiText("ההפרדה הושלמה וכל הערוצים נשמרו בפרויקט שלך.","Separation complete. All stems are saved in your project.");
+   render("mix");
+  }catch(error){
+   status.textContent=error.message||uiText("אירעה תקלה בהפרדת הערוצים.","Stem separation failed.");
+  }finally{
+   button.disabled=false;
+  }
  };
 }
 
