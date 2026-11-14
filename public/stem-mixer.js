@@ -87,7 +87,8 @@
    const sampleRate=Math.min(48000,Math.max(...decoded.map(x=>x.buffer.sampleRate)));
    const duration=Math.max(...decoded.map(x=>x.buffer.duration));
    if(duration>600)throw new Error("ייצוא מוגבל ל־10 דקות.");
-   const tailSeconds=Math.max(...decoded.map(x=>effectTailSeconds(x.state)));\n   const length=Math.ceil((duration+tailSeconds)*sampleRate);
+   const tailSeconds=Math.max(...decoded.map(x=>effectTailSeconds(x.state)));
+   const length=Math.ceil((duration+tailSeconds)*sampleRate);
    const Offline=root.OfflineAudioContext||root.webkitOfflineAudioContext;
    if(!Offline)throw new Error("הדפדפן אינו תומך בייצוא Offline.");
    const output=new Offline(2,length,sampleRate),bus=output.createGain(),limiter=output.createDynamicsCompressor();
