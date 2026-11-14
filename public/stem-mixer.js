@@ -63,7 +63,7 @@
  function setTrack(id,patch){const t=tracks.get(id);if(!t)return null;t.state=normalizeTrack({...t.state,...patch});applyAll();return {...t.state};}
  function getTrack(id){const t=tracks.get(id);return t?{...t.state}:null;}
  function getSettings(){return Object.fromEntries([...tracks].map(([id,t])=>[id,{...t.state}]));}
- function syncTracks(list,tolerance=.08){
+ function getPlaybackStartTime(list){const reference=list.find(t=>t.audio&&!t.audio.ended);return Math.max(0,reference?.audio.currentTime||0);}\n function syncTracks(list,tolerance=.08){
   const active=list.filter(t=>t.audio&&!t.audio.paused&&!t.audio.ended);
   const leader=active[0]?.audio;
   if(!leader)return false;
@@ -78,7 +78,7 @@
  async function play(){
   if(!context||!tracks.size)throw new Error("לא נטענו ערוצים לנגינה.");
   await context.resume();
-  const list=[...tracks.values()],masterTime=Math.max(0,list[0].audio.currentTime||0);
+  const list=[...tracks.values()],masterTime=getPlaybackStartTime(list);
   for(const t of list){if(!Number.isFinite(t.audio.duration))await new Promise((resolve,reject)=>{t.audio.addEventListener("loadedmetadata",resolve,{once:true});t.audio.addEventListener("error",()=>reject(new Error("קובץ ערוץ לא נטען.")),{once:true});});}
   for(const t of list){if(!t.audio.ended&&Math.abs(t.audio.currentTime-masterTime)>.12)t.audio.currentTime=Math.min(masterTime,Math.max(0,(t.audio.duration||masterTime)-.02));}
   try{await Promise.all(list.filter(t=>!t.audio.ended).map(t=>t.audio.play()));}
@@ -141,5 +141,5 @@
   }
   tracks.clear();
  }
- root.ITZIK_STEM_MIXER={normalizeTrack,effectiveGain,formatPan,effectTailSeconds,normalizeMasterDb,setMasterDb,getMasterDb,syncTracks,init,setTrack,getTrack,getSettings,play,pause,stop,renderMix,destroy};
+ root.ITZIK_STEM_MIXER={normalizeTrack,effectiveGain,formatPan,effectTailSeconds,normalizeMasterDb,setMasterDb,getMasterDb,getPlaybackStartTime,syncTracks,init,setTrack,getTrack,getSettings,play,pause,stop,renderMix,destroy};
 })(typeof window!=="undefined"?window:globalThis);
