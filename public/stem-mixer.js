@@ -3,7 +3,7 @@
  const clamp=(value,min,max)=>Math.min(max,Math.max(min,Number.isFinite(Number(value))?Number(value):0));
  const normalizeTrack=input=>({gainDb:clamp(input?.gainDb??0,-48,12),pan:clamp(input?.pan??0,-1,1),mute:input?.mute===true,solo:input?.solo===true});
  function effectiveGain(state,anySolo){return state.mute||(anySolo&&!state.solo)?0:10**(state.gainDb/20);}
- let context=null,tracks=new Map(),syncTimer=null,master=null,rendering=false,objectUrl=null;
+ let context=null,tracks=new Map(),syncTimer=null,master=null,rendering=false;\n const mediaSources=new WeakMap();
  function init(items){
   destroy();
   const AudioContextClass=root.AudioContext||root.webkitAudioContext;
