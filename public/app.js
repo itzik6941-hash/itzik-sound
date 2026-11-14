@@ -410,6 +410,26 @@ function bindMixer(){
  };
 }
 
+async function prepareRoexAudio(file){
+ const extension=file?.name?.split(".").pop()?.toLowerCase();
+ if(["mp3","wav","flac"].includes(extension))return file;
+ if(!["m4a","aac"].includes(extension))throw new Error(uiText("RoEx תומך בקובצי MP3, WAV ו-FLAC. ניתן להמיר M4A או AAC ל-WAV לפני השליחה.","RoEx accepts MP3, WAV, and FLAC. M4A or AAC must be converted to WAV first."));
+ const AudioCtx=window.AudioContext||window.webkitAudioContext;
+ if(!AudioCtx)throw new Error(uiText("הדפדפן אינו תומך בהמרת M4A/AAC ל-WAV.","This browser cannot convert M4A/AAC to WAV."));
+ let context;
+ try{
+  context=new AudioCtx();
+  const decoded=await context.decodeAudioData((await file.arrayBuffer()).slice(0));
+  if(decoded.duration>600)throw new Error(uiText("המרת M4A/AAC ל-RoEx מוגבלת ל-10 דקות.","M4A/AAC conversion for RoEx is limited to 10 minutes."));
+  const wav=encodeWav(decoded);
+  if(wav.size>50*1024*1024)throw new Error(uiText("קובץ ה-WAV שנוצר גדול מ-50MB. נסה קובץ קצר יותר או WAV/MP3.","The converted WAV exceeds 50 MB. Try a shorter file or use WAV/MP3."));
+  const name=(file.name.replace(/\.[^.]+$/,"")||"audio")+".wav";
+  return new File([wav],name,{type:"audio/wav"});
+ }finally{
+  if(context)await context.close().catch(()=>{});
+ }
+}
+
 function bindMastering(){
  const button=$("#masterPreviewBtn");
  if(!button)return;
@@ -425,7 +445,8 @@ function bindMastering(){
    const ext=currentFile?.name.split(".").pop().toLowerCase();
    if(!["mp3","wav","m4a","aac","flac"].includes(ext))throw new Error("מאסטרינג תומך בקובצי MP3, WAV, M4A, AAC או FLAC בלבד.");
    if(!currentProjectId)throw new Error(uiText("יש לשמור את הפרויקט בענן לפני יצירת Preview.","Save the project to the cloud before creating a preview."));
-   const form=new FormData(); form.append("audio",currentFile);
+   const roexFile=await prepareRoexAudio(currentFile);
+   const form=new FormData(); form.append("audio",roexFile);
    form.append("projectId",currentProjectId);
    form.append("musicalStyle",$("#masterStyle").value);
    form.append("desiredLoudness",$("#masterLoudness").value);
@@ -490,7 +511,8 @@ function bindRoexFullMix(){
    if(!taskId){
     if(!currentFile)throw new Error(uiText("לא נמצא קובץ אודיו פעיל.","No active audio file was found."));
     status.textContent=uiText("מכין את משימת Mix Enhance המלאה...","Preparing the full Mix Enhance task...");
-    const form=new FormData();form.append("audio",currentFile);form.append("musicalStyle",$("#mixStyle")?.value||"POP");form.append("projectId",currentProjectId);form.append("confirmedCreditCharge","true");
+    const roexFile=await prepareRoexAudio(currentFile);
+    const form=new FormData();form.append("audio",roexFile);form.append("musicalStyle",$("#mixStyle")?.value||"POP");form.append("projectId",currentProjectId);form.append("confirmedCreditCharge","true");
     const start=await fetch("/api/roex/enhance-final",{method:"POST",headers:{Authorization:`Bearer ${token}`},body:form}),created=await start.json();
     if(!start.ok)throw new Error(created.message||uiText("לא ניתן להתחיל Mix Enhance.","Could not start Mix Enhance."));
     taskId=created.taskId;button.dataset.taskid=taskId;
@@ -590,8 +612,9 @@ async function loadSavedMasterResult(){
     status.textContent="יש לשמור את הפרויקט בענן לפני יצירת Preview.";
     return;
    }
-   const formData = new FormData();
-    formData.append("audio", currentFile);
+   const roexFile = await prepareRoexAudio(currentFile);
+    const formData = new FormData();
+    formData.append("audio", roexFile);
     formData.append("projectId", currentProjectId);
     formData.append("musicalStyle", $("#mixStyle")?.value || "POP");
 
