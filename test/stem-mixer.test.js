@@ -70,3 +70,11 @@ test("stem synchronization stops when no tracks are playing", () => {
   const ended = { audio: { currentTime: 8, paused: true, ended: true, seeking: false, duration: 8 } };
   assert.equal(mixer.syncTracks([paused, ended]), false);
 });
+
+
+test("playback resume position ignores ended short stems", () => {
+  const ended = { audio: { currentTime: 4, ended: true } };
+  const active = { audio: { currentTime: 2.5, ended: false } };
+  assert.equal(mixer.getPlaybackStartTime([ended, active]), 2.5);
+  assert.equal(mixer.getPlaybackStartTime([ended]), 0);
+});
