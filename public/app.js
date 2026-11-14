@@ -25,12 +25,12 @@ const pages = {
   <div class="quick-grid">
    <div class="quick-card" data-go="mix"><div class="quick-icon">☷</div><b>מיקס AI</b><small>איזון ועיצוב הסאונד של השיר</small></div>
    <div class="quick-card" data-go="master"><div class="quick-icon">◉</div><b>מאסטרינג AI</b><small>ליטוש והכנה להפצה</small></div>
-   <div class="quick-card" data-go="pitch"><div class="quick-icon">♬</div><b>תיקון זיופים</b><small>דיוק קולי בשליטה שלך</small></div>
+   <div class="quick-card" data-go="pitch"><div class="quick-icon">♬</div><b>ניתוח גובה צליל</b><small>זיהוי תדר וסולם משוער</small></div>
   </div>`},
 
  mix:{title:"מיקס AI",html:()=>mixPage()},
  master:{title:"מאסטרינג AI",html:()=>masteringPage()},
- pitch:{title:"תיקון זיופים",html:()=>pitchPage()},
+ pitch:{title:"ניתוח גובה צליל",html:()=>pitchPage()},
 
  ideas:{title:"רעיונות מוזיקליים",html:()=>ideasPage()},
  reference:{title:"סטודיו רפרנסים",html:()=>referencePage()},
@@ -1666,8 +1666,8 @@ init();
           </div>
           <div class="quick-card" data-go="pitch">
             <div class="quick-icon">♬</div>
-            <b>תיקון זיופים</b>
-            <small>דיוק קולי בשליטה שלך</small>
+            <b>ניתוח גובה צליל</b>
+            <small>זיהוי תדר וסולם משוער</small>
           </div>
         </div>
       `;
@@ -1738,8 +1738,8 @@ init();
         </div>
         <div class="quick-card" data-go="pitch">
           <div class="quick-icon">♬</div>
-          <b>תיקון זיופים</b>
-          <small>דיוק קולי בשליטה שלך</small>
+          <b>ניתוח גובה צליל</b>
+          <small>זיהוי תדר וסולם משוער</small>
         </div>
       </div>
     `;
