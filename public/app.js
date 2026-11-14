@@ -204,6 +204,17 @@ function mixPage() {
                 </div></div>
                 <label class="stem-mix-control"><span>${uiText("עוצמה","Level")} <output data-stem-gain-value="${name}">0 dB</output></span><input type="range" data-stem-gain="${name}" min="-48" max="12" step="0.5" value="0"></label>
                 <label class="stem-mix-control"><span>Pan <output data-stem-pan-value="${name}">Center</output></span><input type="range" data-stem-pan="${name}" min="-1" max="1" step="0.01" value="0"></label>
+                <details class="stem-effects"><summary>${uiText("אפקטים לערוץ","Track effects")}</summary>
+                  <div class="stem-effects-grid">
+                    <label class="stem-mix-control"><span>EQ Low <output data-stem-fx-value="eqLow:${name}">0 dB</output></span><input type="range" data-stem-fx="eqLow:${name}" min="-12" max="12" step="0.5" value="0"></label>
+                    <label class="stem-mix-control"><span>EQ Mid <output data-stem-fx-value="eqMid:${name}">0 dB</output></span><input type="range" data-stem-fx="eqMid:${name}" min="-12" max="12" step="0.5" value="0"></label>
+                    <label class="stem-mix-control"><span>EQ High <output data-stem-fx-value="eqHigh:${name}">0 dB</output></span><input type="range" data-stem-fx="eqHigh:${name}" min="-12" max="12" step="0.5" value="0"></label>
+                    <label class="stem-mix-control"><span>Compressor Threshold <output data-stem-fx-value="compThreshold:${name}">0 dB</output></span><input type="range" data-stem-fx="compThreshold:${name}" min="-36" max="0" step="1" value="0"></label>
+                    <label class="stem-mix-control"><span>Compressor Ratio <output data-stem-fx-value="compRatio:${name}">1:1</output></span><input type="range" data-stem-fx="compRatio:${name}" min="1" max="12" step="0.5" value="1"></label>
+                    <label class="stem-mix-control"><span>Reverb <output data-stem-fx-value="reverbMix:${name}">0%</output></span><input type="range" data-stem-fx="reverbMix:${name}" min="0" max="0.5" step="0.01" value="0"></label>
+                    <label class="stem-mix-control"><span>Delay <output data-stem-fx-value="delayMix:${name}">0%</output></span><input type="range" data-stem-fx="delayMix:${name}" min="0" max="0.5" step="0.01" value="0"></label>
+                  </div>
+                </details>
                 <audio data-stem-audio="${name}" preload="auto" crossorigin="anonymous"></audio>
                 <a class="secondary-btn stem-download" data-stem-download="${name}" download="${name}.wav">${uiText("הורד ערוץ","Download stem")}</a>
               </article>`).join("")}
@@ -596,7 +607,7 @@ async function bindStemAudioPlayers(){
    const gain=$(`[data-stem-gain="${name}"]`),pan=$(`[data-stem-pan="${name}"]`);
    if(gain)gain.value=Number.isFinite(saved.gainDb)?saved.gainDb:0;
    if(pan)pan.value=Number.isFinite(saved.pan)?saved.pan:0;
-   tracks.push({id:name,audio:audioPlayer,settings:{gainDb:gain?Number(gain.value):0,pan:pan?Number(pan.value):0,mute:saved.mute===true,solo:saved.solo===true}});
+   tracks.push({id:name,audio:audioPlayer,settings:{...saved,gainDb:gain?Number(gain.value):0,pan:pan?Number(pan.value):0,mute:saved.mute===true,solo:saved.solo===true}});
   }
   if(!tracks.length){if(status)status.textContent=uiText("לא נמצאו ערוצים שמורים בפרויקט.","No saved stems were found in this project.");return;}
   await window.ITZIK_STEM_MIXER.init(tracks);
@@ -610,6 +621,17 @@ async function bindStemAudioPlayers(){
    if(solo)solo.setAttribute("aria-pressed",String(state.solo));
   });
   const save=async()=>{const next=window.ITZIK_STEM_MIXER.getSettings();if(!await updateProjectMetadata({stemMixSettings:next})&&status)status.textContent=uiText("השינויים פעילים, אך השמירה בענן נכשלה.","Changes are active, but cloud saving failed.");};
+  tracks.forEach(track=>{
+   const state=window.ITZIK_STEM_MIXER.getTrack(track.id);
+   for(const key of ["eqLow","eqMid","eqHigh","compThreshold","compRatio","reverbMix","delayMix"]){
+    const input=document.querySelector('[data-stem-fx="'+key+':'+track.id+'"]');
+    const output=document.querySelector('[data-stem-fx-value="'+key+':'+track.id+'"]');
+    if(input)input.value=state[key];
+    const display=value=>key==="compRatio"?Number(value).toFixed(1)+":1":key.endsWith("Mix")?Math.round(value*100)+"%":Number(value).toFixed(1)+" dB";
+    if(output)output.textContent=display(state[key]);
+    if(input)input.oninput=()=>{const value=Number(input.value);window.ITZIK_STEM_MIXER.setTrack(track.id,{[key]:value});if(output)output.textContent=display(value);save();};
+   }
+  });
   tracks.forEach(track=>{
    const gain=$(`[data-stem-gain="${track.id}"]`),pan=$(`[data-stem-pan="${track.id}"]`);
    if(gain)gain.oninput=()=>{window.ITZIK_STEM_MIXER.setTrack(track.id,{gainDb:Number(gain.value)});refresh();save();};

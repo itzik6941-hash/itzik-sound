@@ -1174,3 +1174,9 @@ body::after {
 #stemMixerStatus{min-height:20px;color:var(--cyan);font-size:12px}
 .stem-track-actions button[aria-pressed="true"]{border-color:var(--cyan);color:var(--cyan);background:#163248}
 @media(max-width:600px){.stem-transport button{flex:1 1 42%}.stem-mixer-tracks{grid-template-columns:1fr}}
+
+/* Per-stem processing controls */
+.stem-effects{margin:12px 0;padding:10px;border:1px solid var(--line);border-radius:10px;background:#101d30}
+.stem-effects summary{cursor:pointer;color:var(--cyan);font-size:12px;font-weight:700;padding:4px}
+.stem-effects-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 14px;padding-top:8px}
+@media(max-width:620px){.stem-effects-grid{grid-template-columns:1fr}}
