@@ -13,6 +13,7 @@ ITZIK SOUND — מדריך מצב והפעלה
 יכולות הפעילות בקוד
 - Supabase Auth (אימייל/סיסמה ו-Google), טעינת פרויקטים, העלאת מקור, פתיחה ומחיקה לאחר אישור.
 - Waveform ונגן, ייצוא WAV ו-MP3. ייצוא משתמש בשרשרת המיקס המקומית כאשר היא מכוונת.
+- קובצי מקור MP3, WAV, M4A, AAC ו-FLAC עד 50MB. לפני שליחה ל-RoEx, קובצי M4A/AAC מומרים מקומית ל-WAV; ההמרה מוגבלת ל-10 דקות ו-50MB. RoEx מקבל MP3/WAV/FLAC.
 - מיקסר סטריאו עם Gain, Pan, Mute, EQ, Compressor, Reverb, Delay, Stereo Width,
   Master, A/B, Meter, Reset ושמירת/שחזור הגדרות בפרויקט.
 - RoEx Mix Enhance Preview; Mix Enhance מלא מחייב אישור מפורש לפני הפעלה/שליפה.
