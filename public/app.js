@@ -175,7 +175,7 @@ function mixPage() {
       const stemLabels={vocals:uiText("שירה","Vocals"),drums:uiText("תופים","Drums"),bass:uiText("בס","Bass"),other:uiText("כלים נוספים","Other instruments"),instrumental:uiText("פלייבק ללא שירה","Instrumental")};
       const saved=stemNames.filter(name=>stemMeta.stems?.[name]);
       return `<section class="panel stem-panel">
-        <div class="workspace-title"><div class="quick-icon">♫</div><div><h2>${uiText("הפרדת ערוצים עם AI","AI stem separation")}</h2><p>${uiText("הפרד את הקובץ לשירה, תופים, בס וכלים נוספים. הקבצים יישמרו בפרויקט שלך.","Split the mix into vocals, drums, bass and other instruments. Files are saved in your project.")}</p></div></div>
+        <div class="workspace-title"><div class="quick-icon">♫</div><div><h2>${uiText("הפרדת ערוצים עם AI","AI stem separation")}</h2><p>${uiText("הפרד את הקובץ לערוצים עצמאיים ושמור אותם בפרויקט שלך.","Separate the mix into independent tracks and save them to your project.")}</p></div></div>
         <div class="stem-cost-note">${uiText("הפרדת 4 ערוצים עולה 75 קרדיטים ב-RoEx רק אם ההפרדה מצליחה. מצב 2 ערוצים מפריד שירה ופלייבק.","4-stem separation costs 75 RoEx credits only if successful. The 2-stem mode separates vocals and instrumental.")}</div>
         <div class="stem-controls">
           <label for="stemSeparationMode">${uiText("סוג הפרדה","Separation mode")}</label>
@@ -186,7 +186,31 @@ function mixPage() {
           <button id="separateStemsBtn" class="primary-btn">${stemMeta.taskId?uiText("בדיקת מצב / המשך שמירה","Check status / resume saving"):uiText("הפרד ערוצים · 75 קרדיטים","Separate stems · 75 credits")}</button>
         </div>
         <p id="stemSeparationStatus" aria-live="polite">${stemMeta.taskId?uiText("נמצאה משימת הפרדה קודמת. אפשר להמשיך לבדוק אותה.","A previous separation task was found. You can resume checking it."):""}</p>
-        ${saved.length?`<div class="stem-list"><h3>${uiText("הערוצים השמורים בפרויקט","Stems saved in this project")}</h3>${saved.map(name=>`<article class="stem-card"><div><b>${stemLabels[name]}</b><small>WAV · 44.1 kHz · Stereo</small></div><audio controls preload="none" data-stem-audio="${name}"></audio><a class="secondary-btn" data-stem-download="${name}" download="${name}.wav">${uiText("הורדה","Download")}</a></article>`).join("")}</div>`: ""}
+        ${saved.length?`
+          <div class="stem-mixer" id="stemMixer">
+            <div class="stem-mixer-heading"><div><h3>${uiText("מיקסר רב־ערוצי","Multitrack mixer")}</h3><p>${uiText("כל הערוצים מנוגנים יחד ובסנכרון. שלוט בעוצמה, Pan, השתקה ו-Solo לכל ערוץ.","All tracks play together in sync. Control level, pan, mute and solo independently.")}</p></div></div>
+            <div class="stem-transport">
+              <button id="stemPlay" class="primary-btn">${uiText("נגן הכל","Play all")}</button>
+              <button id="stemPause" class="secondary-btn">${uiText("השהה","Pause")}</button>
+              <button id="stemStop" class="secondary-btn">${uiText("עצור","Stop")}</button>
+              <button id="stemExport" class="secondary-btn">${uiText("ייצא מיקס משולב WAV","Export combined WAV mix")}</button>
+            </div>
+            <p id="stemMixerStatus" aria-live="polite">${uiText("הערוצים נטענים מהאחסון המאובטח...","Loading tracks from secure storage...")}</p>
+            <div class="stem-mixer-tracks">
+              ${saved.map(name=>`<article class="stem-mix-track" data-stem-track="${name}">
+                <div class="stem-track-heading"><b>${stemLabels[name]}</b><div class="stem-track-actions">
+                  <button type="button" class="secondary-btn" data-stem-mute="${name}" aria-pressed="false">${uiText("השתק","Mute")}</button>
+                  <button type="button" class="secondary-btn" data-stem-solo="${name}" aria-pressed="false">Solo</button>
+                </div></div>
+                <label class="stem-mix-control"><span>${uiText("עוצמה","Level")} <output data-stem-gain-value="${name}">0 dB</output></span><input type="range" data-stem-gain="${name}" min="-48" max="12" step="0.5" value="0"></label>
+                <label class="stem-mix-control"><span>Pan <output data-stem-pan-value="${name}">Center</output></span><input type="range" data-stem-pan="${name}" min="-1" max="1" step="0.01" value="0"></label>
+                <audio data-stem-audio="${name}" preload="auto" crossorigin="anonymous"></audio>
+                <a class="secondary-btn stem-download" data-stem-download="${name}" download="${name}.wav">${uiText("הורד ערוץ","Download stem")}</a>
+              </article>`).join("")}
+            </div>
+            <a id="stemMixDownload" class="primary-btn" hidden download="itzik-sound-mix.wav">${uiText("הורדת המיקס המשולב","Download combined mix")}</a>
+          </div>`: ""}
+        ${saved.length?"":`<div class="stem-list"><h3>${uiText("הערוצים יופיעו כאן לאחר ההפרדה","Tracks will appear here after separation")}</h3></div>`}
       </section>`;
     })() : ""}
 
@@ -549,20 +573,73 @@ function bindMastering(){
 }
 
 
-async function bindStemAudioPlayers(){
+async async function bindStemAudioPlayers(){
+ const mixer=$("#stemMixer");
+ if(!mixer||!currentProjectId)return;
  const project=projects.find(p=>p.id===currentProjectId);
  const paths=project?.metadata?.stemSeparation?.stems||{};
- for(const [name,path] of Object.entries(paths)){
-  const audioPlayer=$(`[data-stem-audio="${name}"]`);
-  const download=$(`[data-stem-download="${name}"]`);
-  if(!audioPlayer&&!download)continue;
-  const {data,error}=await supabaseClient.storage.from("project-audio").createSignedUrl(path,3600);
-  if(error||!data?.signedUrl)continue;
-  if(audioPlayer){audioPlayer.src=data.signedUrl;audioPlayer.load();}
-  if(download)download.href=data.signedUrl;
- }
+ const settings=project?.metadata?.stemMixSettings||{};
+ const tracks=[];
+ const status=$("#stemMixerStatus");
+ try{
+  await window.ITZIK_STEM_MIXER?.destroy?.();
+  for(const [name,path] of Object.entries(paths)){
+   const audioPlayer=$(`[data-stem-audio="${name}"]`);
+   const download=$(`[data-stem-download="${name}"]`);
+   if(!audioPlayer)continue;
+   const {data,error}=await supabaseClient.storage.from("project-audio").createSignedUrl(path,3600);
+   if(error||!data?.signedUrl)throw new Error(uiText(`לא ניתן לטעון את הערוץ ${name}.`,`Could not load the ${name} stem.`));
+   audioPlayer.src=data.signedUrl;
+   audioPlayer.load();
+   if(download)download.href=data.signedUrl;
+   const saved=settings[name]||{};
+   const gain=$(`[data-stem-gain="${name}"]`),pan=$(`[data-stem-pan="${name}"]`);
+   if(gain)gain.value=Number.isFinite(saved.gainDb)?saved.gainDb:0;
+   if(pan)pan.value=Number.isFinite(saved.pan)?saved.pan:0;
+   tracks.push({id:name,audio:audioPlayer,settings:{gainDb:gain?Number(gain.value):0,pan:pan?Number(pan.value):0,mute:saved.mute===true,solo:saved.solo===true}});
+  }
+  if(!tracks.length){if(status)status.textContent=uiText("לא נמצאו ערוצים שמורים בפרויקט.","No saved stems were found in this project.");return;}
+  window.ITZIK_STEM_MIXER.init(tracks);
+  const refresh=()=>tracks.forEach(track=>{
+   const gain=$(`[data-stem-gain-value="${track.id}"]`),pan=$(`[data-stem-pan-value="${track.id}"]`);
+   const state=window.ITZIK_STEM_MIXER.getTrack(track.id);
+   if(gain)gain.textContent=`${state.gainDb.toFixed(1)} dB`;
+   if(pan)pan.textContent=state.pan<=-0.98?"L":state.pan>=0.98?"R":state.pan===0?uiText("מרכז","Center"):state.pan<0?`L ${Math.round(-state.pan*100)}%`:`R ${Math.round(state.pan*100)}%`;
+   const mute=$(`[data-stem-mute="${track.id}"]`),solo=$(`[data-stem-solo="${track.id}"]`);
+   if(mute){mute.setAttribute("aria-pressed",String(state.mute));mute.textContent=state.mute?uiText("בטל השתקה","Unmute"):uiText("השתק","Mute");}
+   if(solo)solo.setAttribute("aria-pressed",String(state.solo));
+  });
+  const save=async()=>{const next=window.ITZIK_STEM_MIXER.getSettings();if(!await updateProjectMetadata({stemMixSettings:next})&&status)status.textContent=uiText("השינויים פעילים, אך השמירה בענן נכשלה.","Changes are active, but cloud saving failed.");};
+  tracks.forEach(track=>{
+   const gain=$(`[data-stem-gain="${track.id}"]`),pan=$(`[data-stem-pan="${track.id}"]`);
+   if(gain)gain.oninput=()=>{window.ITZIK_STEM_MIXER.setTrack(track.id,{gainDb:Number(gain.value)});refresh();save();};
+   if(pan)pan.oninput=()=>{window.ITZIK_STEM_MIXER.setTrack(track.id,{pan:Number(pan.value)});refresh();save();};
+   const mute=$(`[data-stem-mute="${track.id}"]`),solo=$(`[data-stem-solo="${track.id}"]`);
+   if(mute)mute.onclick=()=>{const state=window.ITZIK_STEM_MIXER.getTrack(track.id);window.ITZIK_STEM_MIXER.setTrack(track.id,{mute:!state.mute});refresh();save();};
+   if(solo)solo.onclick=()=>{const state=window.ITZIK_STEM_MIXER.getTrack(track.id);window.ITZIK_STEM_MIXER.setTrack(track.id,{solo:!state.solo});refresh();save();};
+  });
+  const play=$("#stemPlay"),pause=$("#stemPause"),stop=$("#stemStop");
+  if(play)play.onclick=async()=>{try{await window.ITZIK_STEM_MIXER.play();if(status)status.textContent=uiText("מנגן את כל הערוצים בסנכרון.","Playing all tracks in sync.");}catch(e){if(status)status.textContent=e.message;}};
+  if(pause)pause.onclick=()=>window.ITZIK_STEM_MIXER.pause();
+  if(stop)stop.onclick=()=>window.ITZIK_STEM_MIXER.stop();
+  const exportButton=$("#stemExport"),download=$("#stemMixDownload");
+  if(exportButton)exportButton.onclick=async()=>{
+   exportButton.disabled=true;
+   if(status)status.textContent=uiText("טוען ומחשב את כל הערוצים לייצוא...","Loading and rendering all tracks for export...");
+   try{
+    const rendered=await window.ITZIK_STEM_MIXER.renderMix();
+    const blob=encodeWav(rendered,24);
+    if(window.__itzikStemMixUrl)URL.revokeObjectURL(window.__itzikStemMixUrl);
+    window.__itzikStemMixUrl=URL.createObjectURL(blob);
+    if(download){download.href=window.__itzikStemMixUrl;download.hidden=false;}
+    if(status)status.textContent=uiText("המיקס המשולב מוכן. אפשר להוריד קובץ WAV באיכות 24-bit.","Combined mix is ready. Download the 24-bit WAV.");
+   }catch(error){if(status)status.textContent=error.message||uiText("ייצוא המיקס נכשל.","Mix export failed.");}
+   finally{exportButton.disabled=false;}
+  };
+  refresh();
+  if(status)status.textContent=uiText(`${tracks.length} ערוצים נטענו. אפשר לנגן ולערוך כל ערוץ בנפרד.`,`${tracks.length} tracks loaded. You can play and edit each track independently.`);
+ }catch(error){if(status)status.textContent=error.message||uiText("טעינת הערוצים נכשלה.","Could not load stems.");}
 }
-
 async function bindStemSeparation(){
  const button=$("#separateStemsBtn");
  if(!button||!currentFile||!currentProjectId)return;
