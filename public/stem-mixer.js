@@ -67,7 +67,8 @@
  async function destroy(){
   pause();for(const t of tracks.values()){try{t.source.disconnect();t.gain.disconnect();t.pan.disconnect();}catch{}}
   tracks.clear();if(master){try{master.disconnect();}catch{}master=null;}
-  if(context){const old=context;context=null;await old.close().catch(()=>{});}
+  // Keep the AudioContext alive: MediaElementAudioSourceNode is permanently
+  // associated with its media element and cannot be recreated in a new context.
  }
  root.ITZIK_STEM_MIXER={normalizeTrack,effectiveGain,formatPan,init,setTrack,getTrack,getSettings,play,pause,stop,renderMix,destroy};
 })(typeof window!=="undefined"?window:globalThis);
