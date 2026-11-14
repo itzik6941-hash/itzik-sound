@@ -12,7 +12,8 @@
  function effectTailSeconds(state){
   const feedback=clamp(state?.delayFeedback??0,0,0.65),delayTime=clamp(state?.delayTime??0.24,0.05,0.75);
   const echoes=feedback>0?Math.ceil(Math.log(0.001)/Math.log(feedback)):1;
-  return Math.max(state?.reverbMix>0?1.6:0,delayTime*echoes);
+  const delayTail=state?.delayMix>0?delayTime*echoes:0;
+  return Math.max(state?.reverbMix>0?1.6:0,delayTail);
  }
  function formatPan(value){const pan=clamp(value,-1,1);return pan<=-.98?"L":pan>=.98?"R":pan===0?"C":pan<0?`L ${Math.round(-pan*100)}%`:`R ${Math.round(pan*100)}%`;}
  let context=null,tracks=new Map(),syncTimer=null,master=null,rendering=false;
