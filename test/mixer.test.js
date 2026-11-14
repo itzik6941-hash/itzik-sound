@@ -22,3 +22,19 @@ test("mixer recognizes signal changes for offline rendering", () => {
   assert.equal(mixer.hasProcessing({ ...mixer.defaults, low: 2 }), true);
   assert.equal(mixer.hasProcessing({ ...mixer.defaults, pan: 0.5 }), true);
 });
+
+
+test("stem mixer clamps pan and formats stereo positions consistently", () => {
+  const fs = require("node:fs");
+  const vm = require("node:vm");
+  const sandbox = { window: {}, console, setInterval, clearInterval };
+  vm.runInNewContext(fs.readFileSync(require.resolve("../public/stem-mixer.js"), "utf8"), sandbox);
+  const mixer = sandbox.window.ITZIK_STEM_MIXER;
+  assert.equal(mixer.formatPan(-1), "L");
+  assert.equal(mixer.formatPan(0), "C");
+  assert.equal(mixer.formatPan(1), "R");
+  assert.equal(mixer.formatPan(-0.5), "L 50%");
+  assert.equal(mixer.formatPan(2), "R");
+  assert.equal(mixer.effectiveGain(mixer.normalizeTrack({ mute: true }), false), 0);
+  assert.equal(mixer.effectiveGain(mixer.normalizeTrack({ solo: false }), true), 0);
+});
