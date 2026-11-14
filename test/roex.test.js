@@ -51,6 +51,12 @@ test("RoEx preview and retrieval routes keep task ID and use authenticated calls
     if (String(url) === "https://supabase.test/auth/v1/user") {
       return json(200, { id: "test-user" });
     }
+    if (String(url).startsWith("https://supabase.test/rest/v1/projects?")) {
+      return json(200, [{ metadata: {
+        mixPreview: { taskId: "mix-task-test" },
+        mastering: { taskId: "master-task-test" }
+      } }]);
+    }
     if (String(url) === "https://tonn.roexaudio.com/upload") {
       return json(200, { signed_url: "https://upload.test/signed?token=secret", readable_url: "https://audio.test/file" });
     }
@@ -78,21 +84,21 @@ test("RoEx preview and retrieval routes keep task ID and use authenticated calls
     return body;
   };
 
-  const mix = await invokeRoute("/api/roex/preview", { headers: auth, body: {}, file: { originalname: "test.mp3", mimetype: "audio/mpeg", buffer: Buffer.from("fake audio bytes") } });
+  const mix = await invokeRoute("/api/roex/preview", { headers: auth, body: { projectId: "project-test" }, file: { originalname: "test.mp3", mimetype: "audio/mpeg", buffer: Buffer.from("fake audio bytes") } });
   const mixBody = mix.body;
   assert.equal(mix.status, 200);
   assert.equal(mixBody.taskId, "mix-task-test");
 
-  const mixResult = await invokeRoute("/api/roex/preview-result", { headers: auth, body: { taskId: mixBody.taskId } });
+  const mixResult = await invokeRoute("/api/roex/preview-result", { headers: auth, body: { taskId: mixBody.taskId, projectId: "project-test" } });
   assert.equal(mixResult.status, 200);
   assert.equal(mixResult.body.previewUrl, "https://audio.test/preview");
 
-  const master = await invokeRoute("/api/roex/mastering-preview", { headers: auth, file: { originalname: "test.mp3", mimetype: "audio/mpeg", buffer: Buffer.from("fake audio bytes") } });
+  const master = await invokeRoute("/api/roex/mastering-preview", { headers: auth, body: { projectId: "project-test" }, file: { originalname: "test.mp3", mimetype: "audio/mpeg", buffer: Buffer.from("fake audio bytes") } });
   const masterBody = master.body;
   assert.equal(master.status, 200);
   assert.equal(masterBody.taskId, "master-task-test");
 
-  const masterResult = await invokeRoute("/api/roex/mastering-preview-result", { headers: auth, body: { taskId: masterBody.taskId } });
+  const masterResult = await invokeRoute("/api/roex/mastering-preview-result", { headers: auth, body: { taskId: masterBody.taskId, projectId: "project-test" } });
   assert.equal(masterResult.status, 200);
   assert.equal(masterResult.body.previewUrl, "https://audio.test/master-preview");
 
