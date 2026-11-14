@@ -599,7 +599,7 @@ async function bindStemAudioPlayers(){
    tracks.push({id:name,audio:audioPlayer,settings:{gainDb:gain?Number(gain.value):0,pan:pan?Number(pan.value):0,mute:saved.mute===true,solo:saved.solo===true}});
   }
   if(!tracks.length){if(status)status.textContent=uiText("לא נמצאו ערוצים שמורים בפרויקט.","No saved stems were found in this project.");return;}
-  window.ITZIK_STEM_MIXER.init(tracks);
+  await window.ITZIK_STEM_MIXER.init(tracks);
   const refresh=()=>tracks.forEach(track=>{
    const gain=$(`[data-stem-gain-value="${track.id}"]`),pan=$(`[data-stem-pan-value="${track.id}"]`);
    const state=window.ITZIK_STEM_MIXER.getTrack(track.id);
