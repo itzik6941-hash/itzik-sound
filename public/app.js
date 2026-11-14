@@ -445,6 +445,7 @@ function bindMastering(){
    const ext=currentFile?.name.split(".").pop().toLowerCase();
    if(!["mp3","wav","m4a","aac","flac"].includes(ext))throw new Error("מאסטרינג תומך בקובצי MP3, WAV, M4A, AAC או FLAC בלבד.");
    if(!currentProjectId)throw new Error(uiText("יש לשמור את הפרויקט בענן לפני יצירת Preview.","Save the project to the cloud before creating a preview."));
+   status.textContent=uiText("מכין את קובץ האודיו ל-RoEx...","Preparing audio for RoEx...");
    const roexFile=await prepareRoexAudio(currentFile);
    const form=new FormData(); form.append("audio",roexFile);
    form.append("projectId",currentProjectId);
@@ -511,6 +512,7 @@ function bindRoexFullMix(){
    if(!taskId){
     if(!currentFile)throw new Error(uiText("לא נמצא קובץ אודיו פעיל.","No active audio file was found."));
     status.textContent=uiText("מכין את משימת Mix Enhance המלאה...","Preparing the full Mix Enhance task...");
+    status.textContent=uiText("מכין את קובץ האודיו ל-Mix Enhance...","Preparing audio for Mix Enhance...");
     const roexFile=await prepareRoexAudio(currentFile);
     const form=new FormData();form.append("audio",roexFile);form.append("musicalStyle",$("#mixStyle")?.value||"POP");form.append("projectId",currentProjectId);form.append("confirmedCreditCharge","true");
     const start=await fetch("/api/roex/enhance-final",{method:"POST",headers:{Authorization:`Bearer ${token}`},body:form}),created=await start.json();
@@ -612,6 +614,7 @@ async function loadSavedMasterResult(){
     status.textContent="יש לשמור את הפרויקט בענן לפני יצירת Preview.";
     return;
    }
+   status.textContent=uiText("מכין את קובץ האודיו ל-Mix AI...","Preparing audio for Mix AI...");
    const roexFile = await prepareRoexAudio(currentFile);
     const formData = new FormData();
     formData.append("audio", roexFile);
