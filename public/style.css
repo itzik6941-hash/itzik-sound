@@ -1180,3 +1180,8 @@ body::after {
 .stem-effects summary{cursor:pointer;color:var(--cyan);font-size:12px;font-weight:700;padding:4px}
 .stem-effects-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 14px;padding-top:8px}
 @media(max-width:620px){.stem-effects-grid{grid-template-columns:1fr}}
+
+.stem-master-control{display:grid;grid-template-columns:minmax(130px,1fr) minmax(120px,2fr);align-items:center;gap:12px;margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:10px;background:#101d30;font-size:13px;font-weight:700}
+.stem-master-control output{color:var(--cyan);margin-inline-start:8px;font-variant-numeric:tabular-nums}
+.stem-master-control input{width:100%;accent-color:var(--cyan)}
+@media(max-width:620px){.stem-master-control{grid-template-columns:1fr}}
