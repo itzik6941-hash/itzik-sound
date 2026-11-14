@@ -19,3 +19,22 @@ test("solo and mute rules calculate the expected track gain", () => {
   assert.equal(mixer.effectiveGain(muted, false), 0);
   assert.equal(mixer.effectiveGain({ ...normal, gainDb: -6 }, false), 10 ** (-6 / 20));
 });
+
+
+test("stem track effect settings are normalized and bounded", () => {
+  const state = mixer.normalizeTrack({ eqLow: 30, eqMid: -30, eqHigh: 4, compThreshold: -100, compRatio: 20, reverbMix: 2, delayMix: -1 });
+  assert.equal(state.eqLow, 12);
+  assert.equal(state.eqMid, -12);
+  assert.equal(state.eqHigh, 4);
+  assert.equal(state.compThreshold, -36);
+  assert.equal(state.compRatio, 12);
+  assert.equal(state.reverbMix, 0.5);
+  assert.equal(state.delayMix, 0);
+});
+
+test("stem pan formatter reports left center and right positions", () => {
+  assert.equal(mixer.formatPan(-1), "L");
+  assert.equal(mixer.formatPan(0), "C");
+  assert.equal(mixer.formatPan(1), "R");
+  assert.equal(mixer.formatPan(0.5), "R 50%");
+});
