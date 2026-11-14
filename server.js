@@ -312,6 +312,149 @@ function safeRoexLogMessage(data, apiKey = process.env.ROEX_API_KEY) {
     .slice(0, 500);
 }
 
+
+const STEM_SEPARATION_STEMS = Object.freeze(["vocals", "drums", "bass", "other", "instrumental"]);
+function validStemSeparationMode(value) {
+  return value === "four" || value === "vocals_instrumental";
+}
+function safeStemFileUrl(value) {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" && parsed.hostname === "storage.googleapis.com";
+  } catch {
+    return false;
+  }
+}
+
+// ROEX STEM SEPARATION
+app.post(
+  "/api/roex/separate",
+  requireUser,
+  audioUpload.single("audio"),
+  async (req, res) => {
+    try {
+      if (req.body?.confirmedCreditCharge !== "true") {
+        return res.status(400).json({ error: "CREDIT_CONFIRMATION_REQUIRED", message: "יש לאשר במפורש חיוב של 75 קרדיטים לפני הפרדת Stems." });
+      }
+      if (!await getOwnedProject(req, req.user, req.body?.projectId)) {
+        return res.status(403).json({ error: "PROJECT_NOT_OWNED", message: "יש לשמור את הפרויקט בחשבון שלך לפני הפרדת ערוצים." });
+      }
+      const apiKey = process.env.ROEX_API_KEY;
+      if (!apiKey) return res.status(503).json({ error: "ROEX_NOT_CONFIGURED", message: "חיבור RoEx עדיין לא הוגדר בשרת." });
+      if (!req.file) return res.status(400).json({ error: "NO_AUDIO_FILE", message: "לא נבחר קובץ אודיו." });
+      const contentType = getAudioContentType(req.file.originalname);
+      if (!contentType) return res.status(400).json({ error: "INVALID_AUDIO_FORMAT", message: "פורמט האודיו אינו נתמך." });
+      const mode = req.body?.separationMode || "four";
+      if (!validStemSeparationMode(mode)) return res.status(400).json({ error: "INVALID_SEPARATION_MODE", message: "מצב ההפרדה אינו נתמך." });
+
+      const uploadResponse = await fetch("https://tonn.roexaudio.com/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+        body: JSON.stringify({ filename: req.file.originalname, contentType }),
+        signal: AbortSignal.timeout(30000)
+      });
+      const uploadData = await uploadResponse.json();
+      if (!uploadResponse.ok || !uploadData.signed_url || !uploadData.readable_url) {
+        console.error("RoEx stem upload error", { message: safeRoexLogMessage(uploadData, apiKey) });
+        return res.status(502).json({ error: "ROEX_UPLOAD_FAILED", message: "RoEx לא הצליח להכין את קובץ האודיו להפרדה." });
+      }
+      const fileResponse = await fetch(uploadData.signed_url, {
+        method: "PUT",
+        headers: { "Content-Type": contentType },
+        body: req.file.buffer,
+        signal: AbortSignal.timeout(120000)
+      });
+      if (!fileResponse.ok) return res.status(502).json({ error: "ROEX_FILE_UPLOAD_FAILED", message: "העלאת קובץ האודיו ל-RoEx נכשלה." });
+
+      const stemflowData = { audioFileLocation: uploadData.readable_url };
+      if (mode === "vocals_instrumental") stemflowData.separationMode = mode;
+      const separationResponse = await fetch("https://tonn.roexaudio.com/separate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+        body: JSON.stringify({ stemflowData }),
+        signal: AbortSignal.timeout(60000)
+      });
+      const separationData = await separationResponse.json();
+      const taskId = separationData.stemflowTaskId;
+      if (separationResponse.status === 402) return res.status(402).json({ error: "INSUFFICIENT_ROEX_CREDITS", message: "אין מספיק קרדיטים בחשבון RoEx להפרדת Stems." });
+      if (!separationResponse.ok || !taskId) {
+        console.error("RoEx stem separation error", { status: separationResponse.status, message: safeRoexLogMessage(separationData, apiKey) });
+        return res.status(502).json({ error: "STEM_SEPARATION_FAILED", message: "RoEx לא הצליח להתחיל הפרדת ערוצים." });
+      }
+      return res.json({ ok: true, taskId, separationMode: mode, creditsReserved: 75 });
+    } catch (error) {
+      console.error("RoEx stem separation request failed", { name: error?.name || "Error", message: safeRoexLogMessage(error) });
+      return res.status(500).json({ error: "STEM_SEPARATION_ERROR", message: "אירעה תקלה בהתחלת הפרדת הערוצים." });
+    }
+  }
+);
+
+app.post("/api/roex/separate-status", requireUser, async (req, res) => {
+  try {
+    const { projectId, taskId } = req.body || {};
+    if (!await ownsTask(req, req.user, projectId, "stemSeparation", taskId)) {
+      return res.status(403).json({ error: "STEM_TASK_NOT_OWNED", message: "משימת ההפרדה אינה שייכת לפרויקט הזה." });
+    }
+    const apiKey = process.env.ROEX_API_KEY;
+    if (!apiKey) return res.status(503).json({ error: "ROEX_NOT_CONFIGURED", message: "חיבור RoEx עדיין לא הוגדר בשרת." });
+    const response = await fetch(`https://tonn.roexaudio.com/separatestatus/${encodeURIComponent(taskId)}`, {
+      headers: { "X-API-Key": apiKey },
+      signal: AbortSignal.timeout(30000)
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      console.error("RoEx stem status error", { status: response.status, message: safeRoexLogMessage(data, apiKey) });
+      return res.status(response.status === 404 ? 404 : 502).json({ error: "STEM_STATUS_FAILED", message: "לא ניתן לבדוק את מצב הפרדת הערוצים." });
+    }
+    const status = typeof data.status === "string" ? data.status.toLowerCase() : "processing";
+    if (status === "failed") return res.json({ status: "failed", message: safeRoexLogMessage(data.info || data.message, apiKey) || "הפרדת הערוצים נכשלה." });
+    if (status !== "complete") return res.status(202).json({ status: "processing" });
+    return res.json({ status: "complete" });
+  } catch (error) {
+    console.error("RoEx stem status request failed", { name: error?.name || "Error" });
+    return res.status(500).json({ error: "STEM_STATUS_ERROR", message: "אירעה תקלה בבדיקת מצב ההפרדה." });
+  }
+});
+
+app.post("/api/roex/retrieve-stem", requireUser, async (req, res) => {
+  try {
+    const { projectId, taskId, stem } = req.body || {};
+    if (!STEM_SEPARATION_STEMS.includes(stem) || !await ownsTask(req, req.user, projectId, "stemSeparation", taskId)) {
+      return res.status(403).json({ error: "STEM_TASK_NOT_OWNED", message: "הערוץ המבוקש אינו שייך לפרויקט הזה." });
+    }
+    const project = await getOwnedProject(req, req.user, projectId);
+    const mode = project?.metadata?.stemSeparation?.separationMode || "four";
+    if (mode === "vocals_instrumental" && !["vocals", "instrumental"].includes(stem)) {
+      return res.status(400).json({ error: "STEM_NOT_AVAILABLE", message: "הערוץ אינו קיים במצב ההפרדה שנבחר." });
+    }
+    const apiKey = process.env.ROEX_API_KEY;
+    if (!apiKey) return res.status(503).json({ error: "ROEX_NOT_CONFIGURED", message: "חיבור RoEx עדיין לא הוגדר בשרת." });
+    const response = await fetch("https://tonn.roexaudio.com/retrievestems", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+      body: JSON.stringify({ stemflowData: { stemflowTaskId: taskId } }),
+      signal: AbortSignal.timeout(30000)
+    });
+    const data = await response.json();
+    const fileUrl = data?.stems?.[stem];
+    if (!response.ok || data.error === true || !safeStemFileUrl(fileUrl)) {
+      console.error("RoEx stem retrieval error", { status: response.status, message: safeRoexLogMessage(data, apiKey) });
+      return res.status(502).json({ error: "STEM_RETRIEVAL_FAILED", message: "RoEx לא החזיר את קובץ הערוץ המבוקש." });
+    }
+    const audioResponse = await fetch(fileUrl, { signal: AbortSignal.timeout(120000) });
+    if (!audioResponse.ok) return res.status(502).json({ error: "STEM_DOWNLOAD_FAILED", message: "הורדת קובץ הערוץ מ-RoEx נכשלה." });
+    const bytes = Buffer.from(await audioResponse.arrayBuffer());
+    if (!bytes.length || bytes.length > 200 * 1024 * 1024) return res.status(502).json({ error: "INVALID_STEM_FILE", message: "קובץ הערוץ שהתקבל אינו תקין או גדול מדי." });
+    res.set("Content-Type", "audio/wav");
+    res.set("Content-Length", String(bytes.length));
+    res.set("Content-Disposition", `attachment; filename="${stem}.wav"`);
+    return res.send(bytes);
+  } catch (error) {
+    console.error("RoEx stem retrieval request failed", { name: error?.name || "Error" });
+    return res.status(500).json({ error: "STEM_RETRIEVAL_ERROR", message: "אירעה תקלה בהורדת ערוץ האודיו." });
+  }
+});
+
 // ROEX MIX ENHANCE PREVIEW
 app.post(
   "/api/roex/preview",
