@@ -424,7 +424,9 @@ function bindMastering(){
    if(error||!data.session?.access_token)throw new Error("צריך להתחבר מחדש לחשבון.");
    const ext=currentFile?.name.split(".").pop().toLowerCase();
    if(!["mp3","wav","flac"].includes(ext))throw new Error("מאסטרינג תומך בקובצי MP3, WAV או FLAC בלבד.");
+   if(!currentProjectId)throw new Error(uiText("יש לשמור את הפרויקט בענן לפני יצירת Preview.","Save the project to the cloud before creating a preview."));
    const form=new FormData(); form.append("audio",currentFile);
+   form.append("projectId",currentProjectId);
    form.append("musicalStyle",$("#masterStyle").value);
    form.append("desiredLoudness",$("#masterLoudness").value);
    form.append("sampleRate",$("#masterSampleRate").value);
@@ -433,9 +435,12 @@ function bindMastering(){
    const result=await response.json(); if(!response.ok)throw new Error(uiText("יצירת Preview נכשלה.","Could not create the preview."));
    const taskSaved=await saveMasteringTask(result.taskId,{musicalStyle:$("#masterStyle").value,desiredLoudness:$("#masterLoudness").value,sampleRate:$("#masterSampleRate").value});
    setMasterTaskLabel(result.taskId);
-   if(!taskSaved)status.textContent=uiText("המשימה נוצרה, אך מזהה המשימה לא הסתנכרן לענן. השאר את המסך פתוח והעתק את המזהה.","The task was created, but its ID did not sync to the cloud. Keep this page open and copy the task ID.");
+   if(!taskSaved){
+    status.textContent=uiText("המשימה נוצרה, אך מזהה המשימה לא נשמר בענן. לא ניתן לשלוף Preview עד שהשמירה תצליח.","The task was created, but its ID was not saved. Preview retrieval is blocked until it syncs.");
+    const paidButton=$("#masterFinalBtn");if(paidButton){paidButton.disabled=true;paidButton.title=uiText("לא ניתן להפעיל עד שמזהה המשימה יישמר בפרויקט.","Unavailable until the task ID is saved to the project.");}
+    return;
+   }
    await pollMasteringPreview(result.taskId,data.session.access_token,status);
-   if(!taskSaved){const paidButton=$("#masterFinalBtn");if(paidButton){paidButton.disabled=true;paidButton.title=uiText("לא ניתן להפעיל עד שמזהה המשימה יישמר בפרויקט.","Unavailable until the task ID is saved to the project.");}}
   }catch(error){status.textContent=error.message||uiText("אירעה תקלה ביצירת Preview.","There was a problem creating the preview.");}
   finally{button.disabled=false;}
  };
@@ -530,7 +535,7 @@ async function saveMasteringTask(taskId,settings){
 async function pollMasteringPreview(taskId,accessToken,status){
  status.textContent=uiText("ממתין לתוצאה מ-RoEx...","Waiting for RoEx...");
  for(let attempt=0;attempt<12;attempt++){
-  const response=await fetch("/api/roex/mastering-preview-result",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${accessToken}`},body:JSON.stringify({taskId})});
+  const response=await fetch("/api/roex/mastering-preview-result",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${accessToken}`},body:JSON.stringify({taskId,projectId:currentProjectId})});
   let result={};try{result=await response.json();}catch{}
   if(response.status===202){status.textContent=uiText("RoEx עדיין מעבד. אבדוק שוב בעוד כמה שניות...","RoEx is still processing. Checking again shortly...");await new Promise(resolve=>setTimeout(resolve,5000));continue;}
   if(!response.ok)throw new Error(uiText("RoEx לא החזיר Preview תקין.","RoEx did not return a valid preview."));
@@ -581,8 +586,13 @@ async function loadSavedMasterResult(){
      throw new Error("צריך להתחבר מחדש לחשבון.");
     }
 
-    const formData = new FormData();
+    if(!currentProjectId){
+    status.textContent="יש לשמור את הפרויקט בענן לפני יצירת Preview.";
+    return;
+   }
+   const formData = new FormData();
     formData.append("audio", currentFile);
+    formData.append("projectId", currentProjectId);
     formData.append("musicalStyle", $("#mixStyle")?.value || "POP");
 
     const response = await fetch("/api/roex/preview", {
@@ -598,6 +608,10 @@ async function loadSavedMasterResult(){
     if (!response.ok) {
      throw new Error(result.message || "יצירת התצוגה המקדימה נכשלה.");
     }
+
+    const priorPreview=projects.find(p=>p.id===currentProjectId)?.metadata?.mixPreview||{};
+    const savedPreview=await updateProjectMetadata({mixPreview:{...priorPreview,taskId:result.taskId,style:$("#mixStyle")?.value||"POP",createdAt:new Date().toISOString()}});
+    if(!savedPreview)throw new Error("המשימה נוצרה, אך לא הצלחנו לשמור את מזהה המשימה בפרויקט. לא ניתן לשלוף Preview.");
 
     status.textContent = "הבקשה נשלחה! ממתין לתצוגה המקדימה...";
 
@@ -618,7 +632,8 @@ for (let attempt = 0; attempt < 12; attempt++) {
       Authorization: `Bearer ${sessionData.session.access_token}`
     },
     body: JSON.stringify({
-      taskId: result.taskId
+      taskId: result.taskId,
+      projectId: currentProjectId
     })
   });
 
