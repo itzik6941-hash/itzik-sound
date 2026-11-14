@@ -420,16 +420,25 @@ async function persistMixSettings(){
  if(status)status.textContent=uiText("הגדרות המיקס נשמרו בפרויקט.","Mix settings saved to the project.");
 }
 
+const projectMetadataSaveQueues=new Map();
 async function updateProjectMetadata(patch){
  if(!currentProjectId||!currentUser||!supabaseClient)return false;
- const project=projects.find(item=>item.id===currentProjectId);
- if(!project)return false;
- const metadata={...(project.metadata||{}),...patch};
- const {data,error}=await supabaseClient.from("projects").update({metadata})
-  .eq("id",currentProjectId).eq("user_id",currentUser.id).select("id").single();
- if(error||!data){console.error("Project metadata sync failed",{code:error?.code||"NO_ROW"});return false;}
- project.metadata=metadata;
- return true;
+ const projectId=currentProjectId,userId=currentUser.id;
+ const previous=projectMetadataSaveQueues.get(projectId)||Promise.resolve();
+ const operation=previous.catch(()=>false).then(async()=>{
+  if(currentUser?.id!==userId)return false;
+  const project=projects.find(item=>item.id===projectId);
+  if(!project)return false;
+  const metadata={...(project.metadata||{}),...patch};
+  const {data,error}=await supabaseClient.from("projects").update({metadata})
+   .eq("id",projectId).eq("user_id",userId).select("id").single();
+  if(error||!data){console.error("Project metadata sync failed",{code:error?.code||"NO_ROW"});return false;}
+  project.metadata=metadata;
+  return true;
+ });
+ projectMetadataSaveQueues.set(projectId,operation);
+ try{return await operation;}
+ finally{if(projectMetadataSaveQueues.get(projectId)===operation)projectMetadataSaveQueues.delete(projectId);}
 }
 
 function bindMixer(){
