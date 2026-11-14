@@ -89,8 +89,21 @@
    const solo=decoded.some(x=>x.state.solo);
    for(const item of decoded){
     const source=output.createBufferSource(),gain=output.createGain(),pan=output.createStereoPanner();
+    const low=output.createBiquadFilter(),mid=output.createBiquadFilter(),high=output.createBiquadFilter(),compressor=output.createDynamicsCompressor();
+    const dry=output.createGain(),convolver=output.createConvolver(),reverbWet=output.createGain();
+    const delay=output.createDelay(1),delayWet=output.createGain(),feedback=output.createGain();
+    low.type="lowshelf";low.frequency.value=120;low.gain.value=item.state.eqLow;
+    mid.type="peaking";mid.frequency.value=1000;mid.Q.value=.9;mid.gain.value=item.state.eqMid;
+    high.type="highshelf";high.frequency.value=9000;high.gain.value=item.state.eqHigh;
+    compressor.threshold.value=item.state.compThreshold;compressor.ratio.value=item.state.compRatio;
+    convolver.buffer=createImpulse(output);reverbWet.gain.value=item.state.reverbMix;
+    delay.delayTime.value=.24;delayWet.gain.value=item.state.delayMix;feedback.gain.value=.18;
     source.buffer=item.buffer;gain.gain.value=effectiveGain(item.state,solo);pan.pan.value=item.state.pan;
-    source.connect(gain);gain.connect(pan);pan.connect(bus);source.start(0);
+    source.connect(gain);gain.connect(low);low.connect(mid);mid.connect(high);high.connect(compressor);
+    compressor.connect(dry);dry.connect(pan);
+    compressor.connect(convolver);convolver.connect(reverbWet);reverbWet.connect(pan);
+    compressor.connect(delay);delay.connect(delayWet);delayWet.connect(pan);delay.connect(feedback);feedback.connect(delay);
+    pan.connect(bus);source.start(0);
    }
    return await output.startRendering();
   }finally{rendering=false;}
