@@ -9,6 +9,9 @@
   reverbMix:clamp(input?.reverbMix??0,0,0.5),delayMix:clamp(input?.delayMix??0,0,0.5),delayTime:clamp(input?.delayTime??0.24,0.05,0.75),delayFeedback:clamp(input?.delayFeedback??0.18,0,0.65)
  });
  function effectiveGain(state,anySolo){return state.mute||(anySolo&&!state.solo)?0:10**(state.gainDb/20);}
+ function normalizeMasterDb(value){return clamp(value,-24,0);}
+ function setMasterDb(value){masterDb=normalizeMasterDb(value);if(master)master.gain.setTargetAtTime(.85*10**(masterDb/20),context.currentTime,.02);return masterDb;}
+ function getMasterDb(){return masterDb;}
  function effectTailSeconds(state){
   const feedback=clamp(state?.delayFeedback??0,0,0.65),delayTime=clamp(state?.delayTime??0.24,0.05,0.75);
   const echoes=feedback>0?Math.ceil(Math.log(0.001)/Math.log(feedback)):1;
@@ -16,7 +19,7 @@
   return Math.max(state?.reverbMix>0?1.6:0,delayTail);
  }
  function formatPan(value){const pan=clamp(value,-1,1);return pan<=-.98?"L":pan>=.98?"R":pan===0?"C":pan<0?`L ${Math.round(-pan*100)}%`:`R ${Math.round(pan*100)}%`;}
- let context=null,tracks=new Map(),syncTimer=null,master=null,rendering=false;
+ let context=null,tracks=new Map(),syncTimer=null,master=null,masterLimiter=null,masterDb=0,rendering=false;
  const mediaSources=new WeakMap();
  function createImpulse(ctx){
   const length=Math.floor(ctx.sampleRate*1.6),buffer=ctx.createBuffer(2,length,ctx.sampleRate);
@@ -38,12 +41,13 @@
   pan.connect(master);
   return {id:item.id,audio:item.audio,source,input,low,mid,high,compressor,dry,pan,convolver,reverbWet,delay,delayWet,delayFeedback,state};
  }
- function init(items){
+ function init(items,savedMasterDb=0){
   destroy();
   const AudioContextClass=root.AudioContext||root.webkitAudioContext;
   if(!AudioContextClass)throw new Error("הדפדפן אינו תומך במיקסר רב־ערוצי.");
   if(!context)context=new AudioContextClass();
-  if(!master){master=context.createGain();master.gain.value=0.85;master.connect(context.destination);}
+  if(!master){master=context.createGain();masterLimiter=context.createDynamicsCompressor();masterLimiter.threshold.value=-1;masterLimiter.knee.value=0;masterLimiter.ratio.value=20;masterLimiter.attack.value=.003;masterLimiter.release.value=.12;master.connect(masterLimiter);masterLimiter.connect(context.destination);}
+  setMasterDb(savedMasterDb);
   for(const item of items){const state=normalizeTrack(item.settings),track=buildTrackGraph(item,state);tracks.set(item.id,track);}
   applyAll();
  }
@@ -93,7 +97,7 @@
    const Offline=root.OfflineAudioContext||root.webkitOfflineAudioContext;
    if(!Offline)throw new Error("הדפדפן אינו תומך בייצוא Offline.");
    const output=new Offline(2,length,sampleRate),bus=output.createGain(),limiter=output.createDynamicsCompressor();
-   bus.gain.value=.85;limiter.threshold.value=-1;limiter.knee.value=0;limiter.ratio.value=20;limiter.attack.value=.003;limiter.release.value=.12;bus.connect(limiter);limiter.connect(output.destination);
+   bus.gain.value=.85*10**(masterDb/20);limiter.threshold.value=-1;limiter.knee.value=0;limiter.ratio.value=20;limiter.attack.value=.003;limiter.release.value=.12;bus.connect(limiter);limiter.connect(output.destination);
    const solo=decoded.some(x=>x.state.solo);
    for(const item of decoded){
     const source=output.createBufferSource(),gain=output.createGain(),pan=output.createStereoPanner();
@@ -124,5 +128,5 @@
   }
   tracks.clear();
  }
- root.ITZIK_STEM_MIXER={normalizeTrack,effectiveGain,formatPan,effectTailSeconds,init,setTrack,getTrack,getSettings,play,pause,stop,renderMix,destroy};
+ root.ITZIK_STEM_MIXER={normalizeTrack,effectiveGain,formatPan,effectTailSeconds,normalizeMasterDb,setMasterDb,getMasterDb,init,setTrack,getTrack,getSettings,play,pause,stop,renderMix,destroy};
 })(typeof window!=="undefined"?window:globalThis);

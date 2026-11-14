@@ -47,3 +47,10 @@ test("stem export keeps enough tail for reverb and delay feedback", () => {
   assert.equal(mixer.effectTailSeconds({ reverbMix: 0.2, delayMix: 0, delayTime: 0.24, delayFeedback: 0 }), 1.6);
   assert.ok(mixer.effectTailSeconds({ reverbMix: 0, delayMix: 0.2, delayTime: 0.75, delayFeedback: 0.65 }) >= 10);
 });
+
+
+test("stem master output gain is bounded and defaults to unity setting", () => {
+  assert.equal(mixer.normalizeMasterDb(100), 0);
+  assert.equal(mixer.normalizeMasterDb(-100), -24);
+  assert.equal(mixer.normalizeMasterDb(-6.5), -6.5);
+});
