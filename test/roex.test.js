@@ -23,8 +23,11 @@ async function invokeRoute(routePath, { headers = {}, body = {}, file } = {}) {
   const res = {
     statusCode: 200,
     payload: undefined,
+    headers: {},
     status(code) { this.statusCode = code; return this; },
-    json(payload) { this.payload = payload; return this; }
+    set(name, value) { this.headers[name.toLowerCase()] = value; return this; },
+    json(payload) { this.payload = payload; return this; },
+    send(payload) { this.payload = payload; return this; }
   };
   const handlers = layer.route.stack.map(item => item.handle);
   async function run(index) {
