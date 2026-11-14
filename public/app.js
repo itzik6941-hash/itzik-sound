@@ -1141,6 +1141,8 @@ $("#exportFormat").onchange=()=>{
  const mp3=$("#exportFormat").value==="mp3";
  $("#mp3Bitrate").hidden=!mp3;
  $("#bitrateLabel").hidden=!mp3;
+ $("#wavBitDepth").hidden=mp3;
+ $("#wavBitDepthLabel").hidden=mp3;
 };
 
 $("#startExport").onclick=exportCurrentFile;
@@ -1165,6 +1167,7 @@ async function exportCurrentFile(){
   let buffer;
   try{buffer=await ctx.decodeAudioData(bytes.slice(0));}
   finally{await ctx.close().catch(()=>{});}
+  if(buffer.duration>600)throw new Error(uiText("ייצוא מוגבל ל-10 דקות כדי לשמור על יציבות הדפדפן.","Exports are limited to 10 minutes to keep the browser stable."));
   if(window.ITZIK_MIXER?.hasProcessing?.()){
    status.textContent=uiText("מחשב את עיבוד המיקס לייצוא...","Rendering the processed mix for export...");
    buffer=await window.ITZIK_MIXER.renderOffline(buffer,window.ITZIK_MIXER.getSettings());
@@ -1173,7 +1176,7 @@ async function exportCurrentFile(){
   let blob;
 
   if(format==="wav"){
-   blob=encodeWav(buffer);
+   blob=encodeWav(buffer,Number($("#wavBitDepth").value||24));
   }else{
    if(!window.lamejs)throw new Error("מנוע MP3 לא נטען. בדוק חיבור לאינטרנט והפעל מחדש את האתר.");
    blob=encodeMp3(buffer,Number($("#mp3Bitrate").value));
@@ -1198,50 +1201,10 @@ async function exportCurrentFile(){
  }
 }
 
-function encodeWav(buffer){
- const channels=Math.min(buffer.numberOfChannels,2);
- const length=buffer.length;
- const rate=buffer.sampleRate;
- const bits=16;
- const block=channels*bits/8;
- const out=new ArrayBuffer(44+length*block);
- const v=new DataView(out);
- let o=0;
-
- const str=t=>{
-  for(let i=0;i<t.length;i++)v.setUint8(o++,t.charCodeAt(i));
- };
-
- str("RIFF");
- v.setUint32(o,36+length*block,true);o+=4;
- str("WAVE");
- str("fmt ");
- v.setUint32(o,16,true);o+=4;
- v.setUint16(o,1,true);o+=2;
- v.setUint16(o,channels,true);o+=2;
- v.setUint32(o,rate,true);o+=4;
- v.setUint32(o,rate*block,true);o+=4;
- v.setUint16(o,block,true);o+=2;
- v.setUint16(o,bits,true);o+=2;
- str("data");
- v.setUint32(o,length*block,true);o+=4;
-
- const data=Array.from(
-  {length:channels},
-  (_,c)=>buffer.getChannelData(c)
- );
-
- for(let i=0;i<length;i++){
-  for(let c=0;c<channels;c++){
-   let x=Math.max(-1,Math.min(1,data[c][i]));
-   v.setInt16(o,x<0?x*32768:x*32767,true);
-   o+=2;
-  }
- }
-
- return new Blob([out],{type:"audio/wav"});
+function encodeWav(buffer,bitDepth=24){
+ if(!window.ITZIK_WAV_ENCODER)throw new Error("מנוע WAV לא נטען. רענן את האתר ונסה שוב.");
+ return window.ITZIK_WAV_ENCODER.encode(buffer,bitDepth);
 }
-
 function encodeMp3(buffer,bitrate){
  const channels=Math.min(buffer.numberOfChannels,2);
  const rate=buffer.sampleRate;
