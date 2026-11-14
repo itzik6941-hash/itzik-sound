@@ -300,6 +300,9 @@ app.post(
   audioUpload.single("audio"),
   async (req, res) => {
     try {
+      if (!await getOwnedProject(req, req.user, req.body?.projectId)) {
+        return res.status(403).json({ error: "PROJECT_NOT_OWNED", message: "יש לשמור את הפרויקט בחשבון שלך לפני יצירת Preview." });
+      }
       const apiKey = process.env.ROEX_API_KEY;
 
       if (!apiKey) {
@@ -474,6 +477,9 @@ app.post(
     const apiKey = process.env.ROEX_API_KEY;
 
     try {
+      if (!await getOwnedProject(req, req.user, req.body?.projectId)) {
+        return res.status(403).json({ error: "PROJECT_NOT_OWNED", message: "יש לשמור את הפרויקט בחשבון שלך לפני יצירת Preview." });
+      }
       if (!apiKey) {
         return res.status(503).json({
           error: "ROEX_NOT_CONFIGURED",
@@ -642,9 +648,12 @@ app.post("/api/roex/mastering-preview-result", async (req, res) => {
       });
     }
 
+    const taskId = typeof req.body?.taskId === "string" ? req.body.taskId.trim() : "";
+    if (!taskId || !await ownsTask(req, user, req.body?.projectId, "mastering", taskId)) {
+      return res.status(403).json({ error: "MASTERING_TASK_NOT_OWNED", message: "המשימה אינה משויכת לפרויקט שלך." });
+    }
     const apiKey = process.env.ROEX_API_KEY;
-    const taskId = req.body?.taskId;
-    if (!apiKey || typeof taskId !== "string" || !taskId.trim()) {
+    if (!apiKey || !taskId) {
       return res.status(400).json({
         error: "INVALID_MASTERING_TASK",
         message: "חסר חיבור RoEx או מזהה משימה תקין."
@@ -821,8 +830,10 @@ app.post("/api/roex/preview-result", async (req, res) => {
     }
 
     const apiKey = process.env.ROEX_API_KEY;
-    const taskId = req.body.taskId;
-
+    const taskId = typeof req.body?.taskId === "string" ? req.body.taskId.trim() : "";
+    if (!taskId || !await ownsTask(req, user, req.body?.projectId, "mixPreview", taskId)) {
+      return res.status(403).json({ error: "PREVIEW_TASK_NOT_OWNED", message: "המשימה אינה משויכת לפרויקט שלך." });
+    }
     if (!apiKey || !taskId) {
       return res.status(400).json({
         message: "חסר חיבור RoEx או מזהה משימה."
