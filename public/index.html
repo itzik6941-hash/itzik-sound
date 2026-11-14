@@ -338,6 +338,8 @@
     <p>בחר פורמט להורדת קובץ האודיו שהעלית.</p>
     <label for="exportFormat">פורמט קובץ</label>
     <select id="exportFormat"><option value="wav">WAV — איכות מלאה</option><option value="mp3">MP3 — קובץ דחוס</option></select>
+    <label for="wavBitDepth" id="wavBitDepthLabel">עומק ביטים ל-WAV</label>
+    <select id="wavBitDepth"><option value="16">16-bit PCM — תאימות רחבה</option><option value="24" selected>24-bit PCM — איכות אולפן</option><option value="32">32-bit Float — שמירת Headroom</option></select>
     <label for="mp3Bitrate" id="bitrateLabel" hidden>איכות MP3</label>
     <select id="mp3Bitrate" hidden><option value="128">128 kbps</option><option value="192" selected>192 kbps</option><option value="256">256 kbps</option><option value="320">320 kbps</option></select>
     <button class="primary-btn" id="startExport">הורדת הקובץ</button>
@@ -349,6 +351,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/vendor/lame.min.js"></script>
 <script src="/mixer.js"></script>
+<script src="/wav-encoder.js"></script>
 <script src="/app.js"></script>
 <!-- ITZIK SOUND — Interactive Studio Entrance -->
 <style>
