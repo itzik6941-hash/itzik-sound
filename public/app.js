@@ -573,7 +573,7 @@ function bindMastering(){
 }
 
 
-async async function bindStemAudioPlayers(){
+async function bindStemAudioPlayers(){
  const mixer=$("#stemMixer");
  if(!mixer||!currentProjectId)return;
  const project=projects.find(p=>p.id===currentProjectId);
