@@ -1,24 +1,54 @@
 (function(root){
  "use strict";
  const clamp=(value,min,max)=>Math.min(max,Math.max(min,Number.isFinite(Number(value))?Number(value):0));
- const normalizeTrack=input=>({gainDb:clamp(input?.gainDb??0,-48,12),pan:clamp(input?.pan??0,-1,1),mute:input?.mute===true,solo:input?.solo===true});
- function effectiveGain(state,anySolo){return state.mute||(anySolo&&!state.solo)?0:10**(state.gainDb/20);}
+ const normalizeTrack=input=>({
+  gainDb:clamp(input?.gainDb??0,-48,12),pan:clamp(input?.pan??0,-1,1),
+  mute:input?.mute===true,solo:input?.solo===true,
+  eqLow:clamp(input?.eqLow??0,-12,12),eqMid:clamp(input?.eqMid??0,-12,12),eqHigh:clamp(input?.eqHigh??0,-12,12),
+  compThreshold:clamp(input?.compThreshold??0,-36,0),compRatio:clamp(input?.compRatio??1,1,12),
+  reverbMix:clamp(input?.reverbMix??0,0,0.5),delayMix:clamp(input?.delayMix??0,0,0.5)
+ });
  function formatPan(value){const pan=clamp(value,-1,1);return pan<=-.98?"L":pan>=.98?"R":pan===0?"C":pan<0?`L ${Math.round(-pan*100)}%`:`R ${Math.round(pan*100)}%`;}
  let context=null,tracks=new Map(),syncTimer=null,master=null,rendering=false;
  const mediaSources=new WeakMap();
+ function createImpulse(ctx){
+  const length=Math.floor(ctx.sampleRate*1.6),buffer=ctx.createBuffer(2,length,ctx.sampleRate);
+  for(let channel=0;channel<2;channel++){const data=buffer.getChannelData(channel);for(let i=0;i<length;i++)data[i]=(Math.random()*2-1)*Math.pow(1-i/length,2.4);}
+  return buffer;
+ }
+ function buildTrackGraph(item,state){
+  let source=mediaSources.get(item.audio);
+  if(!source){source=context.createMediaElementSource(item.audio);mediaSources.set(item.audio,source);}
+  const input=context.createGain(),low=context.createBiquadFilter(),mid=context.createBiquadFilter(),high=context.createBiquadFilter();
+  low.type="lowshelf";low.frequency.value=120;mid.type="peaking";mid.frequency.value=1000;mid.Q.value=0.9;high.type="highshelf";high.frequency.value=9000;
+  const compressor=context.createDynamicsCompressor(),dry=context.createGain(),pan=context.createStereoPanner();
+  const convolver=context.createConvolver(),reverbWet=context.createGain(),delay=context.createDelay(1),delayWet=context.createGain();
+  const delayFeedback=context.createGain();convolver.buffer=createImpulse(context);delay.delayTime.value=.24;delayFeedback.gain.value=.18;
+  source.connect(input);input.connect(low);low.connect(mid);mid.connect(high);high.connect(compressor);
+  compressor.connect(dry);dry.connect(pan);
+  compressor.connect(convolver);convolver.connect(reverbWet);reverbWet.connect(pan);
+  compressor.connect(delay);delay.connect(delayWet);delayWet.connect(pan);delay.connect(delayFeedback);delayFeedback.connect(delay);
+  pan.connect(master);
+  return {id:item.id,audio:item.audio,source,input,low,mid,high,compressor,dry,pan,convolver,reverbWet,delay,delayWet,delayFeedback,state};
+ }
  function init(items){
   destroy();
   const AudioContextClass=root.AudioContext||root.webkitAudioContext;
   if(!AudioContextClass)throw new Error("הדפדפן אינו תומך במיקסר רב־ערוצי.");
-  context=new AudioContextClass();master=context.createGain();master.gain.value=0.85;master.connect(context.destination);
-  for(const item of items){
-   const state=normalizeTrack(item.settings),source=context.createMediaElementSource(item.audio),gain=context.createGain(),pan=context.createStereoPanner();
-   source.connect(gain);gain.connect(pan);pan.connect(master);tracks.set(item.id,{id:item.id,audio:item.audio,source,gain,pan,state});
-  }
+  if(!context)context=new AudioContextClass();
+  if(!master){master=context.createGain();master.gain.value=0.85;master.connect(context.destination);}
+  for(const item of items){const state=normalizeTrack(item.settings),track=buildTrackGraph(item,state);tracks.set(item.id,track);}
   applyAll();
  }
  function anySolo(){return [...tracks.values()].some(t=>t.state.solo);}
- function applyAll(){const solo=anySolo();for(const t of tracks.values()){t.gain.gain.setTargetAtTime(effectiveGain(t.state,solo),context.currentTime,.012);t.pan.pan.setTargetAtTime(t.state.pan,context.currentTime,.012);}}
+ function applyAll(){const solo=anySolo();for(const t of tracks.values()){
+  const s=t.state,now=context.currentTime;
+  t.input.gain.setTargetAtTime(effectiveGain(s,solo),now,.012);t.pan.pan.setTargetAtTime(s.pan,now,.012);
+  t.low.gain.setTargetAtTime(s.eqLow,now,.02);t.mid.gain.setTargetAtTime(s.eqMid,now,.02);t.high.gain.setTargetAtTime(s.eqHigh,now,.02);
+  t.compressor.threshold.setTargetAtTime(s.compThreshold,now,.02);t.compressor.ratio.setTargetAtTime(s.compRatio,now,.02);
+  t.dry.gain.setTargetAtTime(1-Math.max(s.reverbMix,s.delayMix)*.35,now,.02);
+  t.reverbWet.gain.setTargetAtTime(s.reverbMix,now,.02);t.delayWet.gain.setTargetAtTime(s.delayMix,now,.02);
+ }} 
  function setTrack(id,patch){const t=tracks.get(id);if(!t)return null;t.state=normalizeTrack({...t.state,...patch});applyAll();return {...t.state};}
  function getTrack(id){const t=tracks.get(id);return t?{...t.state}:null;}
  function getSettings(){return Object.fromEntries([...tracks].map(([id,t])=>[id,{...t.state}]));}
@@ -66,10 +96,12 @@
   }finally{rendering=false;}
  }
  async function destroy(){
-  pause();for(const t of tracks.values()){try{t.source.disconnect();t.gain.disconnect();t.pan.disconnect();}catch{}}
-  tracks.clear();if(master){try{master.disconnect();}catch{}master=null;}
-  // Keep the AudioContext alive: MediaElementAudioSourceNode is permanently
-  // associated with its media element and cannot be recreated in a new context.
+  pause();
+  for(const t of tracks.values()){
+   for(const node of [t.input,t.low,t.mid,t.high,t.compressor,t.dry,t.pan,t.convolver,t.reverbWet,t.delay,t.delayWet,t.delayFeedback]){try{node.disconnect();}catch{}}
+   try{t.source.disconnect();}catch{}
+  }
+  tracks.clear();
  }
  root.ITZIK_STEM_MIXER={normalizeTrack,effectiveGain,formatPan,init,setTrack,getTrack,getSettings,play,pause,stop,renderMix,destroy};
 })(typeof window!=="undefined"?window:globalThis);
