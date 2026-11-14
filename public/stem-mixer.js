@@ -6,7 +6,7 @@
   mute:input?.mute===true,solo:input?.solo===true,
   eqLow:clamp(input?.eqLow??0,-12,12),eqMid:clamp(input?.eqMid??0,-12,12),eqHigh:clamp(input?.eqHigh??0,-12,12),
   compThreshold:clamp(input?.compThreshold??0,-36,0),compRatio:clamp(input?.compRatio??1,1,12),
-  reverbMix:clamp(input?.reverbMix??0,0,0.5),delayMix:clamp(input?.delayMix??0,0,0.5)
+  reverbMix:clamp(input?.reverbMix??0,0,0.5),delayMix:clamp(input?.delayMix??0,0,0.5),delayTime:clamp(input?.delayTime??0.24,0.05,0.75),delayFeedback:clamp(input?.delayFeedback??0.18,0,0.65)
  });
  function effectiveGain(state,anySolo){return state.mute||(anySolo&&!state.solo)?0:10**(state.gainDb/20);}
  function formatPan(value){const pan=clamp(value,-1,1);return pan<=-.98?"L":pan>=.98?"R":pan===0?"C":pan<0?`L ${Math.round(-pan*100)}%`:`R ${Math.round(pan*100)}%`;}
@@ -24,7 +24,7 @@
   low.type="lowshelf";low.frequency.value=120;mid.type="peaking";mid.frequency.value=1000;mid.Q.value=0.9;high.type="highshelf";high.frequency.value=9000;
   const compressor=context.createDynamicsCompressor(),dry=context.createGain(),pan=context.createStereoPanner();
   const convolver=context.createConvolver(),reverbWet=context.createGain(),delay=context.createDelay(1),delayWet=context.createGain();
-  const delayFeedback=context.createGain();convolver.buffer=createImpulse(context);delay.delayTime.value=.24;delayFeedback.gain.value=.18;
+  const delayFeedback=context.createGain();convolver.buffer=createImpulse(context);delay.delayTime.value=state.delayTime;delayFeedback.gain.value=state.delayFeedback;
   source.connect(input);input.connect(low);low.connect(mid);mid.connect(high);high.connect(compressor);
   compressor.connect(dry);dry.connect(pan);
   compressor.connect(convolver);convolver.connect(reverbWet);reverbWet.connect(pan);
@@ -47,7 +47,7 @@
   t.input.gain.setTargetAtTime(effectiveGain(s,solo),now,.012);t.pan.pan.setTargetAtTime(s.pan,now,.012);
   t.low.gain.setTargetAtTime(s.eqLow,now,.02);t.mid.gain.setTargetAtTime(s.eqMid,now,.02);t.high.gain.setTargetAtTime(s.eqHigh,now,.02);
   t.compressor.threshold.setTargetAtTime(s.compThreshold,now,.02);t.compressor.ratio.setTargetAtTime(s.compRatio,now,.02);
-  t.dry.gain.setTargetAtTime(1-Math.max(s.reverbMix,s.delayMix)*.35,now,.02);
+  t.dry.gain.setTargetAtTime(1,now,.02);
   t.reverbWet.gain.setTargetAtTime(s.reverbMix,now,.02);t.delayWet.gain.setTargetAtTime(s.delayMix,now,.02);
  }} 
  function setTrack(id,patch){const t=tracks.get(id);if(!t)return null;t.state=normalizeTrack({...t.state,...patch});applyAll();return {...t.state};}
@@ -98,7 +98,7 @@
     high.type="highshelf";high.frequency.value=9000;high.gain.value=item.state.eqHigh;
     compressor.threshold.value=item.state.compThreshold;compressor.ratio.value=item.state.compRatio;
     convolver.buffer=createImpulse(output);reverbWet.gain.value=item.state.reverbMix;
-    delay.delayTime.value=.24;delayWet.gain.value=item.state.delayMix;feedback.gain.value=.18;
+    delay.delayTime.value=item.state.delayTime;delayWet.gain.value=item.state.delayMix;feedback.gain.value=item.state.delayFeedback;
     source.buffer=item.buffer;gain.gain.value=effectiveGain(item.state,solo);pan.pan.value=item.state.pan;
     source.connect(gain);gain.connect(low);low.connect(mid);mid.connect(high);high.connect(compressor);
     compressor.connect(dry);dry.connect(pan);

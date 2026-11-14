@@ -213,6 +213,8 @@ function mixPage() {
                     <label class="stem-mix-control"><span>Compressor Ratio <output data-stem-fx-value="compRatio:${name}">1:1</output></span><input type="range" data-stem-fx="compRatio:${name}" min="1" max="12" step="0.5" value="1"></label>
                     <label class="stem-mix-control"><span>Reverb <output data-stem-fx-value="reverbMix:${name}">0%</output></span><input type="range" data-stem-fx="reverbMix:${name}" min="0" max="0.5" step="0.01" value="0"></label>
                     <label class="stem-mix-control"><span>Delay <output data-stem-fx-value="delayMix:${name}">0%</output></span><input type="range" data-stem-fx="delayMix:${name}" min="0" max="0.5" step="0.01" value="0"></label>
+                    <label class="stem-mix-control"><span>${uiText("זמן השהיה","Delay time")} <output data-stem-fx-value="delayTime:${name}">240 ms</output></span><input type="range" data-stem-fx="delayTime:${name}" min="0.05" max="0.75" step="0.01" value="0.24"></label>
+                    <label class="stem-mix-control"><span>${uiText("משוב Delay","Delay feedback")} <output data-stem-fx-value="delayFeedback:${name}">18%</output></span><input type="range" data-stem-fx="delayFeedback:${name}" min="0" max="0.65" step="0.01" value="0.18"></label>
                   </div>
                 </details>
                 <audio data-stem-audio="${name}" preload="auto" crossorigin="anonymous"></audio>
@@ -623,11 +625,11 @@ async function bindStemAudioPlayers(){
   const save=async()=>{const next=window.ITZIK_STEM_MIXER.getSettings();if(!await updateProjectMetadata({stemMixSettings:next})&&status)status.textContent=uiText("השינויים פעילים, אך השמירה בענן נכשלה.","Changes are active, but cloud saving failed.");};
   tracks.forEach(track=>{
    const state=window.ITZIK_STEM_MIXER.getTrack(track.id);
-   for(const key of ["eqLow","eqMid","eqHigh","compThreshold","compRatio","reverbMix","delayMix"]){
+   for(const key of ["eqLow","eqMid","eqHigh","compThreshold","compRatio","reverbMix","delayMix","delayTime","delayFeedback"]){
     const input=document.querySelector('[data-stem-fx="'+key+':'+track.id+'"]');
     const output=document.querySelector('[data-stem-fx-value="'+key+':'+track.id+'"]');
     if(input)input.value=state[key];
-    const display=value=>key==="compRatio"?Number(value).toFixed(1)+":1":key.endsWith("Mix")?Math.round(value*100)+"%":Number(value).toFixed(1)+" dB";
+    const display=value=>key==="compRatio"?Number(value).toFixed(1)+":1":key==="delayTime"?Math.round(value*1000)+" ms":key==="delayFeedback"||key.endsWith("Mix")?Math.round(value*100)+"%":Number(value).toFixed(1)+" dB";
     if(output)output.textContent=display(state[key]);
     if(input)input.oninput=()=>{const value=Number(input.value);window.ITZIK_STEM_MIXER.setTrack(track.id,{[key]:value});if(output)output.textContent=display(value);save();};
    }
