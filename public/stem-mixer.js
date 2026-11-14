@@ -8,7 +8,10 @@
   compThreshold:clamp(input?.compThreshold??0,-36,0),compRatio:clamp(input?.compRatio??1,1,12),
   reverbMix:clamp(input?.reverbMix??0,0,0.5),delayMix:clamp(input?.delayMix??0,0,0.5),delayTime:clamp(input?.delayTime??0.24,0.05,0.75),delayFeedback:clamp(input?.delayFeedback??0.18,0,0.65)
  });
- function effectiveGain(state,anySolo){return state.mute||(anySolo&&!state.solo)?0:10**(state.gainDb/20);}\n function normalizeMasterDb(value){return clamp(value,-24,0);}\n function setMasterDb(value){masterDb=normalizeMasterDb(value);if(master)master.gain.setTargetAtTime(.85*10**(masterDb/20),context.currentTime,.02);return masterDb;}\n function getMasterDb(){return masterDb;}
+ function effectiveGain(state,anySolo){return state.mute||(anySolo&&!state.solo)?0:10**(state.gainDb/20);}
+ function normalizeMasterDb(value){return clamp(value,-24,0);}
+ function setMasterDb(value){masterDb=normalizeMasterDb(value);if(master)master.gain.setTargetAtTime(.85*10**(masterDb/20),context.currentTime,.02);return masterDb;}
+ function getMasterDb(){return masterDb;}
  function effectTailSeconds(state){
   const feedback=clamp(state?.delayFeedback??0,0,0.65),delayTime=clamp(state?.delayTime??0.24,0.05,0.75);
   const echoes=feedback>0?Math.ceil(Math.log(0.001)/Math.log(feedback)):1;
@@ -43,7 +46,8 @@
   const AudioContextClass=root.AudioContext||root.webkitAudioContext;
   if(!AudioContextClass)throw new Error("הדפדפן אינו תומך במיקסר רב־ערוצי.");
   if(!context)context=new AudioContextClass();
-  if(!master){master=context.createGain();masterLimiter=context.createDynamicsCompressor();masterLimiter.threshold.value=-1;masterLimiter.knee.value=0;masterLimiter.ratio.value=20;masterLimiter.attack.value=.003;masterLimiter.release.value=.12;master.connect(masterLimiter);masterLimiter.connect(context.destination);}\n  setMasterDb(savedMasterDb);
+  if(!master){master=context.createGain();masterLimiter=context.createDynamicsCompressor();masterLimiter.threshold.value=-1;masterLimiter.knee.value=0;masterLimiter.ratio.value=20;masterLimiter.attack.value=.003;masterLimiter.release.value=.12;master.connect(masterLimiter);masterLimiter.connect(context.destination);}
+  setMasterDb(savedMasterDb);
   for(const item of items){const state=normalizeTrack(item.settings),track=buildTrackGraph(item,state);tracks.set(item.id,track);}
   applyAll();
  }
