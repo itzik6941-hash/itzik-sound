@@ -63,15 +63,29 @@
  function setTrack(id,patch){const t=tracks.get(id);if(!t)return null;t.state=normalizeTrack({...t.state,...patch});applyAll();return {...t.state};}
  function getTrack(id){const t=tracks.get(id);return t?{...t.state}:null;}
  function getSettings(){return Object.fromEntries([...tracks].map(([id,t])=>[id,{...t.state}]));}
+ function getPlaybackStartTime(list){const reference=list.find(t=>t.audio&&!t.audio.ended);return Math.max(0,reference?.audio.currentTime||0);}
+ function syncTracks(list,tolerance=.08){
+  const active=list.filter(t=>t.audio&&!t.audio.paused&&!t.audio.ended);
+  const leader=active[0]?.audio;
+  if(!leader)return false;
+  for(const item of active.slice(1)){
+   const audio=item.audio;
+   if(Math.abs(audio.currentTime-leader.currentTime)>tolerance&&!audio.seeking){
+    try{audio.currentTime=Math.min(leader.currentTime,Math.max(0,(audio.duration||leader.currentTime)-.02));}catch{}
+   }
+  }
+  return true;
+ }
  async function play(){
   if(!context||!tracks.size)throw new Error("לא נטענו ערוצים לנגינה.");
   await context.resume();
-  const list=[...tracks.values()],masterTime=Math.max(0,list[0].audio.currentTime||0);
+  const list=[...tracks.values()],masterTime=getPlaybackStartTime(list);
   for(const t of list){if(!Number.isFinite(t.audio.duration))await new Promise((resolve,reject)=>{t.audio.addEventListener("loadedmetadata",resolve,{once:true});t.audio.addEventListener("error",()=>reject(new Error("קובץ ערוץ לא נטען.")),{once:true});});}
-  for(const t of list){if(Math.abs(t.audio.currentTime-masterTime)>.12)t.audio.currentTime=Math.min(masterTime,Math.max(0,(t.audio.duration||masterTime)-.02));}
-  await Promise.all(list.map(t=>t.audio.play()));
+  for(const t of list){if(!t.audio.ended&&Math.abs(t.audio.currentTime-masterTime)>.12)t.audio.currentTime=Math.min(masterTime,Math.max(0,(t.audio.duration||masterTime)-.02));}
+  try{await Promise.all(list.filter(t=>!t.audio.ended).map(t=>t.audio.play()));}
+  catch(error){for(const t of list)t.audio.pause();if(syncTimer){clearInterval(syncTimer);syncTimer=null;}throw error;}
   if(syncTimer)clearInterval(syncTimer);
-  syncTimer=setInterval(()=>{const lead=list[0]?.audio;if(!lead||lead.paused)return;for(const t of list.slice(1)){if(Math.abs(t.audio.currentTime-lead.currentTime)>.08&&!t.audio.seeking){try{t.audio.currentTime=lead.currentTime;}catch{}}}},300);
+  syncTimer=setInterval(()=>{if(!syncTracks(list)&&syncTimer){clearInterval(syncTimer);syncTimer=null;}},300);
  }
  function pause(){for(const t of tracks.values())t.audio.pause();if(syncTimer){clearInterval(syncTimer);syncTimer=null;}}
  function stop(){pause();for(const t of tracks.values()){try{t.audio.currentTime=0;}catch{}}}
@@ -128,5 +142,5 @@
   }
   tracks.clear();
  }
- root.ITZIK_STEM_MIXER={normalizeTrack,effectiveGain,formatPan,effectTailSeconds,normalizeMasterDb,setMasterDb,getMasterDb,init,setTrack,getTrack,getSettings,play,pause,stop,renderMix,destroy};
+ root.ITZIK_STEM_MIXER={normalizeTrack,effectiveGain,formatPan,effectTailSeconds,normalizeMasterDb,setMasterDb,getMasterDb,getPlaybackStartTime,syncTracks,init,setTrack,getTrack,getSettings,play,pause,stop,renderMix,destroy};
 })(typeof window!=="undefined"?window:globalThis);

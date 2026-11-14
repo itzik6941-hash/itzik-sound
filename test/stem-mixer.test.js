@@ -54,3 +54,27 @@ test("stem master output gain is bounded and defaults to unity setting", () => {
   assert.equal(mixer.normalizeMasterDb(-100), -24);
   assert.equal(mixer.normalizeMasterDb(-6.5), -6.5);
 });
+
+
+test("stem synchronization follows an active track after the first track ends", () => {
+  const ended = { audio: { currentTime: 4, paused: true, ended: true, seeking: false, duration: 4 } };
+  const active = { audio: { currentTime: 5, paused: false, ended: false, seeking: false, duration: 9 } };
+  const follower = { audio: { currentTime: 4, paused: false, ended: false, seeking: false, duration: 9 } };
+  assert.equal(mixer.syncTracks([ended, active, follower]), true);
+  assert.equal(follower.audio.currentTime, 5);
+  assert.equal(ended.audio.currentTime, 4);
+});
+
+test("stem synchronization stops when no tracks are playing", () => {
+  const paused = { audio: { currentTime: 2, paused: true, ended: false, seeking: false, duration: 8 } };
+  const ended = { audio: { currentTime: 8, paused: true, ended: true, seeking: false, duration: 8 } };
+  assert.equal(mixer.syncTracks([paused, ended]), false);
+});
+
+
+test("playback resume position ignores ended short stems", () => {
+  const ended = { audio: { currentTime: 4, ended: true } };
+  const active = { audio: { currentTime: 2.5, ended: false } };
+  assert.equal(mixer.getPlaybackStartTime([ended, active]), 2.5);
+  assert.equal(mixer.getPlaybackStartTime([ended]), 0);
+});
