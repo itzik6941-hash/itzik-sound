@@ -9,6 +9,12 @@
   reverbMix:clamp(input?.reverbMix??0,0,0.5),delayMix:clamp(input?.delayMix??0,0,0.5),delayTime:clamp(input?.delayTime??0.24,0.05,0.75),delayFeedback:clamp(input?.delayFeedback??0.18,0,0.65)
  });
  function effectiveGain(state,anySolo){return state.mute||(anySolo&&!state.solo)?0:10**(state.gainDb/20);}
+ function effectTailSeconds(state){
+  const feedback=clamp(state?.delayFeedback??0,0,0.65),delayTime=clamp(state?.delayTime??0.24,0.05,0.75);
+  const echoes=feedback>0?Math.ceil(Math.log(0.001)/Math.log(feedback)):1;
+  const delayTail=state?.delayMix>0?delayTime*echoes:0;
+  return Math.max(state?.reverbMix>0?1.6:0,delayTail);
+ }
  function formatPan(value){const pan=clamp(value,-1,1);return pan<=-.98?"L":pan>=.98?"R":pan===0?"C":pan<0?`L ${Math.round(-pan*100)}%`:`R ${Math.round(pan*100)}%`;}
  let context=null,tracks=new Map(),syncTimer=null,master=null,rendering=false;
  const mediaSources=new WeakMap();
@@ -48,7 +54,7 @@
   t.low.gain.setTargetAtTime(s.eqLow,now,.02);t.mid.gain.setTargetAtTime(s.eqMid,now,.02);t.high.gain.setTargetAtTime(s.eqHigh,now,.02);
   t.compressor.threshold.setTargetAtTime(s.compThreshold,now,.02);t.compressor.ratio.setTargetAtTime(s.compRatio,now,.02);
   t.dry.gain.setTargetAtTime(1,now,.02);
-  t.reverbWet.gain.setTargetAtTime(s.reverbMix,now,.02);t.delayWet.gain.setTargetAtTime(s.delayMix,now,.02);
+  t.reverbWet.gain.setTargetAtTime(s.reverbMix,now,.02);t.delayWet.gain.setTargetAtTime(s.delayMix,now,.02);t.delay.delayTime.setTargetAtTime(s.delayTime,now,.02);t.delayFeedback.gain.setTargetAtTime(s.delayFeedback,now,.02);
  }} 
  function setTrack(id,patch){const t=tracks.get(id);if(!t)return null;t.state=normalizeTrack({...t.state,...patch});applyAll();return {...t.state};}
  function getTrack(id){const t=tracks.get(id);return t?{...t.state}:null;}
@@ -82,7 +88,8 @@
    const sampleRate=Math.min(48000,Math.max(...decoded.map(x=>x.buffer.sampleRate)));
    const duration=Math.max(...decoded.map(x=>x.buffer.duration));
    if(duration>600)throw new Error("ייצוא מוגבל ל־10 דקות.");
-   const length=Math.ceil(duration*sampleRate);
+   const tailSeconds=Math.max(...decoded.map(x=>effectTailSeconds(x.state)));
+   const length=Math.ceil((duration+tailSeconds)*sampleRate);
    const Offline=root.OfflineAudioContext||root.webkitOfflineAudioContext;
    if(!Offline)throw new Error("הדפדפן אינו תומך בייצוא Offline.");
    const output=new Offline(2,length,sampleRate),bus=output.createGain(),limiter=output.createDynamicsCompressor();
@@ -117,5 +124,5 @@
   }
   tracks.clear();
  }
- root.ITZIK_STEM_MIXER={normalizeTrack,effectiveGain,formatPan,init,setTrack,getTrack,getSettings,play,pause,stop,renderMix,destroy};
+ root.ITZIK_STEM_MIXER={normalizeTrack,effectiveGain,formatPan,effectTailSeconds,init,setTrack,getTrack,getSettings,play,pause,stop,renderMix,destroy};
 })(typeof window!=="undefined"?window:globalThis);
