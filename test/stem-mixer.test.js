@@ -5,7 +5,7 @@ require("../public/stem-mixer.js");
 const mixer = global.window.ITZIK_STEM_MIXER;
 
 test("stem track settings are normalized and bounded", () => {
-  assert.deepEqual(mixer.normalizeTrack({}), { gainDb: 0, pan: 0, mute: false, solo: false });
+  assert.deepEqual(mixer.normalizeTrack({}), { gainDb: 0, pan: 0, mute: false, solo: false, eqLow: 0, eqMid: 0, eqHigh: 0, compThreshold: 0, compRatio: 1, reverbMix: 0, delayMix: 0 });
   assert.deepEqual(mixer.normalizeTrack({ gainDb: 100, pan: -5, mute: true, solo: 1 }), { gainDb: 12, pan: -1, mute: true, solo: false });
 });
 
