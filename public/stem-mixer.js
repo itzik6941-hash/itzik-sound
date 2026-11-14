@@ -4,7 +4,8 @@
  const normalizeTrack=input=>({gainDb:clamp(input?.gainDb??0,-48,12),pan:clamp(input?.pan??0,-1,1),mute:input?.mute===true,solo:input?.solo===true});
  function effectiveGain(state,anySolo){return state.mute||(anySolo&&!state.solo)?0:10**(state.gainDb/20);}
  function formatPan(value){const pan=clamp(value,-1,1);return pan<=-.98?"L":pan>=.98?"R":pan===0?"C":pan<0?`L ${Math.round(-pan*100)}%`:`R ${Math.round(pan*100)}%`;}
- let context=null,tracks=new Map(),syncTimer=null,master=null,rendering=false;\n const mediaSources=new WeakMap();
+ let context=null,tracks=new Map(),syncTimer=null,master=null,rendering=false;
+ const mediaSources=new WeakMap();
  function init(items){
   destroy();
   const AudioContextClass=root.AudioContext||root.webkitAudioContext;
