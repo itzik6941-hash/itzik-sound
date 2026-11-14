@@ -613,7 +613,9 @@ async function bindStemAudioPlayers(){
    tracks.push({id:name,audio:audioPlayer,settings:{...saved,gainDb:gain?Number(gain.value):0,pan:pan?Number(pan.value):0,mute:saved.mute===true,solo:saved.solo===true}});
   }
   if(!tracks.length){if(status)status.textContent=uiText("לא נמצאו ערוצים שמורים בפרויקט.","No saved stems were found in this project.");return;}
-  await window.ITZIK_STEM_MIXER.init(tracks,project?.metadata?.stemMasterDb??0);\n  const masterInput=$("#stemMasterGain"),masterOutput=$("#stemMasterValue");\n  if(masterInput){masterInput.value=window.ITZIK_STEM_MIXER.getMasterDb();if(masterOutput)masterOutput.textContent=window.ITZIK_STEM_MIXER.getMasterDb().toFixed(1)+" dB";}
+  await window.ITZIK_STEM_MIXER.init(tracks,project?.metadata?.stemMasterDb??0);
+  const masterInput=$("#stemMasterGain"),masterOutput=$("#stemMasterValue");
+  if(masterInput){masterInput.value=window.ITZIK_STEM_MIXER.getMasterDb();if(masterOutput)masterOutput.textContent=window.ITZIK_STEM_MIXER.getMasterDb().toFixed(1)+" dB";}
   const refresh=()=>tracks.forEach(track=>{
    const gain=$(`[data-stem-gain-value="${track.id}"]`),pan=$(`[data-stem-pan-value="${track.id}"]`);
    const state=window.ITZIK_STEM_MIXER.getTrack(track.id);
@@ -623,7 +625,8 @@ async function bindStemAudioPlayers(){
    if(mute){mute.setAttribute("aria-pressed",String(state.mute));mute.textContent=state.mute?uiText("בטל השתקה","Unmute"):uiText("השתק","Mute");}
    if(solo)solo.setAttribute("aria-pressed",String(state.solo));
   });
-  const save=async()=>{const next=window.ITZIK_STEM_MIXER.getSettings();if(!await updateProjectMetadata({stemMixSettings:next,stemMasterDb:window.ITZIK_STEM_MIXER.getMasterDb()})&&status)status.textContent=uiText("השינויים פעילים, אך השמירה בענן נכשלה.","Changes are active, but cloud saving failed.");};\n  if(masterInput)masterInput.oninput=()=>{const value=window.ITZIK_STEM_MIXER.setMasterDb(Number(masterInput.value));if(masterOutput)masterOutput.textContent=value.toFixed(1)+" dB";save();};
+  const save=async()=>{const next=window.ITZIK_STEM_MIXER.getSettings();if(!await updateProjectMetadata({stemMixSettings:next,stemMasterDb:window.ITZIK_STEM_MIXER.getMasterDb()})&&status)status.textContent=uiText("השינויים פעילים, אך השמירה בענן נכשלה.","Changes are active, but cloud saving failed.");};
+  if(masterInput)masterInput.oninput=()=>{const value=window.ITZIK_STEM_MIXER.setMasterDb(Number(masterInput.value));if(masterOutput)masterOutput.textContent=value.toFixed(1)+" dB";save();};
   tracks.forEach(track=>{
    const state=window.ITZIK_STEM_MIXER.getTrack(track.id);
    for(const key of ["eqLow","eqMid","eqHigh","compThreshold","compRatio","reverbMix","delayMix","delayTime","delayFeedback"]){
