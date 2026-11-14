@@ -2027,10 +2027,14 @@ async function deleteProject(id) {
     return;
   }
 
-  const paths=[p.storage_path,p.metadata?.reference?.storagePath,p.metadata?.mastering?.storagePath].filter(Boolean);
+  const paths=[...new Set([p.storage_path,p.metadata?.reference?.storagePath,p.metadata?.mastering?.storagePath].filter(Boolean))];
+  let storageCleanupFailed=false;
   if(paths.length){
     const {error:storageError}=await supabaseClient.storage.from("project-audio").remove(paths);
-    if(storageError){console.error("Project storage cleanup failed",{code:storageError.code||"UNKNOWN"});alert("הפרויקט נמחק, אך חלק מקובצי האחסון נשארו. ניתן לנקות אותם דרך התמיכה.");}
+    if(storageError){
+      storageCleanupFailed=true;
+      console.error("Project storage cleanup failed",{code:storageError.code||"UNKNOWN"});
+    }
   }
 
   if (currentProjectId === id) {
@@ -2043,6 +2047,8 @@ async function deleteProject(id) {
     render("projects");
   }
 
-  alert("הפרויקט נמחק בהצלחה!");
+  alert(storageCleanupFailed
+    ? "הפרויקט הוסר מהרשימה, אך חלק מקובצי האודיו נשארו באחסון. ניתן לפנות לתמיכה לניקוי."
+    : "הפרויקט וקובצי האודיו המשויכים אליו נמחקו בהצלחה.");
 }
 })();
