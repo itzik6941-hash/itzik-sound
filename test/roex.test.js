@@ -247,3 +247,86 @@ test("assistant honors English language setting without sending real provider tr
 after(() => {
   global.fetch = originalFetch;
 });
+
+test("stem separation requires explicit credit confirmation and does not contact RoEx otherwise", async () => {
+  let providerCalled = false;
+  global.fetch = async (url) => {
+    if (String(url) === "https://supabase.test/auth/v1/user") return json(200, { id: "test-user" });
+    if (String(url).startsWith("https://supabase.test/rest/v1/projects?")) return json(200, [{ metadata: {} }]);
+    if (String(url).startsWith("https://tonn.roexaudio.com/")) providerCalled = true;
+    throw new Error(`Unexpected mocked request: ${url}`);
+  };
+  const response = await invokeRoute("/api/roex/separate", {
+    headers: { Authorization: "Bearer test-access-token" },
+    body: { projectId: "project-test", separationMode: "four" },
+    file: { originalname: "test.mp3", mimetype: "audio/mpeg", buffer: Buffer.from("fake") }
+  });
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error, "CREDIT_CONFIRMATION_REQUIRED");
+  assert.equal(providerCalled, false);
+});
+
+test("stem separation submits the documented four-stem and two-stem request shapes", async () => {
+  const requests = [];
+  global.fetch = async (url, options = {}) => {
+    requests.push({ url: String(url), options });
+    if (String(url) === "https://supabase.test/auth/v1/user") return json(200, { id: "test-user" });
+    if (String(url).startsWith("https://supabase.test/rest/v1/projects?")) return json(200, [{ metadata: {} }]);
+    if (String(url) === "https://tonn.roexaudio.com/upload") return json(200, { signed_url: "https://upload.test/stem?sig=x", readable_url: "https://audio.test/source" });
+    if (String(url).startsWith("https://upload.test/")) return new Response(null, { status: 200 });
+    if (String(url) === "https://tonn.roexaudio.com/separate") return json(200, { stemflowTaskId: "stem-task-test" });
+    throw new Error(`Unexpected mocked request: ${url}`);
+  };
+  const file = { originalname: "track.wav", mimetype: "audio/wav", buffer: Buffer.from("audio") };
+  const auth = { Authorization: "Bearer test-access-token" };
+  const four = await invokeRoute("/api/roex/separate", { headers: auth, body: { projectId: "project-test", separationMode: "four", confirmedCreditCharge: "true" }, file });
+  assert.equal(four.status, 200);
+  assert.equal(four.body.creditsReserved, 75);
+  const fourRequest = requests.find(item => item.url.endsWith("/separate"));
+  assert.deepEqual(JSON.parse(fourRequest.options.body), { stemflowData: { audioFileLocation: "https://audio.test/source" } });
+  requests.length = 0;
+  const two = await invokeRoute("/api/roex/separate", { headers: auth, body: { projectId: "project-test", separationMode: "vocals_instrumental", confirmedCreditCharge: "true" }, file });
+  assert.equal(two.status, 200);
+  const twoRequest = requests.find(item => item.url.endsWith("/separate"));
+  assert.deepEqual(JSON.parse(twoRequest.options.body), { stemflowData: { audioFileLocation: "https://audio.test/source", separationMode: "vocals_instrumental" } });
+});
+
+test("stem status and retrieval are restricted to the project that owns the task", async () => {
+  let providerCalled = false;
+  global.fetch = async (url) => {
+    if (String(url) === "https://supabase.test/auth/v1/user") return json(200, { id: "test-user" });
+    if (String(url).startsWith("https://supabase.test/rest/v1/projects?")) return json(200, [{ metadata: { stemSeparation: { taskId: "owned-stem-task", separationMode: "four" } } }]);
+    if (String(url).startsWith("https://tonn.roexaudio.com/")) providerCalled = true;
+    throw new Error(`Unexpected mocked request: ${url}`);
+  };
+  const status = await invokeRoute("/api/roex/separate-status", { headers: { Authorization: "Bearer test-access-token" }, body: { projectId: "project-test", taskId: "foreign-task" } });
+  assert.equal(status.status, 403);
+  const retrieve = await invokeRoute("/api/roex/retrieve-stem", { headers: { Authorization: "Bearer test-access-token" }, body: { projectId: "project-test", taskId: "foreign-task", stem: "vocals" } });
+  assert.equal(retrieve.status, 403);
+  assert.equal(providerCalled, false);
+});
+
+test("stem status polls RoEx and returns only a bounded status", async () => {
+  global.fetch = async (url) => {
+    if (String(url) === "https://supabase.test/auth/v1/user") return json(200, { id: "test-user" });
+    if (String(url).startsWith("https://supabase.test/rest/v1/projects?")) return json(200, [{ metadata: { stemSeparation: { taskId: "owned-stem-task" } } }]);
+    if (String(url) === "https://tonn.roexaudio.com/separatestatus/owned-stem-task") return json(200, { status: "processing", info: "private details" });
+    throw new Error(`Unexpected mocked request: ${url}`);
+  };
+  const response = await invokeRoute("/api/roex/separate-status", { headers: { Authorization: "Bearer test-access-token" }, body: { projectId: "project-test", taskId: "owned-stem-task" } });
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.body, { status: "processing" });
+});
+
+test("stem retrieval validates provider storage host and streams WAV bytes", async () => {
+  global.fetch = async (url) => {
+    if (String(url) === "https://supabase.test/auth/v1/user") return json(200, { id: "test-user" });
+    if (String(url).startsWith("https://supabase.test/rest/v1/projects?")) return json(200, [{ metadata: { stemSeparation: { taskId: "owned-stem-task", separationMode: "four" } } }]);
+    if (String(url) === "https://tonn.roexaudio.com/retrievestems") return json(200, { stems: { vocals: "https://storage.googleapis.com/test-bucket/vocals.wav?sig=x" } });
+    if (String(url).startsWith("https://storage.googleapis.com/")) return new Response(Buffer.from("RIFF-audio"), { status: 200 });
+    throw new Error(`Unexpected mocked request: ${url}`);
+  };
+  const response = await invokeRoute("/api/roex/retrieve-stem", { headers: { Authorization: "Bearer test-access-token" }, body: { projectId: "project-test", taskId: "owned-stem-task", stem: "vocals" } });
+  assert.equal(response.status, 200);
+  assert.equal(response.body.toString(), "RIFF-audio");
+});
