@@ -63,7 +63,8 @@
  function setTrack(id,patch){const t=tracks.get(id);if(!t)return null;t.state=normalizeTrack({...t.state,...patch});applyAll();return {...t.state};}
  function getTrack(id){const t=tracks.get(id);return t?{...t.state}:null;}
  function getSettings(){return Object.fromEntries([...tracks].map(([id,t])=>[id,{...t.state}]));}
- function getPlaybackStartTime(list){const reference=list.find(t=>t.audio&&!t.audio.ended);return Math.max(0,reference?.audio.currentTime||0);}\n function syncTracks(list,tolerance=.08){
+ function getPlaybackStartTime(list){const reference=list.find(t=>t.audio&&!t.audio.ended);return Math.max(0,reference?.audio.currentTime||0);}
+ function syncTracks(list,tolerance=.08){
   const active=list.filter(t=>t.audio&&!t.audio.paused&&!t.audio.ended);
   const leader=active[0]?.audio;
   if(!leader)return false;
