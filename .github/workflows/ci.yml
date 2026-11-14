@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - itzik-sound-next
+      - 'itzik-sound-*'
   pull_request:
     branches:
       - main
@@ -32,3 +32,5 @@ jobs:
           node --check server.js
           node --check public/app.js
           node --check public/mixer.js
+          node --check public/i18n.js
+          node --check public/maintenance.js
