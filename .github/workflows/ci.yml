@@ -32,5 +32,7 @@ jobs:
           node --check server.js
           node --check public/app.js
           node --check public/mixer.js
+          node --check public/mixer-presets.js
+          node --check public/stem-mixer.js
           node --check public/i18n.js
           node --check public/maintenance.js
