@@ -43,7 +43,7 @@ test("stem pan formatter reports left center and right positions", () => {
 
 
 test("stem export keeps enough tail for reverb and delay feedback", () => {
-  assert.equal(mixer.effectTailSeconds({ reverbMix: 0, delayTime: 0.24, delayFeedback: 0 }), 0);
-  assert.equal(mixer.effectTailSeconds({ reverbMix: 0.2, delayTime: 0.24, delayFeedback: 0 }), 1.6);
-  assert.ok(mixer.effectTailSeconds({ reverbMix: 0, delayTime: 0.75, delayFeedback: 0.65 }) >= 10);
+  assert.equal(mixer.effectTailSeconds({ reverbMix: 0, delayMix: 0, delayTime: 0.24, delayFeedback: 0 }), 0);
+  assert.equal(mixer.effectTailSeconds({ reverbMix: 0.2, delayMix: 0, delayTime: 0.24, delayFeedback: 0 }), 1.6);
+  assert.ok(mixer.effectTailSeconds({ reverbMix: 0, delayMix: 0.2, delayTime: 0.75, delayFeedback: 0.65 }) >= 10);
 });
