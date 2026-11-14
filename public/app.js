@@ -149,7 +149,18 @@ function mixPage() {
 
     ${currentFile ? `<div class="panel mixer-panel">
       <div class="mixer-heading"><div><h3>${uiText("ערוץ הפרויקט","Project channel")}</h3><p>${escapeHtml(currentFile.name)} · ${uiText("ערוץ סטריאו אחד","One stereo channel")}</p></div><div class="mixer-actions"><button id="mixMute" class="secondary-btn" aria-pressed="${s.mute===true}">${s.mute?uiText("ביטול השתקה","Unmute"):uiText("השתק","Mute")}</button><button id="mixSolo" class="secondary-btn" disabled title="${uiText("אין ערוצים נוספים לסולו","There are no other tracks to solo")}">${uiText("Solo","Solo")}</button><button id="mixAB" class="secondary-btn" aria-pressed="false">A/B</button><button id="mixReset" class="secondary-btn">${uiText("איפוס","Reset")}</button></div></div>
-      <canvas id="mixMeter" class="mix-meter" width="800" height="22" aria-label="${uiText("מד עוצמת השמע","Audio level meter")}"></canvas><small id="mixMeterText">${uiText("נגן את הקובץ כדי לראות עוצמה בזמן אמת","Play the track to see real-time level")}</small>
+      <canvas id="mixMeter" class="mix-meter" width="800" height="22" aria-label="${uiText("מד עוצמת השמע","Audio level meter")}"></canvas>
+      <div class="mixer-preset-row">
+        <label for="mixPreset">${uiText("פרופיל מיקס מהיר","Quick mix profile")}</label>
+        <select id="mixPreset">
+          <option value="clean">${uiText("נקי ומאוזן","Clean & balanced")}</option>
+          <option value="vocal">${uiText("בהירות לווקאל","Vocal clarity")}</option>
+          <option value="warm">${uiText("חום ורכות","Warm & smooth")}</option>
+          <option value="punch">${uiText("פאנץ' ועוצמה","Punch & power")}</option>
+          <option value="wide">${uiText("סטריאו רחב","Wide stereo")}</option>
+        </select>
+        <button id="applyMixPreset" class="secondary-btn">${uiText("החל פרופיל","Apply profile")}</button>
+      </div><small id="mixMeterText">${uiText("נגן את הקובץ כדי לראות עוצמה בזמן אמת","Play the track to see real-time level")}</small>
       <div class="mixer-strip"><h4>${uiText("ערוץ","Channel")}</h4>${control("gainDb","עוצמת ערוץ","Track level",-24,12,0.5,s.gainDb??0," dB")}${control("pan","Pan","Pan",-1,1,0.01,s.pan??0)}<div class="mixer-placeholder"><b>${uiText("ערוץ יחיד","Single track")}</b><small>${uiText("Solo אינו זמין ללא ערוצים נפרדים","Solo requires separate stems")}</small></div></div>
       <div class="mixer-grid"><section class="mixer-strip"><h4>EQ</h4>${control("low","Bass · 100 Hz","Bass · 100 Hz",-12,12,0.5,s.low??0," dB")}${control("mid","Mid · 1 kHz","Mid · 1 kHz",-12,12,0.5,s.mid??0," dB")}${control("high","Treble · 8 kHz","Treble · 8 kHz",-12,12,0.5,s.high??0," dB")}</section>
       <section class="mixer-strip"><h4>${uiText("קומפרסור","Compressor")}</h4>${control("threshold","סף","Threshold",-60,0,1,s.threshold??-18," dB")}${control("ratio","יחס","Ratio",1,20,0.5,s.ratio??1,":1")}</section>
@@ -372,6 +383,26 @@ function bindMixer(){
  }
  stopMixMeter=window.ITZIK_MIXER.drawMeter(panel,$("#mixMeterText"));
  const settings=window.ITZIK_MIXER.getSettings();
+ const presetSelect=$("#mixPreset");
+ const applyPreset=$("#applyMixPreset");
+ if(presetSelect&&applyPreset)applyPreset.onclick=()=>{
+  const preset=window.ITZIK_MIX_PRESETS?.get?.(presetSelect.value);
+  if(!preset)return;
+  const next=window.ITZIK_MIXER.apply(preset);
+  document.querySelectorAll("[data-mix-control]").forEach(input=>{
+   const key=input.dataset.mixControl;
+   input.value=next[key];
+   const output=$(`[data-mix-value="${key}"]`);
+   if(output)output.textContent=`${Number(next[key]).toFixed(key==="ratio"?1:0)}${key==="ratio"?":1":["gainDb","masterDb","low","mid","high","threshold"].includes(key)?" dB":""}`;
+  });
+  const muteButton=$("#mixMute");
+  if(muteButton){muteButton.setAttribute("aria-pressed",String(next.mute));muteButton.textContent=next.mute?uiText("ביטול השתקה","Unmute"):uiText("השתק","Mute");}
+  const abButton=$("#mixAB");
+  if(abButton)abButton.setAttribute("aria-pressed",String(next.bypass));
+  scheduleMixSettingsSave();
+  const status=$("#mixSaveStatus");
+  if(status)status.textContent=uiText("הפרופיל הוחל. ניתן להמשיך לכוון ידנית.","Profile applied. You can continue fine-tuning manually.");
+ };
  document.querySelectorAll("[data-mix-control]").forEach(input=>{
   input.oninput=()=>{
    const key=input.dataset.mixControl;
