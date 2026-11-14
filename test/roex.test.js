@@ -113,6 +113,25 @@ test("RoEx preview and retrieval routes keep task ID and use authenticated calls
   assert.deepEqual(JSON.parse(retrieve.options.body).mixReviveData, { mixReviveTaskId: "mix-task-test" });
 });
 
+test("preview result cannot be retrieved with a task from another project", async () => {
+  let roexCalled = false;
+  global.fetch = async (url) => {
+    if (String(url) === "https://supabase.test/auth/v1/user") return json(200, { id: "test-user" });
+    if (String(url).startsWith("https://supabase.test/rest/v1/projects?")) {
+      return json(200, [{ metadata: { mixPreview: { taskId: "owned-task" } } }]);
+    }
+    if (String(url).startsWith("https://tonn.roexaudio.com/")) roexCalled = true;
+    throw new Error(`Unexpected mocked request: ${url}`);
+  };
+  const response = await invokeRoute("/api/roex/preview-result", {
+    headers: { Authorization: "Bearer test-access-token" },
+    body: { taskId: "foreign-task", projectId: "project-test" }
+  });
+  assert.equal(response.status, 403);
+  assert.equal(response.body.error, "PREVIEW_TASK_NOT_OWNED");
+  assert.equal(roexCalled, false);
+});
+
 test("unauthenticated audio upload is rejected before any RoEx call", async () => {
   let roexCalled = false;
   global.fetch = async (url, options = {}) => {
