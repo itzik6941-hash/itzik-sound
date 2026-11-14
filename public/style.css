@@ -1156,3 +1156,21 @@ body::after {
 .stem-card audio{width:100%;min-width:0}
 .stem-card a{white-space:nowrap;text-decoration:none}
 @media(max-width:650px){.stem-card{grid-template-columns:1fr}.stem-card audio{width:100%}.stem-controls select,.stem-controls button{width:100%}}
+
+.stem-mixer{margin-top:20px;padding:16px;border:1px solid var(--line);border-radius:14px;background:#0b1627}
+.stem-mixer-heading h3{margin:0 0 6px}.stem-mixer-heading p{margin:0;color:var(--muted);font-size:12px;line-height:1.6}
+.stem-transport{display:flex;gap:9px;flex-wrap:wrap;margin:16px 0}
+.stem-mixer-tracks{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.stem-mix-track{min-width:0;padding:14px;border:1px solid var(--line);border-radius:12px;background:#111f33}
+.stem-track-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
+.stem-track-actions{display:flex;gap:6px}.stem-track-actions button{padding:7px 10px;font-size:11px}
+.stem-mix-control{display:block;margin:13px 0}
+.stem-mix-control span{display:flex;justify-content:space-between;gap:8px;color:var(--muted);font-size:12px}
+.stem-mix-control output{color:var(--text);font-variant-numeric:tabular-nums}
+.stem-mix-control input{width:100%;margin-top:8px;accent-color:var(--cyan)}
+.stem-mix-track audio{display:none}
+.stem-download{display:inline-flex;margin-top:8px;text-decoration:none}
+#stemMixDownload{display:inline-flex;margin-top:14px;text-decoration:none}
+#stemMixerStatus{min-height:20px;color:var(--cyan);font-size:12px}
+.stem-track-actions button[aria-pressed="true"]{border-color:var(--cyan);color:var(--cyan);background:#163248}
+@media(max-width:600px){.stem-transport button{flex:1 1 42%}.stem-mixer-tracks{grid-template-columns:1fr}}
