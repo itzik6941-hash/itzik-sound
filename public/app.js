@@ -532,7 +532,7 @@ async function bindProjectTracks(){
    const scene=(latest?.metadata?.projectTrackScenes||[]).find(item=>item.id===id);if(!scene)return;
    const settings={};
    for(const item of audioItems){
-    const state=scene.settings?.[item.id]||{gainDb:0,pan:0,mute:false,solo:false};
+    const state={gainDb:0,pan:0,mute:false,solo:false,...window.ITZIK_PROJECT_TRACKS.effectDefaults,...(scene.settings?.[item.id]||{})};
     window.ITZIK_PROJECT_TRACKS.setTrack(item.id,state);
     settings[item.id]=window.ITZIK_PROJECT_TRACKS.getTrack(item.id);
     const gain=document.querySelector('[data-project-track-gain="'+item.id+'"]'),pan=document.querySelector('[data-project-track-pan="'+item.id+'"]');
