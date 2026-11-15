@@ -1502,35 +1502,55 @@ if (bottomPlayer) {
 }
 // data-go buttons are bound once per render by bindDynamic().
 
-$("#playBtn").onclick=()=>{
- const hasProjectTracks=currentPage==="mix"&&(projects.find(item=>item.id===currentProjectId)?.metadata?.projectTracks||[]).length>0;
- if(hasProjectTracks){
-  if(audio.paused)window.ITZIK_PROJECT_TRACKS.play().catch(error=>{const status=$("#projectTracksStatus");if(status)status.textContent=error.message;});
-  else window.ITZIK_PROJECT_TRACKS.pause();
-  return;
- }
- if(audio.paused)audio.play();
- else audio.pause();
-};
-
-audio.addEventListener("play",()=>$("#playBtn").textContent="Ⅱ");
-audio.addEventListener("pause",()=>$("#playBtn").textContent="▶");
+function hasActiveProjectTracks(){
+ return currentPage==="mix"&&(projects.find(item=>item.id===currentProjectId)?.metadata?.projectTracks||[]).length>0&&window.ITZIK_PROJECT_TRACKS?.isActive?.();
+}
 
 function fmt(t){
  if(!Number.isFinite(t))return"0:00";
  return Math.floor(t/60)+":"+String(Math.floor(t%60)).padStart(2,"0");
 }
 
-audio.addEventListener("loadedmetadata",()=>{
- $("#duration").textContent=fmt(audio.duration);
-});
+function updateProjectTrackPlayer(){
+ if(!hasActiveProjectTracks())return;
+ const engine=window.ITZIK_PROJECT_TRACKS;
+ const duration=engine.getDuration(),position=engine.getPlaybackPosition();
+ $("#playBtn").textContent=engine.isPlaying()?"Ⅱ":"▶";
+ $("#currentTime").textContent=fmt(position);
+ $("#duration").textContent=fmt(duration);
+ if(duration)$("#seek").value=Math.min(100,position/duration*100);
+}
 
+$("#playBtn").onclick=()=>{
+ if(hasActiveProjectTracks()){
+  if(window.ITZIK_PROJECT_TRACKS.isPlaying())window.ITZIK_PROJECT_TRACKS.pause();
+  else window.ITZIK_PROJECT_TRACKS.play().catch(error=>{const status=$("#projectTracksStatus");if(status)status.textContent=error.message;});
+  updateProjectTrackPlayer();
+  return;
+ }
+ if(audio.paused)audio.play();
+ else audio.pause();
+};
+
+audio.addEventListener("play",()=>{if(!hasActiveProjectTracks())$("#playBtn").textContent="Ⅱ";});
+audio.addEventListener("pause",()=>{if(!hasActiveProjectTracks())$("#playBtn").textContent="▶";});
+audio.addEventListener("loadedmetadata",()=>{
+ if(!hasActiveProjectTracks())$("#duration").textContent=fmt(audio.duration);
+ else updateProjectTrackPlayer();
+});
 audio.addEventListener("timeupdate",()=>{
+ if(hasActiveProjectTracks()){updateProjectTrackPlayer();return;}
  $("#currentTime").textContent=fmt(audio.currentTime);
  if(audio.duration)$("#seek").value=audio.currentTime/audio.duration*100;
 });
-
+window.addEventListener("itzik-project-tracks-statechange",updateProjectTrackPlayer);
 $("#seek").oninput=()=>{
+ if(hasActiveProjectTracks()){
+  const duration=window.ITZIK_PROJECT_TRACKS.getDuration();
+  if(duration)window.ITZIK_PROJECT_TRACKS.seek(Number($("#seek").value)/100*duration);
+  updateProjectTrackPlayer();
+  return;
+ }
  if(audio.duration)audio.currentTime=Number($("#seek").value)/100*audio.duration;
 };
 
