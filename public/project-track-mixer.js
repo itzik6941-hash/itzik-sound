@@ -38,8 +38,12 @@
     delayFeedback: clamp(input?.delayFeedback ?? 0.18, 0, 0.65)
   });
 
+  const saturationCurveCache = new Map();
   function makeSaturationCurve(amount) {
-    const drive = 1 + (clamp(amount, 0, 100) / 100) * 18;
+    const level = clamp(amount, 0, 100);
+    if (level === 0) return null;
+    if (saturationCurveCache.has(level)) return saturationCurveCache.get(level);
+    const drive = 1 + (level / 100) * 18;
     const samples = 2048;
     const curve = new Float32Array(samples);
     const normalizer = Math.tanh(drive);
@@ -47,6 +51,8 @@
       const x = (i * 2) / (samples - 1) - 1;
       curve[i] = Math.tanh(x * drive) / normalizer;
     }
+    if (saturationCurveCache.size >= 100) saturationCurveCache.clear();
+    saturationCurveCache.set(level, curve);
     return curve;
   }
 
