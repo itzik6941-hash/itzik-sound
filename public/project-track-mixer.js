@@ -2,6 +2,7 @@
   "use strict";
 
   const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value) || 0));
+  const normalizeMasterDb = value => clamp(value ?? -1.5, -24, 6);
   const hasSoloState = states => states.some(state => state?.solo === true);
   const shouldMuteBase = states => hasSoloState(states);
   const shouldMuteAdded = (state, hasSolo, baseSolo) => state?.mute === true || baseSolo === true || (hasSolo && state?.solo !== true);
@@ -19,6 +20,7 @@
 
   let context = null;
   let master = null;
+  let masterDb = -1.5;
   let limiter = null;
   let ownsContext = false;
   let leaderAudio = null;
@@ -90,7 +92,7 @@
     context = sharedContext || new AudioContextClass();
     ownsContext = !sharedContext;
     master = context.createGain();
-    master.gain.value = 0.85;
+    master.gain.value = 10 ** (masterDb / 20);
     if (sharedContext && sharedDestination) {
       master.connect(sharedDestination);
     } else {
@@ -271,6 +273,16 @@
     return leaderOriginalMute;
   }
 
+  function setMasterDb(value) {
+    masterDb = normalizeMasterDb(value);
+    if (master && context) master.gain.setTargetAtTime(10 ** (masterDb / 20), context.currentTime, 0.015);
+    return masterDb;
+  }
+
+  function getMasterDb() {
+    return masterDb;
+  }
+
   function setBaseSolo(value) {
     baseSolo = value === true;
     if (baseSolo) for (const track of tracks.values()) track.state.solo = false;
@@ -315,7 +327,7 @@
       outputLimiter.ratio.value = 20;
       outputLimiter.attack.value = 0.003;
       outputLimiter.release.value = 0.12;
-      bus.gain.value = 0.85;
+      bus.gain.value = 10 ** (masterDb / 20);
       bus.connect(outputLimiter);
       outputLimiter.connect(output.destination);
 
@@ -343,5 +355,5 @@
     }
   }
 
-  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, hasSoloState, shouldMuteBase, shouldMuteAdded, shouldPlayBase, shouldPauseTracksOnLeaderPause, getSynchronizedSeekTime, getPlaybackStartTime, getPlaybackDuration, isAnyTrackPlaying, getDuration, getPlaybackPosition, isPlaying, seek, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
+  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, normalizeMasterDb, setMasterDb, getMasterDb, hasSoloState, shouldMuteBase, shouldMuteAdded, shouldPlayBase, shouldPauseTracksOnLeaderPause, getSynchronizedSeekTime, getPlaybackStartTime, getPlaybackDuration, isAnyTrackPlaying, getDuration, getPlaybackPosition, isPlaying, seek, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
 })();

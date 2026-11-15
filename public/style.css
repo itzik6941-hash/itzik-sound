@@ -1185,3 +1185,13 @@ body::after {
 .stem-master-control output{color:var(--cyan);margin-inline-start:8px;font-variant-numeric:tabular-nums}
 .stem-master-control input{width:100%;accent-color:var(--cyan)}
 @media(max-width:620px){.stem-master-control{grid-template-columns:1fr}}
+
+
+/* Advanced multitrack mixer controls */
+.project-track-master{display:grid;grid-template-columns:minmax(130px,1fr) minmax(160px,2fr);align-items:center;gap:14px;margin:12px 0 18px;padding:14px;border:1px solid #315166;border-radius:12px;background:#101d30;font-size:13px;font-weight:700}
+.project-track-master span{display:flex;justify-content:space-between;gap:8px}
+.project-track-master output{color:var(--cyan);font-variant-numeric:tabular-nums}
+.project-track-master input{width:100%;accent-color:var(--cyan)}
+.stem-track-actions{flex-wrap:wrap;justify-content:flex-end}
+.stem-track-actions button:disabled{opacity:.3;cursor:not-allowed}
+@media(max-width:620px){.project-track-master{grid-template-columns:1fr}.stem-track-heading{align-items:flex-start;flex-direction:column}.stem-track-actions{justify-content:flex-start}}
