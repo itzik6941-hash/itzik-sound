@@ -13,7 +13,7 @@
   const isAnyTrackPlaying = (leader, trackAudios) => [leader, ...trackAudios].some(audio => audio && !audio.paused && !audio.ended);
   const effectDefaults = Object.freeze({
     eqLowDb: 0, eqMidDb: 0, eqHighDb: 0,
-    compThreshold: 0, compRatio: 1,
+    compThreshold: -18, compRatio: 1,
     reverbMix: 0, delayMix: 0, delayTime: 0.24, delayFeedback: 0.18
   });
   const normalize = input => ({
@@ -24,7 +24,7 @@
     eqLowDb: clamp(input?.eqLowDb ?? 0, -12, 12),
     eqMidDb: clamp(input?.eqMidDb ?? 0, -12, 12),
     eqHighDb: clamp(input?.eqHighDb ?? 0, -12, 12),
-    compThreshold: clamp(input?.compThreshold ?? 0, -36, 0),
+    compThreshold: clamp(input?.compThreshold ?? -18, -36, 0),
     compRatio: clamp(input?.compRatio ?? 1, 1, 12),
     reverbMix: clamp(input?.reverbMix ?? 0, 0, 0.5),
     delayMix: clamp(input?.delayMix ?? 0, 0, 0.5),
