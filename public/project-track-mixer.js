@@ -12,8 +12,9 @@
   const getPlaybackDuration = (leader, trackAudios) => Math.max(0, ...[leader, ...trackAudios].filter(Boolean).map(audio => Number.isFinite(audio.duration) ? audio.duration : 0));
   const isAnyTrackPlaying = (leader, trackAudios) => [leader, ...trackAudios].some(audio => audio && !audio.paused && !audio.ended);
   const effectDefaults = Object.freeze({
+    inputTrimDb: 0, phaseInvert: false, saturation: 0,
     eqLowDb: 0, eqMidDb: 0, eqHighDb: 0,
-    compThreshold: -18, compRatio: 1,
+    compThreshold: -18, compRatio: 1, compAttack: 0.012, compRelease: 0.22,
     reverbMix: 0, delayMix: 0, delayTime: 0.24, delayFeedback: 0.18
   });
   const normalize = input => ({
@@ -21,16 +22,39 @@
     pan: clamp(input?.pan ?? 0, -1, 1),
     mute: input?.mute === true,
     solo: input?.solo === true,
+    inputTrimDb: clamp(input?.inputTrimDb ?? 0, -24, 24),
+    phaseInvert: input?.phaseInvert === true,
+    saturation: clamp(input?.saturation ?? 0, 0, 100),
     eqLowDb: clamp(input?.eqLowDb ?? 0, -12, 12),
     eqMidDb: clamp(input?.eqMidDb ?? 0, -12, 12),
     eqHighDb: clamp(input?.eqHighDb ?? 0, -12, 12),
     compThreshold: clamp(input?.compThreshold ?? -18, -36, 0),
     compRatio: clamp(input?.compRatio ?? 1, 1, 12),
+    compAttack: clamp(input?.compAttack ?? 0.012, 0.001, 0.1),
+    compRelease: clamp(input?.compRelease ?? 0.22, 0.05, 1),
     reverbMix: clamp(input?.reverbMix ?? 0, 0, 0.5),
     delayMix: clamp(input?.delayMix ?? 0, 0, 0.5),
     delayTime: clamp(input?.delayTime ?? 0.24, 0.05, 0.75),
     delayFeedback: clamp(input?.delayFeedback ?? 0.18, 0, 0.65)
   });
+
+  const saturationCurveCache = new Map();
+  function makeSaturationCurve(amount) {
+    const level = clamp(amount, 0, 100);
+    if (level === 0) return null;
+    if (saturationCurveCache.has(level)) return saturationCurveCache.get(level);
+    const drive = 1 + (level / 100) * 18;
+    const samples = 2048;
+    const curve = new Float32Array(samples);
+    const normalizer = Math.tanh(drive);
+    for (let i = 0; i < samples; i++) {
+      const x = (i * 2) / (samples - 1) - 1;
+      curve[i] = Math.tanh(x * drive) / normalizer;
+    }
+    if (saturationCurveCache.size >= 100) saturationCurveCache.clear();
+    saturationCurveCache.set(level, curve);
+    return curve;
+  }
 
   function makeImpulse(ctx) {
     const length = Math.floor(ctx.sampleRate * 1.25);
@@ -53,11 +77,14 @@
   }
 
   function buildTrackGraph(ctx, source, destination, state) {
+    const input = ctx.createGain();
     const gain = ctx.createGain();
+    const polarity = ctx.createGain();
     const low = ctx.createBiquadFilter();
     const mid = ctx.createBiquadFilter();
     const high = ctx.createBiquadFilter();
     const compressor = ctx.createDynamicsCompressor();
+    const saturator = ctx.createWaveShaper();
     const dry = ctx.createGain();
     const delay = ctx.createDelay(1.5);
     const feedback = ctx.createGain();
@@ -81,29 +108,38 @@
     compressor.attack.value = 0.012;
     compressor.release.value = 0.22;
 
-    source.connect(gain);
-    gain.connect(low); low.connect(mid); mid.connect(high); high.connect(compressor);
-    compressor.connect(dry); dry.connect(effectBus);
-    compressor.connect(delay); delay.connect(feedback); feedback.connect(delay);
+    source.connect(input);
+    input.connect(gain);
+    gain.connect(polarity);
+    polarity.connect(low); low.connect(mid); mid.connect(high); high.connect(compressor);
+    compressor.connect(saturator);
+    saturator.connect(dry); dry.connect(effectBus);
+    saturator.connect(delay); delay.connect(feedback); feedback.connect(delay);
     delay.connect(delayWet); delayWet.connect(effectBus);
     effectBus.connect(reverbDry); reverbDry.connect(pan);
     effectBus.connect(convolver); convolver.connect(reverbWet); reverbWet.connect(pan);
     pan.connect(destination);
 
-    const graph = { gain, low, mid, high, compressor, dry, delay, feedback, delayWet, effectBus, reverbDry, convolver, reverbWet, pan };
+    const graph = { input, gain, polarity, low, mid, high, compressor, saturator, dry, delay, feedback, delayWet, effectBus, reverbDry, convolver, reverbWet, pan };
     applyTrackGraph(graph, state, ctx);
     return graph;
   }
 
   function applyTrackGraph(graph, state, ctx) {
     const v = normalize(state);
+    setParam(graph.input.gain, 10 ** (v.inputTrimDb / 20), ctx);
     setParam(graph.gain.gain, v.mute ? 0 : 10 ** (v.gainDb / 20), ctx);
+    setParam(graph.polarity.gain, v.phaseInvert ? -1 : 1, ctx);
+    graph.saturator.curve = makeSaturationCurve(v.saturation);
+    graph.saturator.oversample = "4x";
     setParam(graph.low.gain, v.eqLowDb, ctx);
     setParam(graph.mid.gain, v.eqMidDb, ctx);
     setParam(graph.high.gain, v.eqHighDb, ctx);
     setParam(graph.compressor.threshold, v.compThreshold, ctx);
     setParam(graph.compressor.ratio, v.compRatio, ctx);
     setParam(graph.compressor.knee, v.compRatio <= 1 ? 0 : 12, ctx);
+    setParam(graph.compressor.attack, v.compAttack, ctx);
+    setParam(graph.compressor.release, v.compRelease, ctx);
     setParam(graph.delay.delayTime, v.delayTime, ctx);
     setParam(graph.feedback.gain, v.delayMix > 0 ? v.delayFeedback : 0, ctx);
     setParam(graph.delayWet.gain, v.delayMix, ctx);

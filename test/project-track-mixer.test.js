@@ -8,23 +8,27 @@ const mixer = global.window.ITZIK_PROJECT_TRACKS;
 test("project track settings are normalized and bounded", () => {
   assert.deepEqual(mixer.normalize({}), {
     gainDb: 0, pan: 0, mute: false, solo: false,
-    eqLowDb: 0, eqMidDb: 0, eqHighDb: 0, compThreshold: -18, compRatio: 1,
+    inputTrimDb: 0, phaseInvert: false, saturation: 0,
+    eqLowDb: 0, eqMidDb: 0, eqHighDb: 0, compThreshold: -18, compRatio: 1, compAttack: 0.012, compRelease: 0.22,
     reverbMix: 0, delayMix: 0, delayTime: 0.24, delayFeedback: 0.18
   });
   assert.deepEqual(mixer.normalize({
     gainDb: 99, pan: -5, mute: true, solo: true,
+    inputTrimDb: 99, saturation: 99, compAttack: 0, compRelease: 2,
     eqLowDb: 99, eqMidDb: -99, eqHighDb: 99, compThreshold: -99, compRatio: 99,
     reverbMix: 99, delayMix: 99, delayTime: 99, delayFeedback: 99
   }), {
     gainDb: 12, pan: -1, mute: true, solo: true,
-    eqLowDb: 12, eqMidDb: -12, eqHighDb: 12, compThreshold: -36, compRatio: 12,
+    inputTrimDb: 24, phaseInvert: false, saturation: 99,
+    eqLowDb: 12, eqMidDb: -12, eqHighDb: 12, compThreshold: -36, compRatio: 12, compAttack: 0.001, compRelease: 1,
     reverbMix: 0.5, delayMix: 0.5, delayTime: 0.75, delayFeedback: 0.65
   });
   assert.deepEqual(mixer.normalize({
     gainDb: -99, pan: 5, mute: 1, solo: 0
   }), {
     gainDb: -48, pan: 1, mute: false, solo: false,
-    eqLowDb: 0, eqMidDb: 0, eqHighDb: 0, compThreshold: -18, compRatio: 1,
+    inputTrimDb: 0, phaseInvert: false, saturation: 0,
+    eqLowDb: 0, eqMidDb: 0, eqHighDb: 0, compThreshold: -18, compRatio: 1, compAttack: 0.012, compRelease: 0.22,
     reverbMix: 0, delayMix: 0, delayTime: 0.24, delayFeedback: 0.18
   });
 });
@@ -84,6 +88,7 @@ test("added tracks reuse the main mixer audio context and do not close it", asyn
     createStereoPanner: makeNode,
     createBiquadFilter: makeNode,
     createDynamicsCompressor: makeNode,
+    createWaveShaper: makeNode,
     createDelay: makeNode,
     createConvolver: makeNode,
     createBuffer(channels, length) { const data=Array.from({length:channels},()=>new Float32Array(length));return {getChannelData(channel){return data[channel];}}; },
@@ -211,24 +216,32 @@ test("master level can be changed and read back", () => {
 
 test("per-track EQ, compressor, reverb and delay settings are safely bounded", () => {
   const state=mixer.normalize({
+    inputTrimDb:99,phaseInvert:true,saturation:150,
     eqLowDb:20,eqMidDb:-20,eqHighDb:3,
-    compThreshold:-100,compRatio:30,reverbMix:1,delayMix:-1,
+    compThreshold:-100,compRatio:30,compAttack:0,compRelease:5,reverbMix:1,delayMix:-1,
     delayTime:2,delayFeedback:1
   });
   assert.deepEqual({
+    inputTrimDb:state.inputTrimDb,phaseInvert:state.phaseInvert,saturation:state.saturation,
     eqLowDb:state.eqLowDb,eqMidDb:state.eqMidDb,eqHighDb:state.eqHighDb,
-    compThreshold:state.compThreshold,compRatio:state.compRatio,
+    compThreshold:state.compThreshold,compRatio:state.compRatio,compAttack:state.compAttack,compRelease:state.compRelease,
     reverbMix:state.reverbMix,delayMix:state.delayMix,
     delayTime:state.delayTime,delayFeedback:state.delayFeedback
   },{
+    inputTrimDb:24,phaseInvert:true,saturation:100,
     eqLowDb:12,eqMidDb:-12,eqHighDb:3,
-    compThreshold:-36,compRatio:12,reverbMix:0.5,delayMix:0,
+    compThreshold:-36,compRatio:12,compAttack:0.001,compRelease:1,reverbMix:0.5,delayMix:0,
     delayTime:0.75,delayFeedback:0.65
   });
 });
 
 test("neutral track effects stay disabled by default", () => {
   const state=mixer.normalize({});
+  assert.equal(state.inputTrimDb,0);
+  assert.equal(state.phaseInvert,false);
+  assert.equal(state.saturation,0);
+  assert.equal(state.compAttack,0.012);
+  assert.equal(state.compRelease,0.22);
   assert.equal(state.eqLowDb,0);
   assert.equal(state.eqMidDb,0);
   assert.equal(state.eqHighDb,0);
