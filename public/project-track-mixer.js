@@ -162,6 +162,8 @@
   let master = null;
   let masterDb = -1.5;
   let limiter = null;
+  let masterAnalyser = null;
+  let masterMeterBuffer = null;
   let ownsContext = false;
   let leaderAudio = null;
   let leaderOriginalMute = false;
@@ -231,8 +233,13 @@
     ownsContext = !sharedContext;
     master = context.createGain();
     master.gain.value = 10 ** (masterDb / 20);
+    masterAnalyser = context.createAnalyser();
+    masterAnalyser.fftSize = 2048;
+    masterAnalyser.smoothingTimeConstant = 0.72;
+    masterMeterBuffer = new Float32Array(masterAnalyser.fftSize);
+    master.connect(masterAnalyser);
     if (sharedContext && sharedDestination) {
-      master.connect(sharedDestination);
+      masterAnalyser.connect(sharedDestination);
     } else {
       limiter = context.createDynamicsCompressor();
       limiter.threshold.value = -1;
@@ -240,7 +247,7 @@
       limiter.ratio.value = 20;
       limiter.attack.value = 0.003;
       limiter.release.value = 0.12;
-      master.connect(limiter);
+      masterAnalyser.connect(limiter);
       limiter.connect(context.destination);
     }
 
@@ -411,6 +418,21 @@
     return masterDb;
   }
 
+  function getMasterMeter() {
+    if (!masterAnalyser || !masterMeterBuffer) return { peak: 0, rms: 0, db: -Infinity, clipping: false };
+    masterAnalyser.getFloatTimeDomainData(masterMeterBuffer);
+    let peak = 0, sum = 0;
+    for (let i = 0; i < masterMeterBuffer.length; i++) {
+      const sample = masterMeterBuffer[i];
+      const absolute = Math.abs(sample);
+      if (absolute > peak) peak = absolute;
+      sum += sample * sample;
+    }
+    const rms = Math.sqrt(sum / masterMeterBuffer.length);
+    const db = 20 * Math.log10(Math.max(peak, 1e-6));
+    return { peak, rms, db, clipping: peak >= 0.999 };
+  }
+
   function setBaseSolo(value) {
     baseSolo = value === true;
     if (baseSolo) for (const track of tracks.values()) track.state.solo = false;
@@ -478,5 +500,5 @@
     }
   }
 
-  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, effectDefaults: { ...effectDefaults }, getEffectsTailDuration, normalizeMasterDb, setMasterDb, getMasterDb, hasSoloState, shouldMuteBase, shouldMuteAdded, shouldPlayBase, shouldPauseTracksOnLeaderPause, getSynchronizedSeekTime, getPlaybackStartTime, getPlaybackDuration, isAnyTrackPlaying, getDuration, getPlaybackPosition, isPlaying, seek, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
+  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, effectDefaults: { ...effectDefaults }, getEffectsTailDuration, normalizeMasterDb, setMasterDb, getMasterDb, getMasterMeter, hasSoloState, shouldMuteBase, shouldMuteAdded, shouldPlayBase, shouldPauseTracksOnLeaderPause, getSynchronizedSeekTime, getPlaybackStartTime, getPlaybackDuration, isAnyTrackPlaying, getDuration, getPlaybackPosition, isPlaying, seek, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
 })();
