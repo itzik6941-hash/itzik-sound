@@ -19,8 +19,8 @@ test("project track settings are normalized and bounded", () => {
     reverbMix: 99, delayMix: 99, delayTime: 99, delayFeedback: 99
   }), {
     gainDb: 12, pan: -1, mute: true, solo: true,
-    inputTrimDb: 24, phaseInvert: false, saturation: 100,
-    eqLowDb: 12, eqMidDb: -12, eqHighDb: 12, compThreshold: -36, compRatio: 12, compAttack: 0.1, compRelease: 1,
+    inputTrimDb: 24, phaseInvert: false, saturation: 99,
+    eqLowDb: 12, eqMidDb: -12, eqHighDb: 12, compThreshold: -36, compRatio: 12, compAttack: 0.001, compRelease: 1,
     reverbMix: 0.5, delayMix: 0.5, delayTime: 0.75, delayFeedback: 0.65
   });
   assert.deepEqual(mixer.normalize({
@@ -88,6 +88,7 @@ test("added tracks reuse the main mixer audio context and do not close it", asyn
     createStereoPanner: makeNode,
     createBiquadFilter: makeNode,
     createDynamicsCompressor: makeNode,
+    createWaveShaper: makeNode,
     createDelay: makeNode,
     createConvolver: makeNode,
     createBuffer(channels, length) { const data=Array.from({length:channels},()=>new Float32Array(length));return {getChannelData(channel){return data[channel];}}; },
