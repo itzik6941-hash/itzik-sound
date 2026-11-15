@@ -1262,3 +1262,5 @@ body::after {
 .project-track-history span{font-size:.8rem;opacity:.72;margin-inline-start:auto}
 .project-track-history button:disabled{opacity:.42;cursor:not-allowed}
 @media(max-width:620px){.project-track-history span{width:100%;margin-inline-start:0}}
+
+.project-track-automation{display:grid;gap:8px;padding:10px;border:1px solid var(--border-color,rgba(128,128,128,.22));border-radius:10px;margin-top:8px}.project-track-automation>div{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}.project-track-automation small{opacity:.7;font-size:.78rem}.project-track-automation-actions{display:flex;gap:8px;flex-wrap:wrap}

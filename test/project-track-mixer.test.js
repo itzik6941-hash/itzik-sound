@@ -391,3 +391,17 @@ test("project mixer supports copying, pasting and resetting complete channel set
  assert.match(app, /Reset channel settings/);
  assert.match(app, /window\.ITZIK_PROJECT_TRACKS\.normalize\(\{\}\)/);
 });
+
+
+test("track automation points are normalized, interpolated and exposed by the mixer engine", () => {
+ const engine = fs.readFileSync(new URL("../public/project-track-mixer.js", import.meta.url), "utf8");
+ const app = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+ assert.match(engine, /function normalizeAutomationLanes/);
+ assert.match(engine, /function interpolateAutomation/);
+ assert.match(engine, /function applyAutomationAtTime/);
+ assert.match(engine, /linearRampToValueAtTime/);
+ assert.match(engine, /setAutomationLanes, getAutomationLanes/);
+ assert.match(app, /data-project-track-automation-add=/);
+ assert.match(app, /data-project-track-automation-clear=/);
+ assert.match(app, /projectTrackAutomation/);
+});

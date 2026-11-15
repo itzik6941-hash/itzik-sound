@@ -256,6 +256,7 @@
   let tracks = new Map();
   let syncTimer = null;
   let rendering = false;
+  let automationLanes = Object.create(null);
 
   function notifyPlaybackState() {
     if (typeof window.dispatchEvent === "function" && typeof Event === "function") window.dispatchEvent(new Event("itzik-project-tracks-statechange"));
@@ -264,6 +265,49 @@
   function stopSync() {
     if (syncTimer) clearInterval(syncTimer);
     syncTimer = null;
+  }
+
+
+  function normalizeAutomationLanes(input) {
+    const result = Object.create(null);
+    if (!input || typeof input !== "object" || Array.isArray(input)) return result;
+    for (const [id, points] of Object.entries(input)) {
+      if (!tracks.has(id) || !Array.isArray(points)) continue;
+      const clean = points.slice(0, 256).map(point => ({
+        time: clamp(point?.time, 0, 600),
+        gainDb: clamp(point?.gainDb, -48, 12),
+        pan: clamp(point?.pan, -1, 1)
+      })).filter(point => Number.isFinite(point.time)).sort((a,b)=>a.time-b.time);
+      if (clean.length) result[id] = clean;
+    }
+    return result;
+  }
+  function setAutomationLanes(input) { automationLanes = normalizeAutomationLanes(input); return getAutomationLanes(); }
+  function getAutomationLanes() { return Object.fromEntries(Object.entries(automationLanes).map(([id,points])=>[id,points.map(point=>({...point}))])); }
+  function interpolateAutomation(points, time, key, fallback) {
+    if (!points?.length) return fallback;
+    if (time < points[0].time) return fallback;
+    if (time === points[0].time) return points[0][key];
+    for (let i=1;i<points.length;i++) {
+      const right=points[i],left=points[i-1];
+      if (time <= right.time) {
+        const span=right.time-left.time,ratio=span>0?(time-left.time)/span:1;
+        return left[key]+(right[key]-left[key])*ratio;
+      }
+    }
+    return points[points.length-1][key];
+  }
+  function applyAutomationAtTime(time) {
+    if (!context) return;
+    const states=[...tracks.values()].map(track=>track.state),hasSolo=!baseSolo&&hasSoloState(states);
+    for (const [id,track] of tracks) {
+      const points=automationLanes[id]||[];
+      const gainDb=interpolateAutomation(points,time,"gainDb",track.state.gainDb);
+      const pan=interpolateAutomation(points,time,"pan",track.state.pan);
+      const muted=shouldMuteAdded(track.state,hasSolo,baseSolo);
+      setParam(track.graph.gain.gain,muted?0:10**(gainDb/20),context);
+      setParam(track.graph.pan.pan,pan,context);
+    }
   }
 
   function applyAll() {
@@ -292,7 +336,7 @@
       try { track.source.disconnect(); } catch {}
       for (const node of Object.values(track.graph || {})) { try { node.disconnect(); } catch {} }
     }
-    tracks.clear();undoStack.length=0;redoStack.length=0;activeHistoryTransaction=null;lastHistoryKey="";lastHistoryAt=0;notifyHistory();
+    tracks.clear();automationLanes=Object.create(null);undoStack.length=0;redoStack.length=0;activeHistoryTransaction=null;lastHistoryKey="";lastHistoryAt=0;notifyHistory();
     leaderAudio = null;
     try { master?.disconnect(); } catch {}
     try { masterAnalyser?.disconnect(); } catch {}
@@ -380,6 +424,8 @@
       tracks.set(item.id, { id: item.id, audio, source, graph, state });
     }
     applyAll();
+    automationLanes = normalizeAutomationLanes(automation);
+    applyAutomationAtTime(getPlaybackPosition());
   }
 
   function getPlaybackStartTime(leader, trackAudios) {
@@ -464,6 +510,7 @@
         return;
       }
       if (active.length > 1) sync();
+      applyAutomationAtTime(getPlaybackPosition());
       notifyPlaybackState();
     }, 250);
   }
@@ -632,7 +679,12 @@
         const source = output.createBufferSource();
         source.buffer = item.buffer;
         const state = item.state;
-        buildTrackGraph(output, source, bus, { ...state, mute: shouldMuteAdded(state, hasSolo, baseSolo) });
+        const graph=buildTrackGraph(output, source, bus, { ...state, mute: shouldMuteAdded(state, hasSolo, baseSolo) });
+        const points=automationLanes[entries[decoded.indexOf(item)]?.id]||[];
+        if(points.length){
+          const gain=graph.gain.gain,pan=graph.pan.pan;
+undefined
+        }
         source.start(0);
       }
       return await output.startRendering();
@@ -641,5 +693,5 @@
     }
   }
 
-  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, effectDefaults: { ...effectDefaults }, beginHistoryTransaction, commitHistoryTransaction, undo, redo, setHistoryListener, getHistoryState, getEffectsTailDuration, normalizeMasterDb, setMasterDb, getMasterDb, normalizeOutputCeilingDb, setOutputCeilingDb, getOutputCeilingDb, getMasterMeter, getTrackMeter, hasSoloState, shouldMuteBase, shouldMuteAdded, shouldPlayBase, shouldPauseTracksOnLeaderPause, getSynchronizedSeekTime, getPlaybackStartTime, getPlaybackDuration, isAnyTrackPlaying, getDuration, getPlaybackPosition, isPlaying, seek, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
+  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, setAutomationLanes, getAutomationLanes, interpolateAutomation, renderMix, normalize, effectDefaults: { ...effectDefaults }, beginHistoryTransaction, commitHistoryTransaction, undo, redo, setHistoryListener, getHistoryState, getEffectsTailDuration, normalizeMasterDb, setMasterDb, getMasterDb, normalizeOutputCeilingDb, setOutputCeilingDb, getOutputCeilingDb, getMasterMeter, getTrackMeter, hasSoloState, shouldMuteBase, shouldMuteAdded, shouldPlayBase, shouldPauseTracksOnLeaderPause, getSynchronizedSeekTime, getPlaybackStartTime, getPlaybackDuration, isAnyTrackPlaying, getDuration, getPlaybackPosition, isPlaying, seek, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
 })();
