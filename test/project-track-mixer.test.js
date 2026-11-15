@@ -317,3 +317,10 @@ test("per-track meters retain peak hold and expose a reset control", () => {
  assert.match(app, /Math\.max\(Number\(wrap\.dataset\.peakDb\?\?-120\)/);
  assert.match(app, /projectTracksPeakReset/);
 });
+
+
+test("per-track meter displays RMS level", () => {
+ const app = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+ assert.match(app, /data-project-track-meter-rms/);
+ assert.match(app, /trackMeter\.rms/);
+});
