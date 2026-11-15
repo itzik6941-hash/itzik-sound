@@ -130,3 +130,27 @@ test("main-track Solo state can be enabled and disabled", () => {
   assert.equal(mixer.setBaseSolo(false), false);
   assert.equal(mixer.getBaseSolo(), false);
 });
+
+test("natural end of the base track does not pause added tracks", () => {
+  assert.equal(mixer.shouldPauseTracksOnLeaderPause({ ended: true }), false);
+  assert.equal(mixer.shouldPauseTracksOnLeaderPause({ ended: false }), true);
+  assert.equal(mixer.shouldPauseTracksOnLeaderPause(null), true);
+});
+
+test("resume seeks an ended base track to the active added-track position", () => {
+  assert.equal(mixer.getPlaybackStartTime(
+    { currentTime: 12, ended: true },
+    [{ currentTime: 18.5, ended: false }]
+  ), 18.5);
+  assert.equal(mixer.getSynchronizedSeekTime(18.5, 12), 11.98);
+  assert.equal(mixer.getSynchronizedSeekTime(18.5, 40), 18.5);
+});
+
+test("when all tracks ended, playback restarts from the beginning", () => {
+  const start = mixer.getPlaybackStartTime(
+    { currentTime: 12, ended: true },
+    [{ currentTime: 20, ended: true }]
+  );
+  assert.equal(start, 0);
+  assert.equal(mixer.getSynchronizedSeekTime(start, 12), 0);
+});
