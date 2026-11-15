@@ -163,6 +163,8 @@ function projectTracksPanel(){
 
 function mixPage() {
   const s = window.ITZIK_MIXER?.getSettings?.() || {};
+  const activeProject=projects.find(p=>p.id===currentProjectId);
+  const projectBaseSolo=activeProject?.metadata?.projectBaseSolo===true;
   const savedEnhanceTask=projects.find(p=>p.id===currentProjectId)?.metadata?.mixEnhance?.taskId||"";
   const control = (key, title, en, min, max, step, value, unit = "") =>
    `<label class="mix-control"><span>${title}<output data-mix-value="${key}">${Number(value).toFixed(key === "ratio" ? 1 : 0)}${unit}</output></span><input type="range" data-mix-control="${key}" min="${min}" max="${max}" step="${step}" value="${value}" aria-label="${en}"></label>`;
@@ -176,7 +178,7 @@ function mixPage() {
     </div>
 
     ${currentFile ? `<div class="panel mixer-panel">
-      <div class="mixer-heading"><div><h3>${uiText("ערוץ הפרויקט","Project channel")}</h3><p>${escapeHtml(currentFile.name)} · ${uiText("ערוץ סטריאו אחד","One stereo channel")}</p></div><div class="mixer-actions"><button id="mixMute" class="secondary-btn" aria-pressed="${s.mute===true}">${s.mute?uiText("ביטול השתקה","Unmute"):uiText("השתק","Mute")}</button><button id="mixSolo" class="secondary-btn" disabled title="${uiText("אין ערוצים נוספים לסולו","There are no other tracks to solo")}">${uiText("Solo","Solo")}</button><button id="mixAB" class="secondary-btn" aria-pressed="false">A/B</button><button id="mixReset" class="secondary-btn">${uiText("איפוס","Reset")}</button></div></div>
+      <div class="mixer-heading"><div><h3>${uiText("ערוץ הפרויקט","Project channel")}</h3><p>${escapeHtml(currentFile.name)} · ${uiText("ערוץ בסיס סטריאו","Base stereo track")}</p></div><div class="mixer-actions"><button id="mixMute" class="secondary-btn" aria-pressed="${s.mute===true}">${s.mute?uiText("ביטול השתקה","Unmute"):uiText("השתק","Mute")}</button><button id="mixSolo" class="secondary-btn" disabled aria-pressed="${projectBaseSolo}" title="${uiText("סולו לערוץ הראשי","Solo the main track")}">${projectBaseSolo?uiText("ביטול Solo","Unsolo"):uiText("Solo","Solo")}</button><button id="mixAB" class="secondary-btn" aria-pressed="false">A/B</button><button id="mixReset" class="secondary-btn">${uiText("איפוס","Reset")}</button></div></div>
       <canvas id="mixMeter" class="mix-meter" width="800" height="22" aria-label="${uiText("מד עוצמת השמע","Audio level meter")}"></canvas>
       <div class="mixer-preset-row">
         <label for="mixPreset">${uiText("פרופיל מיקס מהיר","Quick mix profile")}</label>
@@ -189,7 +191,7 @@ function mixPage() {
         </select>
         <button id="applyMixPreset" class="secondary-btn">${uiText("החל פרופיל","Apply profile")}</button>
       </div><small id="mixMeterText">${uiText("נגן את הקובץ כדי לראות עוצמה בזמן אמת","Play the track to see real-time level")}</small>
-      <div class="mixer-strip"><h4>${uiText("ערוץ","Channel")}</h4>${control("gainDb","עוצמת ערוץ","Track level",-24,12,0.5,s.gainDb??0," dB")}${control("pan","Pan","Pan",-1,1,0.01,s.pan??0)}<div class="mixer-placeholder"><b>${uiText("ערוץ יחיד","Single track")}</b><small>${uiText("Solo אינו זמין ללא ערוצים נפרדים","Solo requires separate stems")}</small></div></div>
+      <div class="mixer-strip"><h4>${uiText("ערוץ","Channel")}</h4>${control("gainDb","עוצמת ערוץ","Track level",-24,12,0.5,s.gainDb??0," dB")}${control("pan","Pan","Pan",-1,1,0.01,s.pan??0)}<div class="mixer-placeholder"><b>${uiText("ערוץ בסיס","Base track")}</b><small>${uiText("הערוצים הנוספים מופיעים במיקסר הרב־ערוצי","Additional tracks appear in the multitrack mixer")}</small></div></div>
       <div class="mixer-grid"><section class="mixer-strip"><h4>EQ</h4>${control("low","Bass · 100 Hz","Bass · 100 Hz",-12,12,0.5,s.low??0," dB")}${control("mid","Mid · 1 kHz","Mid · 1 kHz",-12,12,0.5,s.mid??0," dB")}${control("high","Treble · 8 kHz","Treble · 8 kHz",-12,12,0.5,s.high??0," dB")}</section>
       <section class="mixer-strip"><h4>${uiText("קומפרסור","Compressor")}</h4>${control("threshold","סף","Threshold",-60,0,1,s.threshold??-18," dB")}${control("ratio","יחס","Ratio",1,20,0.5,s.ratio??1,":1")}</section>
       <section class="mixer-strip"><h4>${uiText("אפקטים","Effects")}</h4>${control("reverb","Reverb","Reverb",0,0.6,0.01,s.reverb??0)}${control("delay","Delay","Delay",0,0.6,0.01,s.delay??0)}${control("width","רוחב סטריאו","Stereo width",0,2,0.01,s.width??1)}</section>
@@ -381,6 +383,9 @@ async function bindProjectTracks(){
   if(bindGeneration!==projectTracksBindGeneration||!panel.isConnected)return;
   await window.ITZIK_PROJECT_TRACKS.init(audioItems,audio);
   if(bindGeneration!==projectTracksBindGeneration||!panel.isConnected)return;
+  const baseSoloButton=$("#mixSolo");
+  const baseSoloActive=window.ITZIK_PROJECT_TRACKS.setBaseSolo(project.metadata?.projectBaseSolo===true);
+  if(baseSoloButton){baseSoloButton.disabled=false;baseSoloButton.setAttribute("aria-pressed",String(baseSoloActive));baseSoloButton.textContent=baseSoloActive?uiText("ביטול Solo","Unsolo"):"Solo";}
   const save=async id=>{
    const latest=projects.find(item=>item.id===currentProjectId);
    const settings={...(latest?.metadata?.projectTrackMixSettings||{}),[id]:window.ITZIK_PROJECT_TRACKS.getTrack(id)};
@@ -401,7 +406,7 @@ async function bindProjectTracks(){
    if(gain){gain.value=track.settings.gainDb??0;gain.oninput=()=>{window.ITZIK_PROJECT_TRACKS.setTrack(id,{gainDb:Number(gain.value)});refresh(id);save(id);};}
    if(pan){pan.value=track.settings.pan??0;pan.oninput=()=>{window.ITZIK_PROJECT_TRACKS.setTrack(id,{pan:Number(pan.value)});refresh(id);save(id);};}
    if(mute)mute.onclick=()=>{const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);window.ITZIK_PROJECT_TRACKS.setTrack(id,{mute:!state.mute});refresh(id);save(id);};
-   if(solo)solo.onclick=()=>{const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);window.ITZIK_PROJECT_TRACKS.setTrack(id,{solo:!state.solo});audioItems.forEach(item=>refresh(item.id));save(id);};
+   if(solo)solo.onclick=()=>{const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);window.ITZIK_PROJECT_TRACKS.setTrack(id,{solo:!state.solo});audioItems.forEach(item=>refresh(item.id));const baseButton=$("#mixSolo");if(baseButton){baseButton.setAttribute("aria-pressed","false");baseButton.textContent="Solo";}if(!state.solo)updateProjectMetadata({projectBaseSolo:false});save(id);};
    refresh(id);
   }
   const play=$("#projectTracksPlay"),pause=$("#projectTracksPause"),stop=$("#projectTracksStop");
@@ -614,6 +619,18 @@ function bindMixer(){
    scheduleMixSettingsSave();
   };
  });
+ const solo=$("#mixSolo");
+ if(solo)solo.onclick=async()=>{
+  const engine=window.ITZIK_PROJECT_TRACKS;
+  if(!engine?.isActive?.())return;
+  const active=engine.setBaseSolo(!engine.getBaseSolo());
+  solo.setAttribute("aria-pressed",String(active));
+  solo.textContent=active?uiText("ביטול Solo","Unsolo"):"Solo";
+  document.querySelectorAll("[data-project-track-solo]").forEach(button=>button.setAttribute("aria-pressed","false"));
+  const settings=engine.getSettings();
+  const saved=await updateProjectMetadata({projectBaseSolo:active,projectTrackMixSettings:settings});
+  if(!saved){const status=$("#projectTracksStatus");if(status)status.textContent=uiText("מצב Solo פעיל, אך השמירה בענן נכשלה.","Solo is active, but cloud saving failed.");}
+ };
  const mute=$("#mixMute");
  if(mute)mute.onclick=()=>{
   const projectTracks=window.ITZIK_PROJECT_TRACKS;

@@ -105,3 +105,28 @@ test("base mute preference remains separate from temporary Solo muting", () => {
   assert.equal(mixer.setBaseMute(false), false);
   assert.equal(mixer.getBaseMute(), false);
 });
+
+test("base Solo plays the main track and mutes every added track", () => {
+  assert.equal(mixer.shouldPlayBase(false, false), true);
+  assert.equal(mixer.shouldMuteAdded({ mute: false, solo: false }, false, true), true);
+  assert.equal(mixer.shouldMuteAdded({ mute: false, solo: true }, false, true), true);
+});
+
+test("added-track Solo plays only soloed added tracks and silences the base", () => {
+  assert.equal(mixer.shouldPlayBase(true, false), false);
+  assert.equal(mixer.shouldMuteAdded({ mute: false, solo: true }, true, false), false);
+  assert.equal(mixer.shouldMuteAdded({ mute: false, solo: false }, true, false), true);
+});
+
+test("manual base mute remains effective without changing added-track Solo", () => {
+  assert.equal(mixer.shouldPlayBase(false, true), false);
+  assert.equal(mixer.shouldMuteAdded({ mute: false, solo: false }, false, false), false);
+  assert.equal(mixer.shouldMuteAdded({ mute: true, solo: false }, false, false), true);
+});
+
+test("main-track Solo state can be enabled and disabled", () => {
+  assert.equal(mixer.setBaseSolo(true), true);
+  assert.equal(mixer.getBaseSolo(), true);
+  assert.equal(mixer.setBaseSolo(false), false);
+  assert.equal(mixer.getBaseSolo(), false);
+});

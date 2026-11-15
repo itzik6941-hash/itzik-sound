@@ -4,6 +4,8 @@
   const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value) || 0));
   const hasSoloState = states => states.some(state => state?.solo === true);
   const shouldMuteBase = states => hasSoloState(states);
+  const shouldMuteAdded = (state, hasSolo, baseSolo) => state?.mute === true || baseSolo === true || (hasSolo && state?.solo !== true);
+  const shouldPlayBase = (hasSolo, baseMute) => !hasSolo && baseMute !== true;
   const normalize = input => ({
     gainDb: clamp(input?.gainDb ?? 0, -48, 12),
     pan: clamp(input?.pan ?? 0, -1, 1),
@@ -17,6 +19,7 @@
   let ownsContext = false;
   let leaderAudio = null;
   let leaderOriginalMute = false;
+  let baseSolo = false;
   let leaderPauseHandler = null;
   let leaderSeekingHandler = null;
   let tracks = new Map();
@@ -31,12 +34,12 @@
   function applyAll() {
     if (!context) return;
     const states = [...tracks.values()].map(track => track.state);
-    const hasSolo = hasSoloState(states);
-    if (leaderAudio && window.ITZIK_MIXER) window.ITZIK_MIXER.apply({ mute: shouldMuteBase(states) || leaderOriginalMute });
+    const hasSolo = !baseSolo && hasSoloState(states);
+    if (leaderAudio && window.ITZIK_MIXER) window.ITZIK_MIXER.apply({ mute: baseSolo ? leaderOriginalMute : hasSolo || leaderOriginalMute });
     const now = context.currentTime;
     for (const track of tracks.values()) {
       const state = track.state;
-      const muted = state.mute || (hasSolo && !state.solo);
+      const muted = shouldMuteAdded(state, hasSolo, baseSolo);
       track.gain.gain.setTargetAtTime(muted ? 0 : 10 ** (state.gainDb / 20), now, 0.015);
       track.pan.pan.setTargetAtTime(state.pan, now, 0.015);
     }
@@ -50,6 +53,7 @@
     leaderSeekingHandler = null;
     if (leaderAudio && window.ITZIK_MIXER) window.ITZIK_MIXER.apply({ mute: leaderOriginalMute });
     leaderOriginalMute = false;
+    baseSolo = false;
     for (const track of tracks.values()) {
       try { track.source.disconnect(); } catch {}
       try { track.gain.disconnect(); } catch {}
@@ -212,6 +216,7 @@
     const track = tracks.get(id);
     if (!track) return null;
     track.state = normalize({ ...track.state, ...patch });
+    if (patch?.solo === true) baseSolo = false;
     applyAll();
     return { ...track.state };
   }
@@ -233,6 +238,17 @@
 
   function getBaseMute() {
     return leaderOriginalMute;
+  }
+
+  function setBaseSolo(value) {
+    baseSolo = value === true;
+    if (baseSolo) for (const track of tracks.values()) track.state.solo = false;
+    applyAll();
+    return baseSolo;
+  }
+
+  function getBaseSolo() {
+    return baseSolo;
   }
 
   function isActive() {
@@ -272,18 +288,18 @@
       bus.connect(outputLimiter);
       outputLimiter.connect(output.destination);
 
-      const hasSolo = hasSoloState(decoded.map(item => item.state));
+      const hasSolo = !baseSolo && hasSoloState(decoded.map(item => item.state));
       const baseSource = output.createBufferSource();
       baseSource.buffer = baseBuffer;
       baseSource.connect(bus);
-      if (!hasSolo) baseSource.start(0);
+      if (shouldPlayBase(hasSolo, leaderOriginalMute)) baseSource.start(0);
       for (const item of decoded) {
         const source = output.createBufferSource();
         const gain = output.createGain();
         const pan = output.createStereoPanner();
         source.buffer = item.buffer;
         const state = item.state;
-        gain.gain.value = state.mute || (hasSolo && !state.solo) ? 0 : 10 ** (state.gainDb / 20);
+        gain.gain.value = shouldMuteAdded(state, hasSolo, baseSolo) ? 0 : 10 ** (state.gainDb / 20);
         pan.pan.value = state.pan;
         source.connect(gain);
         gain.connect(pan);
@@ -296,5 +312,5 @@
     }
   }
 
-  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, hasSoloState, shouldMuteBase, getPlaybackStartTime, setBaseMute, getBaseMute, isActive };
+  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, hasSoloState, shouldMuteBase, shouldMuteAdded, shouldPlayBase, getPlaybackStartTime, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
 })();
