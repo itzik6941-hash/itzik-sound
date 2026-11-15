@@ -419,3 +419,16 @@ test("track automation has an editable keyframe list with bounded numeric fields
  assert.match(app, /persistAutomationEditor/);
  assert.match(style, /project-track-automation-point/);
 });
+
+
+test("automation editor renders an interactive curve canvas with pointer editing", () => {
+ const app = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+ const style = fs.readFileSync(new URL("../public/style.css", import.meta.url), "utf8");
+ assert.match(app, /data-project-track-automation-curve=/);
+ assert.match(app, /canvas\.getContext\("2d"\)/);
+ assert.match(app, /pointerdown/);
+ assert.match(app, /pointermove/);
+ assert.match(app, /pointerup/);
+ assert.match(app, /setPointerCapture/);
+ assert.match(style, /project-track-curve/);
+});
