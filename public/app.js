@@ -346,6 +346,24 @@ function clearProjectTrackAudioElements(){
  activeProjectTracksSignature="";
 }
 
+async function retryProjectTrackStorageCleanup(projectId,statusElement){
+ const project=projects.find(item=>item.id===projectId);
+ const pending=Array.isArray(project?.metadata?.projectTrackCleanupPending)
+  ?project.metadata.projectTrackCleanupPending.filter(path=>typeof path==="string"&&path)
+  :[];
+ if(!pending.length)return;
+ const {error}=await supabaseClient.storage.from("project-audio").remove(pending);
+ if(error){
+  if(statusElement)statusElement.textContent=uiText("יש קובצי ערוצים שהוסרו מהפרויקט אך עדיין ממתינים לניקוי באחסון.","Some tracks were removed from the project but are still pending storage cleanup.");
+  return;
+ }
+ const latest=projects.find(item=>item.id===projectId);
+ const remaining=(latest?.metadata?.projectTrackCleanupPending||[]).filter(path=>!pending.includes(path));
+ if(!await updateProjectMetadata({projectTrackCleanupPending:remaining})&&statusElement){
+  statusElement.textContent=uiText("הקבצים נוקו מהאחסון, אך עדכון מצב הניקוי בפרויקט נכשל.","Storage cleanup succeeded, but the project cleanup status could not be updated.");
+ }
+}
+
 async function bindProjectTracks(){
  const bindGeneration=++projectTracksBindGeneration;
  const panel=$("#projectTrackMixer");
@@ -354,6 +372,7 @@ async function bindProjectTracks(){
  const tracks=project?.metadata?.projectTracks||[];
  const status=$("#projectTracksStatus"),input=$("#projectTracksInput"),addButton=$("#addProjectTracks");
  if(!project||!currentProjectId){if(status)status.textContent=uiText("צריך לשמור את הפרויקט בענן לפני הוספת ערוצים.","Save this project to the cloud before adding tracks.");if(addButton)addButton.disabled=true;return;}
+ await retryProjectTrackStorageCleanup(currentProjectId,status);
  if(addButton&&input)addButton.onclick=()=>input.click();
  if(input)input.onchange=async()=>{
   const selected=Array.from(input.files||[]);input.value="";if(!selected.length)return;
@@ -467,11 +486,35 @@ async function bindProjectTracks(){
    finally{exportButton.disabled=false;}
   };
   document.querySelectorAll("[data-project-track-remove]").forEach(button=>button.onclick=async()=>{
-   const id=button.dataset.projectTrackRemove,latest=projects.find(item=>item.id===currentProjectId);
-   const track=(latest?.metadata?.projectTracks||[]).find(item=>item.id===id);if(!track)return;
-   button.disabled=true;const next=(latest.metadata.projectTracks||[]).filter(item=>item.id!==id),settings={...(latest.metadata?.projectTrackMixSettings||{})};delete settings[id];
-   if(!await updateProjectMetadata({projectTracks:next,projectTrackMixSettings:settings})){button.disabled=false;if(status)status.textContent=uiText("לא ניתן לעדכן את הפרויקט. הערוץ לא הוסר.","Could not update the project. The track was not removed.");return;}
-   await supabaseClient.storage.from("project-audio").remove([track.storagePath]);render("mix");
+   const id=button.dataset.projectTrackRemove,projectId=currentProjectId;
+   const latest=projects.find(item=>item.id===projectId);
+   const track=(latest?.metadata?.projectTracks||[]).find(item=>item.id===id);
+   if(!track||!confirm(uiText("להסיר את הערוץ \""+track.name+"\" מהפרויקט?","Remove \""+track.name+"\" from this project?")))return;
+   button.disabled=true;
+   const next=(latest.metadata.projectTracks||[]).filter(item=>item.id!==id);
+   const settings={...(latest.metadata?.projectTrackMixSettings||{})};
+   delete settings[id];
+   if(!await updateProjectMetadata({projectTracks:next,projectTrackMixSettings:settings})){
+    button.disabled=false;
+    if(status)status.textContent=uiText("לא ניתן לעדכן את הפרויקט. הערוץ לא הוסר.","Could not update the project. The track was not removed.");
+    return;
+   }
+   const {error}=await supabaseClient.storage.from("project-audio").remove([track.storagePath]);
+   if(error){
+    const current=projects.find(item=>item.id===projectId);
+    const pending=[...(current?.metadata?.projectTrackCleanupPending||[])];
+    if(!pending.includes(track.storagePath)){
+     pending.push(track.storagePath);
+     await updateProjectMetadata({projectTrackCleanupPending:pending});
+    }
+    render("mix");
+    const nextStatus=$("#projectTracksStatus");
+    if(nextStatus)nextStatus.textContent=uiText("הערוץ הוסר מהפרויקט, אך מחיקת הקובץ באחסון נכשלה. המערכת תנסה שוב בטעינה הבאה.","The track was removed from the project, but storage deletion failed. The system will retry on the next load.");
+    return;
+   }
+   render("mix");
+   const nextStatus=$("#projectTracksStatus");
+   if(nextStatus)nextStatus.textContent=uiText("הערוץ הוסר מהפרויקט ומהאחסון.","Track removed from the project and storage.");
   });
  }catch(error){if(status)status.textContent=error.message||uiText("טעינת הערוצים נכשלה.","Could not load project tracks.");}
 }
