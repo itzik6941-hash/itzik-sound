@@ -172,6 +172,7 @@ function projectTracksPanel(){
       <span id="projectTrackMasterClip" class="project-track-master-clip" aria-live="polite"></span>
      </div>
      ${projectTrackScenesMarkup(scenes)}
+     <div class="project-track-history" aria-label="${uiText("היסטוריית עריכה","Edit history")}"><button type="button" class="secondary-btn" id="projectTrackUndo" disabled>↶ ${uiText("בטל פעולה","Undo")}</button><button type="button" class="secondary-btn" id="projectTrackRedo" disabled>↷ ${uiText("בצע שוב","Redo")}</button><span id="projectTrackHistoryStatus" aria-live="polite">${uiText("עד 50 פעולות אחרונות נשמרות בזיכרון","Up to 50 recent mix changes")}</span></div>
      <section class="project-track-bulk" aria-label="${uiText("שליטה קבוצתית","Group controls")}"><div class="project-track-bulk-heading"><b>${uiText("שליטה על ערוצים נבחרים","Selected track controls")}</b><span id="projectTrackSelectionCount">${uiText("לא נבחרו ערוצים","No tracks selected")}</span></div><div class="project-track-bulk-actions"><button type="button" class="secondary-btn" id="projectTrackSelectAll">${uiText("בחר הכל","Select all")}</button><button type="button" class="secondary-btn" id="projectTrackSelectNone">${uiText("נקה בחירה","Clear selection")}</button><button type="button" class="secondary-btn" id="projectTrackBulkMute" disabled>${uiText("השתק נבחרים","Mute selected")}</button><button type="button" class="secondary-btn" id="projectTrackBulkUnmute" disabled>${uiText("בטל השתקה","Unmute selected")}</button></div><label class="stem-mix-control"><span>${uiText("שינוי עוצמה קבוצתי","Group level adjustment")} <output id="projectTrackBulkGainValue">0 dB</output></span><input type="range" id="projectTrackBulkGain" min="-12" max="12" step="0.5" value="0" disabled></label></section>
      <div class="project-track-group-filter"><label>${uiText("סינון לפי קבוצה","Filter by group")} <select id="projectTrackGroupFilter"><option value="all">${uiText("כל הערוצים","All tracks")}</option><option value="drums">${uiText("תופים","Drums")}</option><option value="bass">Bass</option><option value="vocals">${uiText("שירה","Vocals")}</option><option value="instruments">${uiText("כלי נגינה","Instruments")}</option><option value="fx">FX</option><option value="other">${uiText("אחר","Other")}</option></select></label></div>
      <section class="project-track-groups" aria-label="${uiText("שליטה לפי קבוצות","Group mixer controls")}">${presentGroups.map(group=>{const count=tracks.filter(track=>(track.group||"other")===group.id).length;return `<article class="project-track-group" data-project-group-panel="${group.id}"><div class="project-track-group-heading"><b>${group.label}</b><span>${count} ${uiText("ערוצים","tracks")}</span></div><div class="project-track-group-actions"><button type="button" class="secondary-btn" data-project-group-action="mute" data-project-group="${group.id}">${uiText("השתק","Mute")}</button><button type="button" class="secondary-btn" data-project-group-action="unmute" data-project-group="${group.id}">${uiText("בטל השתקה","Unmute")}</button><button type="button" class="secondary-btn" data-project-group-action="solo" data-project-group="${group.id}" aria-pressed="false">Solo</button></div><label class="stem-mix-control"><span>${uiText("שינוי עוצמה לכל הקבוצה","Group level adjustment")} <output data-project-group-gain-value="${group.id}">0.0 dB</output></span><input type="range" data-project-group-gain="${group.id}" min="-12" max="12" step="0.5" value="0"></label></article>`;}).join("")}</section>
@@ -520,6 +521,26 @@ async function bindProjectTracks(){
    });
   };
   const groupFilter=$("#projectTrackGroupFilter");
+  const historyUndo=$("#projectTrackUndo"),historyRedo=$("#projectTrackRedo"),historyStatus=$("#projectTrackHistoryStatus");
+  const updateHistoryControls=state=>{if(historyUndo)historyUndo.disabled=!state.canUndo;if(historyRedo)historyRedo.disabled=!state.canRedo;if(historyStatus)historyStatus.textContent=state.canUndo?uiText("פעולה אחרונה: ","Last change: ")+(state.undoLabel||""):uiText("אין פעולות לביטול","Nothing to undo");};
+  window.ITZIK_PROJECT_TRACKS.setHistoryListener(updateHistoryControls);
+  const syncHistoryControls=()=>{
+   for(const item of audioItems){const id=item.id,state=window.ITZIK_PROJECT_TRACKS.getTrack(id);if(!state)continue;
+    const gain=$('[data-project-track-gain="'+id+'"]'),pan=$('[data-project-track-pan="'+id+'"]'),width=$('[data-project-track-width="'+id+'"]');
+    if(gain)gain.value=String(state.gainDb);if(pan)pan.value=String(state.pan);if(width)width.value=String(state.stereoWidth);refresh(id);refreshTrackFx(id);
+   }
+   const master=window.ITZIK_PROJECT_TRACKS.getMasterDb(),ceiling=window.ITZIK_PROJECT_TRACKS.getOutputCeilingDb(),ms=$("#projectTrackMaster"),mv=$("#projectTrackMasterValue"),cs=$("#projectTrackCeiling"),cv=$("#projectTrackCeilingValue");
+   if(ms)ms.value=String(master);if(mv)mv.textContent=master.toFixed(1)+" dB";if(cs)cs.value=String(ceiling);if(cv)cv.textContent=ceiling.toFixed(1)+" dB";
+   const baseSolo=window.ITZIK_PROJECT_TRACKS.getBaseSolo(),baseButton=$("#mixSolo");if(baseButton){baseButton.setAttribute("aria-pressed",String(baseSolo));baseButton.textContent=baseSolo?uiText("ביטול Solo","Unsolo"):"Solo";}
+  };
+  const persistHistoryAction=async direction=>{
+   const changed=direction==="undo"?window.ITZIK_PROJECT_TRACKS.undo():window.ITZIK_PROJECT_TRACKS.redo();if(!changed)return;
+   syncHistoryControls();const saved=await updateProjectMetadata({projectTrackMixSettings:window.ITZIK_PROJECT_TRACKS.getSettings(),projectBaseSolo:window.ITZIK_PROJECT_TRACKS.getBaseSolo(),projectTrackMasterDb:window.ITZIK_PROJECT_TRACKS.getMasterDb(),projectTrackOutputCeilingDb:window.ITZIK_PROJECT_TRACKS.getOutputCeilingDb()});
+   if(status)status.textContent=saved?(direction==="undo"?uiText("הפעולה בוטלה ונשמרה בפרויקט.","Change undone and saved to project."):uiText("הפעולה בוצעה שוב ונשמרה בפרויקט.","Change redone and saved to project.")):uiText("הפעולה שוחזרה, אך השמירה בענן נכשלה.","History restored, but cloud saving failed.");
+  };
+  if(historyUndo)historyUndo.onclick=()=>persistHistoryAction("undo");
+  if(historyRedo)historyRedo.onclick=()=>persistHistoryAction("redo");
+
   const applyGroupFilter=()=>{
    const value=groupFilter?.value||"all";
    document.querySelectorAll("[data-project-track-card]").forEach(card=>{card.hidden=value!=="all"&&card.dataset.trackGroup!==value;});
