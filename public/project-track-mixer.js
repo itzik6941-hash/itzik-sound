@@ -4,6 +4,8 @@
   const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value) || 0));
   const hasSoloState = states => states.some(state => state?.solo === true);
   const shouldMuteBase = states => hasSoloState(states);
+  const shouldMuteAdded = (state, hasSolo, baseSolo) => state?.mute === true || baseSolo === true || (hasSolo && state?.solo !== true);
+  const shouldPlayBase = (hasSolo, baseMute) => !hasSolo && baseMute !== true;
   const normalize = input => ({
     gainDb: clamp(input?.gainDb ?? 0, -48, 12),
     pan: clamp(input?.pan ?? 0, -1, 1),
@@ -37,7 +39,7 @@
     const now = context.currentTime;
     for (const track of tracks.values()) {
       const state = track.state;
-      const muted = state.mute || baseSolo || (hasSolo && !state.solo);
+      const muted = shouldMuteAdded(state, hasSolo, baseSolo);
       track.gain.gain.setTargetAtTime(muted ? 0 : 10 ** (state.gainDb / 20), now, 0.015);
       track.pan.pan.setTargetAtTime(state.pan, now, 0.015);
     }
@@ -290,14 +292,14 @@
       const baseSource = output.createBufferSource();
       baseSource.buffer = baseBuffer;
       baseSource.connect(bus);
-      if (!hasSolo && !leaderOriginalMute) baseSource.start(0);
+      if (shouldPlayBase(hasSolo, leaderOriginalMute)) baseSource.start(0);
       for (const item of decoded) {
         const source = output.createBufferSource();
         const gain = output.createGain();
         const pan = output.createStereoPanner();
         source.buffer = item.buffer;
         const state = item.state;
-        gain.gain.value = state.mute || baseSolo || (hasSolo && !state.solo) ? 0 : 10 ** (state.gainDb / 20);
+        gain.gain.value = shouldMuteAdded(state, hasSolo, baseSolo) ? 0 : 10 ** (state.gainDb / 20);
         pan.pan.value = state.pan;
         source.connect(gain);
         gain.connect(pan);
@@ -310,5 +312,5 @@
     }
   }
 
-  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, hasSoloState, shouldMuteBase, getPlaybackStartTime, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
+  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, hasSoloState, shouldMuteBase, shouldMuteAdded, shouldPlayBase, getPlaybackStartTime, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
 })();
