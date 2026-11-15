@@ -1468,6 +1468,12 @@ if (bottomPlayer) {
 // data-go buttons are bound once per render by bindDynamic().
 
 $("#playBtn").onclick=()=>{
+ const hasProjectTracks=currentPage==="mix"&&(projects.find(item=>item.id===currentProjectId)?.metadata?.projectTracks||[]).length>0;
+ if(hasProjectTracks){
+  if(audio.paused)window.ITZIK_PROJECT_TRACKS.play().catch(error=>{const status=$("#projectTracksStatus");if(status)status.textContent=error.message;});
+  else window.ITZIK_PROJECT_TRACKS.pause();
+  return;
+ }
  if(audio.paused)audio.play();
  else audio.pause();
 };
