@@ -98,6 +98,10 @@
     const convolver = ctx.createConvolver();
     const reverbWet = ctx.createGain();
     const pan = ctx.createStereoPanner();
+    const meterAnalyser = ctx.createAnalyser();
+    meterAnalyser.fftSize = 1024;
+    meterAnalyser.smoothingTimeConstant = 0.65;
+    const meterBuffer = new Float32Array(meterAnalyser.fftSize);
     const widthSplitter = ctx.createChannelSplitter(2);
     const widthMerger = ctx.createChannelMerger(2);
     const widthMid = ctx.createGain();
@@ -140,9 +144,10 @@
     widthLeft.connect(widthMerger, 0, 0); widthRight.connect(widthMerger, 0, 1);
     widthMerger.connect(reverbDry); reverbDry.connect(pan);
     widthMerger.connect(convolver); convolver.connect(reverbWet); reverbWet.connect(pan);
-    pan.connect(destination);
+    pan.connect(meterAnalyser);
+    meterAnalyser.connect(destination);
 
-    const graph = { input, gain, polarity, low, mid, high, compressor, saturator, dry, delay, feedback, delayWet, effectBus, widthSplitter, widthMerger, widthMid, widthSide, widthSideInvert, widthSideRightInvert, widthLeft, widthRight, reverbDry, convolver, reverbWet, pan };
+    const graph = { meterAnalyser, meterBuffer, input, gain, polarity, low, mid, high, compressor, saturator, dry, delay, feedback, delayWet, effectBus, widthSplitter, widthMerger, widthMid, widthSide, widthSideInvert, widthSideRightInvert, widthLeft, widthRight, reverbDry, convolver, reverbWet, pan };
     applyTrackGraph(graph, state, ctx);
     return graph;
   }
@@ -495,6 +500,12 @@
     return { peak, rms, db: 20 * Math.log10(Math.max(peak, 1e-6)), clipping: peak >= 0.999 };
   }
 
+  function getTrackMeter(id) {
+    const track = tracks.get(id);
+    if (!track?.graph?.meterAnalyser || !track.graph.meterBuffer) return { peak: 0, rms: 0, db: -Infinity, clipping: false };
+    return measureBuffer(track.graph.meterAnalyser, track.graph.meterBuffer);
+  }
+
   function getMasterMeter() {
     const overall = measureBuffer(masterAnalyser, masterMeterBuffer);
     const left = measureBuffer(masterLeftAnalyser, masterLeftBuffer);
@@ -579,5 +590,5 @@
     }
   }
 
-  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, effectDefaults: { ...effectDefaults }, getEffectsTailDuration, normalizeMasterDb, setMasterDb, getMasterDb, normalizeOutputCeilingDb, setOutputCeilingDb, getOutputCeilingDb, getMasterMeter, hasSoloState, shouldMuteBase, shouldMuteAdded, shouldPlayBase, shouldPauseTracksOnLeaderPause, getSynchronizedSeekTime, getPlaybackStartTime, getPlaybackDuration, isAnyTrackPlaying, getDuration, getPlaybackPosition, isPlaying, seek, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
+  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, effectDefaults: { ...effectDefaults }, getEffectsTailDuration, normalizeMasterDb, setMasterDb, getMasterDb, normalizeOutputCeilingDb, setOutputCeilingDb, getOutputCeilingDb, getMasterMeter, getTrackMeter, hasSoloState, shouldMuteBase, shouldMuteAdded, shouldPlayBase, shouldPauseTracksOnLeaderPause, getSynchronizedSeekTime, getPlaybackStartTime, getPlaybackDuration, isAnyTrackPlaying, getDuration, getPlaybackPosition, isPlaying, seek, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
 })();
