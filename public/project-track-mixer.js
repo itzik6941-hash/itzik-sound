@@ -70,6 +70,19 @@
     master.connect(limiter);
     limiter.connect(context.destination);
 
+    if (leaderAudio) {
+      leaderAudio.addEventListener("pause", pause);
+      leaderAudio.addEventListener("seeking", () => {
+        if (leaderAudio && Number.isFinite(leaderAudio.currentTime)) {
+          for (const track of tracks.values()) {
+            if (!track.audio.paused && !track.audio.seeking) {
+              try { track.audio.currentTime = Math.min(leaderAudio.currentTime, Math.max(0, (track.audio.duration || leaderAudio.currentTime) - 0.02)); } catch {}
+            }
+          }
+        }
+      });
+    }
+
     for (const item of items) {
       const audio = item.audio;
       const source = context.createMediaElementSource(audio);
