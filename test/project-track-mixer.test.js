@@ -290,3 +290,11 @@ test("stereo widener uses the correct mid-side polarity and neutral matrix", () 
   assert.match(source, /setParam\(graph\.widthSideInvert\.gain, -1, ctx\)/);
   assert.match(source, /setParam\(graph\.widthSideRightInvert\.gain, -1, ctx\)/);
 });
+
+test("stereo meter computes independent peak and RMS for left and right channels", () => {
+  const source = fs.readFileSync(new URL("../public/project-track-mixer.js", import.meta.url), "utf8");
+  assert.match(source, /masterStereoSplitter\.connect\(masterLeftAnalyser, 0\)/);
+  assert.match(source, /masterStereoSplitter\.connect\(masterRightAnalyser, 1\)/);
+  assert.match(source, /stereoBalance: left\.peak \+ right\.peak/);
+  assert.match(source, /left, right, stereoBalance/);
+});
