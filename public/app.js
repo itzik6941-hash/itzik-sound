@@ -389,6 +389,7 @@ async function bindProjectTracks(){
   if(bindGeneration!==projectTracksBindGeneration||!panel.isConnected)return;
   await window.ITZIK_PROJECT_TRACKS.init(audioItems,audio);
   if(bindGeneration!==projectTracksBindGeneration||!panel.isConnected)return;
+  updateProjectTrackPlayer();
   const baseSoloButton=$("#mixSolo");
   const baseSoloActive=window.ITZIK_PROJECT_TRACKS.setBaseSolo(project.metadata?.projectBaseSolo===true);
   if(baseSoloButton){baseSoloButton.disabled=false;baseSoloButton.setAttribute("aria-pressed",String(baseSoloActive));baseSoloButton.textContent=baseSoloActive?uiText("ביטול Solo","Unsolo"):"Solo";}
