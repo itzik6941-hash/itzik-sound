@@ -138,9 +138,14 @@ async function saveSoundPreference(enabled){
   }
 }
 
+function projectTrackScenesMarkup(scenes){
+ const rows=scenes.map(scene=>'<article class="project-track-scene"><div><b>'+escapeHtml(scene.name||uiText("מצב ללא שם","Untitled scene"))+'</b><small>'+(scene.createdAt?new Date(scene.createdAt).toLocaleString():"")+'</small></div><div class="stem-track-actions"><button type="button" class="secondary-btn" data-project-track-scene-apply="'+escapeHtml(scene.id)+'">'+uiText("טען מצב","Load")+'</button><button type="button" class="secondary-btn" data-project-track-scene-delete="'+escapeHtml(scene.id)+'">'+uiText("מחק","Delete")+'</button></div></article>').join("");
+ return '<section class="project-track-scenes" aria-label="'+uiText("שמירת מצבי מיקס","Mix scenes")+'"><div class="project-track-scenes-heading"><div><h4>'+uiText("מצבי מיקס שמורים","Saved mix scenes")+'</h4><p>'+uiText("שמור שילובים שונים של עוצמות, Pan, השתקות ו-Solo וחזור אליהם בכל רגע.","Save different combinations of levels, pan, mute and solo and recall them anytime.")+'</p></div><button type="button" class="primary-btn" id="projectTrackSceneSave" '+(scenes.length>=20?"disabled":"")+'>'+uiText("＋ שמור מצב נוכחי","＋ Save current mix")+'</button></div>'+(rows?'<div class="project-track-scene-list">'+rows+'</div>':'<p class="project-track-scenes-empty">'+uiText("עדיין לא שמרת מצבי מיקס. שמור מצב כדי לחזור אליו בעתיד.","No saved mix scenes yet. Save a scene to recall it later.")+'</p>')+'</section>';
+}
 function projectTracksPanel(){
  const project=projects.find(item=>item.id===currentProjectId);
  const tracks=project?.metadata?.projectTracks||[];
+ const scenes=Array.isArray(project?.metadata?.projectTrackScenes)?project.metadata.projectTrackScenes:[];
  return `
   <section class="panel stem-panel" id="projectTrackMixer">
    <div class="workspace-title"><div class="quick-icon">♫</div><div><h2>${uiText("ערוצים שהוספת לפרויקט","Project audio tracks")}</h2><p>${uiText("הוסף כמה קובצי אודיו לאותו פרויקט. כולם יתחילו יחד ויישארו מסונכרנים.","Add multiple audio files to this project. They start together and stay synchronized.")}</p></div></div>
@@ -151,6 +156,7 @@ function projectTracksPanel(){
      <div class="stem-mixer-heading"><h3>${uiText("מיקסר רב־ערוצי","Multitrack mixer")}</h3><p>${uiText("הקובץ הראשי וכל הערוצים הנוספים ינוגנו יחד. אפשר לשלוט בעוצמה, Pan, השתקה ו-Solo לכל ערוץ.","The original file and all added tracks play together. Control level, pan, mute and solo for each added track.")}</p></div>
      <div class="stem-transport"><button type="button" class="primary-btn" id="projectTracksPlay">${uiText("▶ נגן הכל","▶ Play all")}</button><button type="button" class="secondary-btn" id="projectTracksPause">${uiText("השהה","Pause")}</button><button type="button" class="secondary-btn" id="projectTracksStop">${uiText("עצור","Stop")}</button><button type="button" class="secondary-btn" id="projectTracksExport">${uiText("ייצא מיקס משולב WAV","Export combined WAV mix")}</button><button type="button" class="secondary-btn" id="projectTracksReset">${uiText("אפס מיקסר","Reset mixer")}</button></div>
      <label class="project-track-master"><span>${uiText("עוצמת מאסטר","Master level")} <output id="projectTrackMasterValue">-1.5 dB</output></span><input type="range" id="projectTrackMaster" min="-24" max="6" step="0.5" value="-1.5"></label>
+     ${projectTrackScenesMarkup(scenes)}
      <div class="stem-mixer-tracks">
       ${tracks.map((track,index)=>`
        <article class="stem-mix-track"><div class="stem-track-heading"><b>${escapeHtml(track.name)}</b><div class="stem-track-actions">
@@ -480,6 +486,48 @@ async function bindProjectTracks(){
    if(masterValue)masterValue.textContent=value.toFixed(1)+" dB";
    if(!await updateProjectMetadata({projectTrackMasterDb:value})&&status)status.textContent=uiText("עוצמת המאסטר פעילה, אך השמירה בענן נכשלה.","Master level is active, but cloud saving failed.");
   };
+  const sceneSave=$("#projectTrackSceneSave");
+  if(sceneSave)sceneSave.onclick=async()=>{
+   const latest=projects.find(item=>item.id===currentProjectId),savedScenes=[...(latest?.metadata?.projectTrackScenes||[])];
+   if(savedScenes.length>=20){if(status)status.textContent=uiText("אפשר לשמור עד 20 מצבי מיקס בפרויקט.","You can save up to 20 mix scenes per project.");return;}
+   const entered=prompt(uiText("תן שם למצב המיקס:","Name this mix scene:"),uiText("מצב מיקס ","Mix scene ")+(savedScenes.length+1));
+   if(entered===null)return;
+   const name=entered.trim().slice(0,60);
+   if(!name){if(status)status.textContent=uiText("צריך לתת שם למצב המיקס.","Please enter a name for the mix scene.");return;}
+   const scene={id:crypto.randomUUID(),name,createdAt:new Date().toISOString(),settings:window.ITZIK_PROJECT_TRACKS.getSettings(),baseSolo:window.ITZIK_PROJECT_TRACKS.getBaseSolo(),masterDb:window.ITZIK_PROJECT_TRACKS.getMasterDb()};
+   if(await updateProjectMetadata({projectTrackScenes:[...savedScenes,scene]})){render("mix");const nextStatus=$("#projectTracksStatus");if(nextStatus)nextStatus.textContent=uiText("מצב המיקס נשמר בפרויקט.","Mix scene saved to the project.");}
+   else if(status)status.textContent=uiText("שמירת מצב המיקס נכשלה.","Could not save the mix scene.");
+  };
+  document.querySelectorAll("[data-project-track-scene-apply]").forEach(button=>button.onclick=async()=>{
+   const id=button.dataset.projectTrackSceneApply,latest=projects.find(item=>item.id===currentProjectId);
+   const scene=(latest?.metadata?.projectTrackScenes||[]).find(item=>item.id===id);if(!scene)return;
+   const settings={};
+   for(const item of audioItems){
+    const state=scene.settings?.[item.id]||{gainDb:0,pan:0,mute:false,solo:false};
+    window.ITZIK_PROJECT_TRACKS.setTrack(item.id,state);
+    settings[item.id]=window.ITZIK_PROJECT_TRACKS.getTrack(item.id);
+    const gain=document.querySelector('[data-project-track-gain="'+item.id+'"]'),pan=document.querySelector('[data-project-track-pan="'+item.id+'"]');
+    if(gain)gain.value=String(settings[item.id].gainDb);
+    if(pan)pan.value=String(settings[item.id].pan);
+    refresh(item.id);
+   }
+   const baseSolo=window.ITZIK_PROJECT_TRACKS.setBaseSolo(scene.baseSolo===true);
+   const master=window.ITZIK_PROJECT_TRACKS.setMasterDb(scene.masterDb);
+   if(masterSlider)masterSlider.value=String(master);
+   if(masterValue)masterValue.textContent=master.toFixed(1)+" dB";
+   const baseButton=$("#mixSolo");
+   if(baseButton){baseButton.setAttribute("aria-pressed",String(baseSolo));baseButton.textContent=baseSolo?uiText("ביטול Solo","Unsolo"):"Solo";}
+   const saved=await updateProjectMetadata({projectTrackMixSettings:settings,projectBaseSolo:baseSolo,projectTrackMasterDb:master});
+   if(status)status.textContent=saved?uiText("מצב המיקס נטען ונשמר בפרויקט.","Mix scene loaded and saved to the project."):uiText("המצב נטען, אך השמירה בענן נכשלה.","Scene loaded, but cloud saving failed.");
+  });
+  document.querySelectorAll("[data-project-track-scene-delete]").forEach(button=>button.onclick=async()=>{
+   const id=button.dataset.projectTrackSceneDelete,latest=projects.find(item=>item.id===currentProjectId);
+   const scene=(latest?.metadata?.projectTrackScenes||[]).find(item=>item.id===id);if(!scene)return;
+   if(!confirm(uiText("למחוק את מצב המיקס \""+scene.name+"\"?","Delete mix scene \""+scene.name+"\"?")))return;
+   const next=(latest.metadata.projectTrackScenes||[]).filter(item=>item.id!==id);
+   if(await updateProjectMetadata({projectTrackScenes:next}))render("mix");
+   else if(status)status.textContent=uiText("מחיקת מצב המיקס נכשלה.","Could not delete the mix scene.");
+  });
   const resetButton=$("#projectTracksReset");
   if(resetButton)resetButton.onclick=async()=>{
    if(!confirm(uiText("לאפס את עוצמת הערוצים, Pan, השתקה ו-Solo?","Reset track levels, pan, mute and Solo?")))return;

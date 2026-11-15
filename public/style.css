@@ -1195,3 +1195,17 @@ body::after {
 .stem-track-actions{flex-wrap:wrap;justify-content:flex-end}
 .stem-track-actions button:disabled{opacity:.3;cursor:not-allowed}
 @media(max-width:620px){.project-track-master{grid-template-columns:1fr}.stem-track-heading{align-items:flex-start;flex-direction:column}.stem-track-actions{justify-content:flex-start}}
+
+
+/* Saved multitrack mix scenes */
+.project-track-scenes{margin:16px 0;padding:16px;border:1px solid #29445b;border-radius:14px;background:rgba(11,25,42,.72)}
+.project-track-scenes-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:12px}
+.project-track-scenes-heading h4{margin:0 0 5px;font-size:15px}
+.project-track-scenes-heading p,.project-track-scenes-empty{margin:0;color:var(--muted,#9aabba);font-size:12px;line-height:1.5}
+.project-track-scene-list{display:grid;gap:8px}
+.project-track-scene{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid rgba(105,145,170,.2);border-radius:10px;background:rgba(255,255,255,.025)}
+.project-track-scene>div:first-child{display:grid;gap:4px;min-width:0}
+.project-track-scene small{color:var(--muted,#9aabba);font-size:11px}
+.project-track-scene .stem-track-actions{gap:6px}
+.project-track-scenes-empty{padding:10px 0}
+@media(max-width:620px){.project-track-scenes-heading,.project-track-scene{align-items:stretch;flex-direction:column}.project-track-scenes-heading button{width:100%}.project-track-scene .stem-track-actions{justify-content:flex-start}}
