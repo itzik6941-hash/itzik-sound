@@ -486,7 +486,17 @@
     const overall = measureBuffer(masterAnalyser, masterMeterBuffer);
     const left = measureBuffer(masterLeftAnalyser, masterLeftBuffer);
     const right = measureBuffer(masterRightAnalyser, masterRightBuffer);
-    return { ...overall, left, right, stereoBalance: left.peak + right.peak > 1e-6 ? (right.peak - left.peak) / (right.peak + left.peak) : 0 };
+    let cross = 0, leftEnergy = 0, rightEnergy = 0;
+    for (let i = 0; i < Math.min(masterLeftBuffer?.length || 0, masterRightBuffer?.length || 0); i++) {
+      const l = masterLeftBuffer[i], r = masterRightBuffer[i];
+      cross += l * r;
+      leftEnergy += l * l;
+      rightEnergy += r * r;
+    }
+    const correlation = leftEnergy > 1e-12 && rightEnergy > 1e-12
+      ? Math.max(-1, Math.min(1, cross / Math.sqrt(leftEnergy * rightEnergy)))
+      : 0;
+    return { ...overall, left, right, correlation, stereoBalance: left.peak + right.peak > 1e-6 ? (right.peak - left.peak) / (right.peak + left.peak) : 0 };
   }
 
   function setBaseSolo(value) {
