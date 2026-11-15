@@ -6,6 +6,7 @@ let currentPage = "home";
 let currentFileUrl = null;
 let currentFile = null;
 let currentProjectId = null;
+let projectTracksBindGeneration = 0;
 let projects = [];
 let supabaseClient = null;
 let currentUser = null;
@@ -333,6 +334,7 @@ function render(page){
 
 
 async function bindProjectTracks(){
+ const bindGeneration=++projectTracksBindGeneration;
  const panel=$("#projectTrackMixer");
  if(!panel){await window.ITZIK_PROJECT_TRACKS?.destroy?.();return;}
  const project=projects.find(item=>item.id===currentProjectId);
@@ -343,6 +345,9 @@ async function bindProjectTracks(){
  if(input)input.onchange=async()=>{
   const selected=Array.from(input.files||[]);input.value="";if(!selected.length)return;
   if(tracks.length+selected.length>16){if(status)status.textContent=uiText("אפשר לשמור עד 16 ערוצים נוספים בפרויקט.","You can save up to 16 additional tracks per project.");return;}
+  const currentBytes=tracks.reduce((sum,track)=>sum+(Number(track.size)||0),0);
+  const selectedBytes=selected.reduce((sum,file)=>sum+file.size,0);
+  if(currentBytes+selectedBytes>200*1024*1024){if(status)status.textContent=uiText("נפח הערוצים הנוספים מוגבל ל־200MB לפרויקט.","Additional tracks are limited to 200 MB per project.");return;}
   addButton.disabled=true;
   try{
    for(const file of selected){
@@ -368,11 +373,14 @@ async function bindProjectTracks(){
    const element=Array.from(document.querySelectorAll("[data-project-track-audio]")).find(node=>node.dataset.projectTrackAudio===track.id);
    if(!element)continue;
    const {data,error}=await supabaseClient.storage.from("project-audio").createSignedUrl(track.storagePath,3600);
+   if(bindGeneration!==projectTracksBindGeneration||!panel.isConnected)return;
    if(error||!data?.signedUrl)throw new Error(uiText("לא ניתן לטעון את הערוץ: ","Could not load track: ")+track.name);
    element.src=data.signedUrl;element.load();
    audioItems.push({id:track.id,audio:element,settings:project.metadata?.projectTrackMixSettings?.[track.id]||{}});
   }
+  if(bindGeneration!==projectTracksBindGeneration||!panel.isConnected)return;
   await window.ITZIK_PROJECT_TRACKS.init(audioItems,audio);
+  if(bindGeneration!==projectTracksBindGeneration||!panel.isConnected)return;
   const save=async id=>{
    const latest=projects.find(item=>item.id===currentProjectId);
    const settings={...(latest?.metadata?.projectTrackMixSettings||{}),[id]:window.ITZIK_PROJECT_TRACKS.getTrack(id)};
@@ -2370,7 +2378,8 @@ async function deleteProject(id) {
   }
 
   const stemPaths=Object.values(p.metadata?.stemSeparation?.stems||{});
-  const paths=[...new Set([p.storage_path,p.metadata?.reference?.storagePath,p.metadata?.mastering?.storagePath,...stemPaths].filter(path=>typeof path==="string"&&path.length>0))];
+  const projectTrackPaths=(p.metadata?.projectTracks||[]).map(track=>track?.storagePath);
+  const paths=[...new Set([p.storage_path,p.metadata?.reference?.storagePath,p.metadata?.mastering?.storagePath,...stemPaths,...projectTrackPaths].filter(path=>typeof path==="string"&&path.length>0))];
   let storageCleanupFailed=false;
   if(paths.length){
     const {error:storageError}=await supabaseClient.storage.from("project-audio").remove(paths);

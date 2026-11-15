@@ -10,6 +10,8 @@
   let context;
   let source;
   let nodes;
+  let sharedOutputBus;
+  let sharedOutputLimiter;
 
   const clamp = (n, min, max) => Math.min(max, Math.max(min, Number(n) || 0));
   const toGain = db => 10 ** (clamp(db, -60, 12) / 20);
@@ -171,13 +173,23 @@
     try {
       context = new AudioContextClass();
       context.resume().catch(() => {});
+      sharedOutputBus = context.createGain();
+      sharedOutputLimiter = context.createDynamicsCompressor();
+      sharedOutputLimiter.threshold.value = -1;
+      sharedOutputLimiter.knee.value = 0;
+      sharedOutputLimiter.ratio.value = 20;
+      sharedOutputLimiter.attack.value = 0.003;
+      sharedOutputLimiter.release.value = 0.12;
+      sharedOutputBus.connect(sharedOutputLimiter);
+      sharedOutputLimiter.connect(context.destination);
       source = context.createMediaElementSource(element);
-      nodes = buildGraph(context, source, context.destination, settings, true);
+      nodes = buildGraph(context, source, sharedOutputBus, settings, true);
       element.addEventListener("play", () => context?.resume().catch(() => {}));
       return true;
     } catch (error) {
       context?.close().catch(() => {});
       context = null; source = null; nodes = null;
+      sharedOutputBus = null; sharedOutputLimiter = null;
       throw error;
     }
   }
@@ -239,6 +251,8 @@
   window.ITZIK_MIXER = {
     defaults: { ...defaults }, normalize, connect, apply, reset,
     getSettings: () => ({ ...settings }), drawMeter, renderOffline, hasProcessing,
-    isConnected: () => Boolean(nodes)
+    isConnected: () => Boolean(nodes),
+    getAudioContext: () => context,
+    getProjectMixDestination: () => sharedOutputBus
   };
 })();

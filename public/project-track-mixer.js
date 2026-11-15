@@ -2,6 +2,8 @@
   "use strict";
 
   const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value) || 0));
+  const hasSoloState = states => states.some(state => state?.solo === true);
+  const shouldMuteBase = states => hasSoloState(states);
   const normalize = input => ({
     gainDb: clamp(input?.gainDb ?? 0, -48, 12),
     pan: clamp(input?.pan ?? 0, -1, 1),
@@ -12,7 +14,9 @@
   let context = null;
   let master = null;
   let limiter = null;
+  let ownsContext = false;
   let leaderAudio = null;
+  let leaderOriginalMute = false;
   let leaderPauseHandler = null;
   let leaderSeekingHandler = null;
   let tracks = new Map();
@@ -26,7 +30,9 @@
 
   function applyAll() {
     if (!context) return;
-    const hasSolo = [...tracks.values()].some(track => track.state.solo);
+    const states = [...tracks.values()].map(track => track.state);
+    const hasSolo = hasSoloState(states);
+    if (leaderAudio && window.ITZIK_MIXER) window.ITZIK_MIXER.apply({ mute: shouldMuteBase(states) || leaderOriginalMute });
     const now = context.currentTime;
     for (const track of tracks.values()) {
       const state = track.state;
@@ -42,6 +48,8 @@
     if (leaderAudio && leaderSeekingHandler) leaderAudio.removeEventListener("seeking", leaderSeekingHandler);
     leaderPauseHandler = null;
     leaderSeekingHandler = null;
+    if (leaderAudio && window.ITZIK_MIXER) window.ITZIK_MIXER.apply({ mute: leaderOriginalMute });
+    leaderOriginalMute = false;
     for (const track of tracks.values()) {
       try { track.source.disconnect(); } catch {}
       try { track.gain.disconnect(); } catch {}
@@ -49,32 +57,40 @@
     }
     tracks.clear();
     leaderAudio = null;
-    if (context) {
-      const oldContext = context;
-      context = null;
-      master = null;
-      limiter = null;
-      await oldContext.close().catch(() => {});
-    }
+    try { master?.disconnect(); } catch {}
+    try { limiter?.disconnect(); } catch {}
+    if (context && ownsContext) await context.close().catch(() => {});
+    context = null;
+    master = null;
+    limiter = null;
+    ownsContext = false;
   }
 
   async function init(items, leader) {
     await destroy();
     leaderAudio = leader || null;
+    leaderOriginalMute = window.ITZIK_MIXER?.getSettings?.().mute === true;
     if (!items?.length) return;
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) throw new Error("הדפדפן אינו תומך במיקסר רב־ערוצי.");
-    context = new AudioContextClass();
+    const sharedContext = window.ITZIK_MIXER?.getAudioContext?.();
+    const sharedDestination = window.ITZIK_MIXER?.getProjectMixDestination?.();
+    if (!sharedContext && !AudioContextClass) throw new Error("הדפדפן אינו תומך במיקסר רב־ערוצי.");
+    context = sharedContext || new AudioContextClass();
+    ownsContext = !sharedContext;
     master = context.createGain();
-    limiter = context.createDynamicsCompressor();
-    limiter.threshold.value = -1;
-    limiter.knee.value = 0;
-    limiter.ratio.value = 20;
-    limiter.attack.value = 0.003;
-    limiter.release.value = 0.12;
     master.gain.value = 0.85;
-    master.connect(limiter);
-    limiter.connect(context.destination);
+    if (sharedContext && sharedDestination) {
+      master.connect(sharedDestination);
+    } else {
+      limiter = context.createDynamicsCompressor();
+      limiter.threshold.value = -1;
+      limiter.knee.value = 0;
+      limiter.ratio.value = 20;
+      limiter.attack.value = 0.003;
+      limiter.release.value = 0.12;
+      master.connect(limiter);
+      limiter.connect(context.destination);
+    }
 
     if (leaderAudio) {
       leaderPauseHandler = () => pause();
@@ -111,10 +127,14 @@
     applyAll();
   }
 
+  function getPlaybackStartTime(leader, trackAudios) {
+    if (leader && !leader.ended) return Math.max(0, leader.currentTime || 0);
+    const active = trackAudios.find(track => !track.ended);
+    return Math.max(0, active?.currentTime || 0);
+  }
+
   function getPlaybackPosition() {
-    if (leaderAudio && !leaderAudio.ended) return Math.max(0, leaderAudio.currentTime || 0);
-    const active = [...tracks.values()].find(track => !track.audio.ended);
-    return Math.max(0, active?.audio.currentTime || 0);
+    return getPlaybackStartTime(leaderAudio, [...tracks.values()].map(track => track.audio));
   }
 
   function sync() {
@@ -138,7 +158,7 @@
   async function play() {
     if (context) await context.resume();
     const list = [...tracks.values()];
-    const start = leaderAudio?.ended ? 0 : getPlaybackPosition();
+    const start = getPlaybackPosition();
     const players = [...(leaderAudio ? [leaderAudio] : []), ...list.map(track => track.audio)];
     for (const audio of players) {
       if (!Number.isFinite(audio.duration)) {
@@ -219,6 +239,8 @@
         const bytes = await response.arrayBuffer();
         decoded.push({ buffer: await context.decodeAudioData(bytes.slice(0)), state: { ...track.state } });
       }
+      const decodedBytes = baseBuffer.length * baseBuffer.numberOfChannels * 4 + decoded.reduce((total, item) => total + item.buffer.length * item.buffer.numberOfChannels * 4, 0);
+      if (decodedBytes > 512 * 1024 * 1024) throw new Error("הקבצים גדולים מדי לייצוא בטוח בדפדפן. נסה לייצא פחות ערוצים בכל פעם.");
       const sampleRate = Math.min(48000, Math.max(baseBuffer.sampleRate, ...decoded.map(item => item.buffer.sampleRate)));
       const duration = Math.max(baseBuffer.duration, ...decoded.map(item => item.buffer.duration));
       if (duration > 600) throw new Error("ייצוא מוגבל ל־10 דקות.");
@@ -236,12 +258,11 @@
       bus.connect(outputLimiter);
       outputLimiter.connect(output.destination);
 
+      const hasSolo = hasSoloState(decoded.map(item => item.state));
       const baseSource = output.createBufferSource();
       baseSource.buffer = baseBuffer;
       baseSource.connect(bus);
-      baseSource.start(0);
-
-      const hasSolo = decoded.some(item => item.state.solo);
+      if (!hasSolo) baseSource.start(0);
       for (const item of decoded) {
         const source = output.createBufferSource();
         const gain = output.createGain();
@@ -261,5 +282,5 @@
     }
   }
 
-  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix };
+  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, hasSoloState, shouldMuteBase, getPlaybackStartTime };
 })();
