@@ -354,3 +354,14 @@ test("project tracks support persistent groups and group filtering", () => {
  assert.match(app, /updateProjectMetadata\(\{projectTracks:next\}\)/);
  assert.match(app, /data-project-track-card/);
 });
+
+
+test("project track groups expose mute, solo and bounded relative gain controls", () => {
+ const app = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+ assert.match(app, /data-project-group-action="mute"/);
+ assert.match(app, /data-project-group-action="unmute"/);
+ assert.match(app, /data-project-group-action="solo"/);
+ assert.match(app, /data-project-group-gain=/);
+ assert.match(app, /Math\.max\(-48,Math\.min\(12,state\.gainDb\+delta\)\)/);
+ assert.match(app, /persistGroupSettings/);
+});
