@@ -227,6 +227,8 @@
         const bytes = await response.arrayBuffer();
         decoded.push({ buffer: await context.decodeAudioData(bytes.slice(0)), state: { ...track.state } });
       }
+      const decodedBytes = baseBuffer.length * baseBuffer.numberOfChannels * 4 + decoded.reduce((total, item) => total + item.buffer.length * item.buffer.numberOfChannels * 4, 0);
+      if (decodedBytes > 512 * 1024 * 1024) throw new Error("הקבצים גדולים מדי לייצוא בטוח בדפדפן. נסה לייצא פחות ערוצים בכל פעם.");
       const sampleRate = Math.min(48000, Math.max(baseBuffer.sampleRate, ...decoded.map(item => item.buffer.sampleRate)));
       const duration = Math.max(baseBuffer.duration, ...decoded.map(item => item.buffer.duration));
       if (duration > 600) throw new Error("ייצוא מוגבל ל־10 דקות.");
