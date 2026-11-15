@@ -6,6 +6,8 @@
   const shouldMuteBase = states => hasSoloState(states);
   const shouldMuteAdded = (state, hasSolo, baseSolo) => state?.mute === true || baseSolo === true || (hasSolo && state?.solo !== true);
   const shouldPlayBase = (hasSolo, baseMute) => !hasSolo && baseMute !== true;
+  const shouldPauseTracksOnLeaderPause = leader => !leader?.ended;
+  const getSynchronizedSeekTime = (start, duration) => Number.isFinite(duration) ? Math.max(0, Math.min(start, Math.max(0, duration - 0.02))) : Math.max(0, start);
   const normalize = input => ({
     gainDb: clamp(input?.gainDb ?? 0, -48, 12),
     pan: clamp(input?.pan ?? 0, -1, 1),
@@ -97,7 +99,7 @@
     }
 
     if (leaderAudio) {
-      leaderPauseHandler = () => pause();
+      leaderPauseHandler = () => { if (shouldPauseTracksOnLeaderPause(leaderAudio)) pause(); };
       leaderSeekingHandler = () => {
         if (leaderAudio && Number.isFinite(leaderAudio.currentTime)) {
           for (const track of tracks.values()) {
@@ -173,9 +175,9 @@
       }
     }
     for (const audio of players) {
-      if (audio.ended) audio.currentTime = 0;
-      else if (Math.abs(audio.currentTime - start) > 0.12) {
-        try { audio.currentTime = Math.min(start, Math.max(0, (audio.duration || start) - 0.02)); } catch {}
+      const target = getSynchronizedSeekTime(start, audio.duration);
+      if (Math.abs(audio.currentTime - target) > 0.12) {
+        try { audio.currentTime = target; } catch {}
       }
     }
     try {
@@ -312,5 +314,5 @@
     }
   }
 
-  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, hasSoloState, shouldMuteBase, shouldMuteAdded, shouldPlayBase, getPlaybackStartTime, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
+  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, hasSoloState, shouldMuteBase, shouldMuteAdded, shouldPlayBase, shouldPauseTracksOnLeaderPause, getSynchronizedSeekTime, getPlaybackStartTime, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
 })();
