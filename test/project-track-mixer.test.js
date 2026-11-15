@@ -282,3 +282,11 @@ test("stereo width is neutral by default and bounded from mono to double width",
   assert.equal(mixer.normalize({ stereoWidth: -1 }).stereoWidth, 0);
   assert.equal(mixer.normalize({ stereoWidth: 3 }).stereoWidth, 2);
 });
+
+test("stereo widener uses the correct mid-side polarity and neutral matrix", () => {
+  const source = fs.readFileSync(new URL("../public/project-track-mixer.js", import.meta.url), "utf8");
+  assert.match(source, /widthMid\.gain\.value = 0\.5/);
+  assert.match(source, /widthSide\.gain\.value = 0\.5/);
+  assert.match(source, /setParam\(graph\.widthSideInvert\.gain, -1, ctx\)/);
+  assert.match(source, /setParam\(graph\.widthSideRightInvert\.gain, -1, ctx\)/);
+});
