@@ -8,7 +8,7 @@ const mixer = globalThis.window.ITZIK_PROJECT_TRACKS;
 
 test("project track settings are normalized and bounded", () => {
   assert.deepEqual(mixer.normalize({}), {
-    gainDb: 0, pan: 0, mute: false, solo: false,
+    gainDb: 0, pan: 0, mute: false, solo: false, stereoWidth: 1,
     inputTrimDb: 0, phaseInvert: false, saturation: 0,
     eqLowDb: 0, eqMidDb: 0, eqHighDb: 0, compThreshold: -18, compRatio: 1, compAttack: 0.012, compRelease: 0.22,
     reverbMix: 0, delayMix: 0, delayTime: 0.24, delayFeedback: 0.18
@@ -19,15 +19,15 @@ test("project track settings are normalized and bounded", () => {
     eqLowDb: 99, eqMidDb: -99, eqHighDb: 99, compThreshold: -99, compRatio: 99,
     reverbMix: 99, delayMix: 99, delayTime: 99, delayFeedback: 99
   }), {
-    gainDb: 12, pan: -1, mute: true, solo: true,
+    gainDb: 12, pan: -1, mute: true, solo: true, stereoWidth: 1,
     inputTrimDb: 24, phaseInvert: false, saturation: 99,
     eqLowDb: 12, eqMidDb: -12, eqHighDb: 12, compThreshold: -36, compRatio: 12, compAttack: 0.001, compRelease: 1,
     reverbMix: 0.5, delayMix: 0.5, delayTime: 0.75, delayFeedback: 0.65
   });
   assert.deepEqual(mixer.normalize({
-    gainDb: -99, pan: 5, mute: 1, solo: 0
+    gainDb: -99, pan: 5, mute: 1, solo: 0, stereoWidth: 99
   }), {
-    gainDb: -48, pan: 1, mute: false, solo: false,
+    gainDb: -48, pan: 1, mute: false, solo: false, stereoWidth: 2,
     inputTrimDb: 0, phaseInvert: false, saturation: 0,
     eqLowDb: 0, eqMidDb: 0, eqHighDb: 0, compThreshold: -18, compRatio: 1, compAttack: 0.012, compRelease: 0.22,
     reverbMix: 0, delayMix: 0, delayTime: 0.24, delayFeedback: 0.18
@@ -87,6 +87,8 @@ test("added tracks reuse the main mixer audio context and do not close it", asyn
     sampleRate: 44100,
     createGain: makeNode,
     createStereoPanner: makeNode,
+    createChannelSplitter: makeNode,
+    createChannelMerger: makeNode,
     createBiquadFilter: makeNode,
     createDynamicsCompressor: makeNode,
     createAnalyser() { return { fftSize: 2048, smoothingTimeConstant: 0, getFloatTimeDomainData(buffer) { buffer.fill(0); }, connect(destination) { connections.push(destination); }, disconnect() {} }; },
@@ -270,4 +272,10 @@ test("master output ceiling is constrained to a safe limiter range", () => {
   assert.equal(mixer.normalizeOutputCeilingDb(-99), -6);
   assert.equal(mixer.normalizeOutputCeilingDb(0), -0.1);
   assert.equal(mixer.normalizeOutputCeilingDb(-3.5), -3.5);
+});
+
+test("stereo width is neutral by default and bounded from mono to double width", () => {
+  assert.equal(mixer.normalize({}).stereoWidth, 1);
+  assert.equal(mixer.normalize({ stereoWidth: -1 }).stereoWidth, 0);
+  assert.equal(mixer.normalize({ stereoWidth: 3 }).stereoWidth, 2);
 });
