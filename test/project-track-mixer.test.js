@@ -432,3 +432,14 @@ test("automation editor renders an interactive curve canvas with pointer editing
  assert.match(app, /setPointerCapture/);
  assert.match(style, /project-track-curve/);
 });
+
+
+test("automation editor exposes a draggable pan curve with left center right axis", () => {
+ const app = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+ assert.match(app, /data-project-track-automation-pan-curve=/);
+ assert.match(app, /project-track-pan-curve/);
+ assert.match(app, /panCanvas\.addEventListener\("pointerdown"/);
+ assert.match(app, /panCanvas\.addEventListener\("pointermove"/);
+ assert.match(app, /panCanvas\.addEventListener\("pointerup"/);
+ assert.match(app, /Drag points to move the sound from left to right/);
+});
