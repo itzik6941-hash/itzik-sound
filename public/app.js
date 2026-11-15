@@ -1626,7 +1626,7 @@ async function exportCurrentFile(){
   const url=URL.createObjectURL(blob);
   const a=document.createElement("a");
   a.href=url;
-  a.download=(currentFile.name.replace(/\\.[^.]+$/,"")||"itzik-sound")+(multitrack?"-multitrack-mix":"")+"."+format;
+  a.download=(currentFile.name.replace(/\.[^.]+$/,"")||"itzik-sound")+(multitrack?"-multitrack-mix":"")+"."+format;
 
   document.body.appendChild(a);
   a.click();
