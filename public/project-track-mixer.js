@@ -212,13 +212,16 @@
       throw error;
     }
     stopSync();
+    notifyPlaybackState();
     syncTimer = setInterval(() => {
       const active = players.filter(audio => !audio.paused && !audio.ended);
-      if (active.length < 2) {
-        if (!active.length) stopSync();
+      if (!active.length) {
+        stopSync();
+        notifyPlaybackState();
         return;
       }
-      sync();
+      if (active.length > 1) sync();
+      notifyPlaybackState();
     }, 250);
   }
 
@@ -226,6 +229,7 @@
     stopSync();
     if (leaderAudio) leaderAudio.pause();
     for (const track of tracks.values()) track.audio.pause();
+    notifyPlaybackState();
   }
 
   function stop() {
@@ -236,6 +240,7 @@
     for (const track of tracks.values()) {
       try { track.audio.currentTime = 0; } catch {}
     }
+    notifyPlaybackState();
   }
 
   function setTrack(id, patch) {
