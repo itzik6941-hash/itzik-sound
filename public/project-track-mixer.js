@@ -2,6 +2,8 @@
   "use strict";
 
   const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value) || 0));
+  const hasSoloState = states => states.some(state => state?.solo === true);
+  const shouldMuteBase = states => hasSoloState(states);
   const normalize = input => ({
     gainDb: clamp(input?.gainDb ?? 0, -48, 12),
     pan: clamp(input?.pan ?? 0, -1, 1),
@@ -13,6 +15,7 @@
   let master = null;
   let limiter = null;
   let leaderAudio = null;
+  let leaderOriginalVolume = 1;
   let leaderPauseHandler = null;
   let leaderSeekingHandler = null;
   let tracks = new Map();
@@ -26,7 +29,9 @@
 
   function applyAll() {
     if (!context) return;
-    const hasSolo = [...tracks.values()].some(track => track.state.solo);
+    const states = [...tracks.values()].map(track => track.state);
+    const hasSolo = hasSoloState(states);
+    if (leaderAudio) leaderAudio.volume = shouldMuteBase(states) ? 0 : leaderOriginalVolume;
     const now = context.currentTime;
     for (const track of tracks.values()) {
       const state = track.state;
@@ -42,6 +47,8 @@
     if (leaderAudio && leaderSeekingHandler) leaderAudio.removeEventListener("seeking", leaderSeekingHandler);
     leaderPauseHandler = null;
     leaderSeekingHandler = null;
+    if (leaderAudio) leaderAudio.volume = leaderOriginalVolume;
+    leaderOriginalVolume = 1;
     for (const track of tracks.values()) {
       try { track.source.disconnect(); } catch {}
       try { track.gain.disconnect(); } catch {}
@@ -61,6 +68,7 @@
   async function init(items, leader) {
     await destroy();
     leaderAudio = leader || null;
+    leaderOriginalVolume = Number.isFinite(leaderAudio?.volume) ? leaderAudio.volume : 1;
     if (!items?.length) return;
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextClass) throw new Error("הדפדפן אינו תומך במיקסר רב־ערוצי.");
@@ -239,9 +247,9 @@
       const baseSource = output.createBufferSource();
       baseSource.buffer = baseBuffer;
       baseSource.connect(bus);
-      baseSource.start(0);
+      if (!hasSolo) baseSource.start(0);
 
-      const hasSolo = decoded.some(item => item.state.solo);
+      const hasSolo = hasSoloState(decoded.map(item => item.state));
       for (const item of decoded) {
         const source = output.createBufferSource();
         const gain = output.createGain();
@@ -261,5 +269,5 @@
     }
   }
 
-  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix };
+  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, hasSoloState, shouldMuteBase };
 })();
