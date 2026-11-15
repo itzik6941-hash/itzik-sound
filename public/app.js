@@ -532,6 +532,7 @@ async function bindProjectTracks(){
    const master=window.ITZIK_PROJECT_TRACKS.getMasterDb(),ceiling=window.ITZIK_PROJECT_TRACKS.getOutputCeilingDb(),ms=$("#projectTrackMaster"),mv=$("#projectTrackMasterValue"),cs=$("#projectTrackCeiling"),cv=$("#projectTrackCeilingValue");
    if(ms)ms.value=String(master);if(mv)mv.textContent=master.toFixed(1)+" dB";if(cs)cs.value=String(ceiling);if(cv)cv.textContent=ceiling.toFixed(1)+" dB";
    const baseSolo=window.ITZIK_PROJECT_TRACKS.getBaseSolo(),baseButton=$("#mixSolo");if(baseButton){baseButton.setAttribute("aria-pressed",String(baseSolo));baseButton.textContent=baseSolo?uiText("ביטול Solo","Unsolo"):"Solo";}
+   document.querySelectorAll("[data-project-group-panel]").forEach(panel=>{const group=panel.dataset.projectGroupPanel,items=audioItems.filter(item=>((document.querySelector('[data-project-track-group="'+item.id+'"]')?.value)||(tracks.find(track=>track.id===item.id)?.group)||"other")===group),button=panel.querySelector('[data-project-group-action="solo"]'),active=items.length>0&&items.every(item=>window.ITZIK_PROJECT_TRACKS.getTrack(item.id)?.solo===true);if(button){button.setAttribute("aria-pressed",String(active));button.textContent=active?uiText("בטל Solo","Unsolo"):"Solo";}});
   };
   const persistHistoryAction=async direction=>{
    const changed=direction==="undo"?window.ITZIK_PROJECT_TRACKS.undo():window.ITZIK_PROJECT_TRACKS.redo();if(!changed)return;
@@ -683,7 +684,7 @@ async function bindProjectTracks(){
    if(!await updateProjectMetadata({projectTrackMasterDb:value})&&status)status.textContent=uiText("עוצמת המאסטר פעילה, אך השמירה בענן נכשלה.","Master level is active, but cloud saving failed.");
   };
   const ceilingSlider=$("#projectTrackCeiling"),ceilingValue=$("#projectTrackCeilingValue");
-  const activeCeiling=window.ITZIK_PROJECT_TRACKS.setOutputCeilingDb(project.metadata?.projectTrackOutputCeilingDb??-1);
+  const activeCeiling=window.ITZIK_PROJECT_TRACKS.setOutputCeilingDb(project.metadata?.projectTrackOutputCeilingDb??-1,false);
   if(ceilingSlider)ceilingSlider.value=String(activeCeiling);
   if(ceilingValue)ceilingValue.textContent=activeCeiling.toFixed(1)+" dB";
   if(ceilingSlider)ceilingSlider.oninput=async()=>{
