@@ -12,7 +12,9 @@ test("project track settings are normalized and bounded", () => {
     reverbMix: 0, delayMix: 0, delayTime: 0.24, delayFeedback: 0.18
   });
   assert.deepEqual(mixer.normalize({
-    gainDb: 99, pan: -5, mute: true, solo: true
+    gainDb: 99, pan: -5, mute: true, solo: true,
+    eqLowDb: 99, eqMidDb: -99, eqHighDb: 99, compThreshold: -99, compRatio: 99,
+    reverbMix: 99, delayMix: 99, delayTime: 99, delayFeedback: 99
   }), {
     gainDb: 12, pan: -1, mute: true, solo: true,
     eqLowDb: 12, eqMidDb: -12, eqHighDb: 12, compThreshold: -36, compRatio: 12,
@@ -22,8 +24,8 @@ test("project track settings are normalized and bounded", () => {
     gainDb: -99, pan: 5, mute: 1, solo: 0
   }), {
     gainDb: -48, pan: 1, mute: false, solo: false,
-    eqLowDb: -12, eqMidDb: 12, eqHighDb: -12, compThreshold: 0, compRatio: 1,
-    reverbMix: 0, delayMix: 0, delayTime: 0.05, delayFeedback: 0
+    eqLowDb: 0, eqMidDb: 0, eqHighDb: 0, compThreshold: -18, compRatio: 1,
+    reverbMix: 0, delayMix: 0, delayTime: 0.24, delayFeedback: 0.18
   });
 });
 
