@@ -1217,3 +1217,10 @@ body::after {
 .project-track-effects-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;padding-top:12px}
 .project-track-effects-grid .stem-mix-control{min-width:0}
 @media(max-width:620px){.project-track-effects-grid{grid-template-columns:1fr}}
+
+
+.project-track-master-meter{display:grid;gap:7px;margin:10px 0 16px;padding:10px 12px;border:1px solid var(--border-color,rgba(127,127,127,.25));border-radius:12px;background:var(--surface-soft,rgba(127,127,127,.06))}
+.project-track-master-meter-head{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:.86rem}
+.project-track-master-meter-track{height:12px;overflow:hidden;border-radius:999px;background:rgba(127,127,127,.2);direction:ltr}
+.project-track-master-meter-track span{display:block;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,#22a06b 0%,#d6a629 76%,#d94b4b 94%);transition:width 55ms linear}
+.project-track-master-clip{min-height:1em;color:#d94b4b;font-size:.78rem;font-weight:800;letter-spacing:.06em}
