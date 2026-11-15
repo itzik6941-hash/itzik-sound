@@ -72,6 +72,11 @@
     mid.type = "peaking"; mid.frequency.value = 1000; mid.Q.value = 0.8;
     high.type = "highshelf"; high.frequency.value = 8000;
     convolver.buffer = makeImpulse(ctx);
+    dry.gain.value = 1;
+    delayWet.gain.value = 0;
+    feedback.gain.value = 0.18;
+    reverbDry.gain.value = 1;
+    reverbWet.gain.value = 0;
     compressor.knee.value = 0;
     compressor.attack.value = 0.012;
     compressor.release.value = 0.22;
@@ -100,7 +105,7 @@
     setParam(graph.compressor.ratio, v.compRatio, ctx);
     setParam(graph.compressor.knee, v.compRatio <= 1 ? 0 : 12, ctx);
     setParam(graph.delay.delayTime, v.delayTime, ctx);
-    setParam(graph.feedback.gain, v.delayFeedback, ctx);
+    setParam(graph.feedback.gain, v.delayMix > 0 ? v.delayFeedback : 0, ctx);
     setParam(graph.delayWet.gain, v.delayMix, ctx);
     setParam(graph.reverbWet.gain, v.reverbMix, ctx);
     setParam(graph.pan.pan, v.pan, ctx);
