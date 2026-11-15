@@ -540,11 +540,12 @@ async function bindProjectTracks(){
   });
   applyGroupFilter();
   const groupPanels=Array.from(document.querySelectorAll("[data-project-group-panel]"));
-  const groupTracks=group=>audioItems.filter(item=>((tracks.find(track=>track.id===item.id)?.group)||"other")===group);
-  const persistGroupSettings=async()=>{
+  const groupTracks=group=>audioItems.filter(item=>((document.querySelector('[data-project-track-group="'+item.id+'"]')?.value)||(tracks.find(track=>track.id===item.id)?.group)||"other")===group);
+  const persistGroupSettings=async clearBaseSolo=>{
    const latest=projects.find(item=>item.id===currentProjectId);
    const settings={...(latest?.metadata?.projectTrackMixSettings||{}),...window.ITZIK_PROJECT_TRACKS.getSettings()};
-   if(!await updateProjectMetadata({projectBaseSolo:false,projectTrackMixSettings:settings})&&status)status.textContent=uiText("השינוי הקבוצתי פעיל, אך השמירה בענן נכשלה.","Group change applied, but cloud saving failed.");
+   const patch={projectTrackMixSettings:settings};if(clearBaseSolo)patch.projectBaseSolo=false;
+   if(!await updateProjectMetadata(patch)&&status)status.textContent=uiText("השינוי הקבוצתי פעיל, אך השמירה בענן נכשלה.","Group change applied, but cloud saving failed.");
   };
   const refreshGroupSolo=()=>{
    groupPanels.forEach(panel=>{
@@ -563,7 +564,7 @@ async function bindProjectTracks(){
    }else{
     for(const item of items){window.ITZIK_PROJECT_TRACKS.setTrack(item.id,{mute:action==="mute"});refresh(item.id);}
    }
-   await persistGroupSettings();
+   await persistGroupSettings(action==="solo");
   });
   document.querySelectorAll("[data-project-group-gain]").forEach(slider=>{
    const group=slider.dataset.projectGroupGain,output=document.querySelector('[data-project-group-gain-value="'+group+'"]');
