@@ -67,6 +67,7 @@ test("added tracks reuse the main mixer audio context and do not close it", asyn
     currentTime: 0,
     destination: makeNode(),
     createGain: makeNode,
+    createStereoPanner: makeNode,
     createMediaElementSource() { return makeNode(); },
     async close() { closed = true; }
   };
