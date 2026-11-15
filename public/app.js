@@ -185,7 +185,7 @@ function projectTracksPanel(){
        <label class="project-track-group-select"><span>${uiText("קבוצת ערוץ","Track group")}</span><select data-project-track-group="${escapeHtml(track.id)}"><option value="drums" ${track.group==="drums"?"selected":""}>${uiText("תופים","Drums")}</option><option value="bass" ${track.group==="bass"?"selected":""}>Bass</option><option value="vocals" ${track.group==="vocals"?"selected":""}>${uiText("שירה","Vocals")}</option><option value="instruments" ${track.group==="instruments"?"selected":""}>${uiText("כלי נגינה","Instruments")}</option><option value="fx" ${track.group==="fx"?"selected":""}>FX</option><option value="other" ${!track.group||track.group==="other"?"selected":""}>${uiText("אחר","Other")}</option></select></label>
        <label class="stem-mix-control"><span>${uiText("עוצמה","Level")} <output data-project-track-gain-value="${escapeHtml(track.id)}">0 dB</output></span><input type="range" data-project-track-gain="${escapeHtml(track.id)}" min="-48" max="12" step="0.5" value="0"></label>
        <label class="stem-mix-control"><span>Pan <output data-project-track-pan-value="${escapeHtml(track.id)}">Center</output></span><input type="range" data-project-track-pan="${escapeHtml(track.id)}" min="-1" max="1" step="0.01" value="0"></label>
-       <section class="project-track-automation"><div><b>${uiText("אוטומציית עוצמה ו־Pan","Volume & Pan automation")}</b><small data-project-track-automation-count="${escapeHtml(track.id)}">0 ${uiText("נקודות","points")}</small></div><div class="project-track-automation-actions"><button type="button" class="secondary-btn" data-project-track-automation-add="${escapeHtml(track.id)}">${uiText("＋ שמור נקודה בזמן הנוכחי","＋ Capture at playhead")}</button><button type="button" class="secondary-btn" data-project-track-automation-clear="${escapeHtml(track.id)}">${uiText("נקה אוטומציה","Clear automation")}</button></div></section>
+       <section class="project-track-automation"><div><b>${uiText("אוטומציית עוצמה ו־Pan","Volume & Pan automation")}</b><small data-project-track-automation-count="${escapeHtml(track.id)}">0 ${uiText("נקודות","points")}</small></div><div class="project-track-automation-actions"><button type="button" class="secondary-btn" data-project-track-automation-add="${escapeHtml(track.id)}">${uiText("＋ שמור נקודה בזמן הנוכחי","＋ Capture at playhead")}</button><button type="button" class="secondary-btn" data-project-track-automation-clear="${escapeHtml(track.id)}">${uiText("נקה אוטומציה","Clear automation")}</button></div><details class="project-track-automation-editor"><summary>${uiText("עריכת נקודות אוטומציה","Edit automation points")}</summary><div data-project-track-automation-list="${escapeHtml(track.id)}"></div></details></section>
        <div class="project-track-channel-meter" data-project-track-meter="${escapeHtml(track.id)}" data-peak-db="-120" role="meter" aria-label="${escapeHtml(track.name)} level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="project-track-channel-meter-head"><span>${uiText("מד עוצמת ערוץ","Track level")}</span><output data-project-track-meter-value="${escapeHtml(track.id)}">-∞ dBFS</output></div><div class="project-track-channel-meter-rms"><span>RMS</span><output data-project-track-meter-rms="${escapeHtml(track.id)}">-∞ dBFS</output></div><div class="project-track-channel-meter-stereo"><span>L <output data-project-track-meter-left="${escapeHtml(track.id)}">-∞</output></span><span>R <output data-project-track-meter-right="${escapeHtml(track.id)}">-∞</output></span></div><div class="project-track-channel-meter-track"><span data-project-track-meter-fill="${escapeHtml(track.id)}"></span><i data-project-track-meter-hold="${escapeHtml(track.id)}"></i></div><div class="project-track-channel-meter-foot"><small data-project-track-meter-clip="${escapeHtml(track.id)}"></small><output data-project-track-meter-peak="${escapeHtml(track.id)}">Peak hold: -∞ dBFS</output></div></div>
        <label class="stem-mix-control"><span>${uiText("רוחב סטריאו","Stereo width")} <output data-project-track-width-value="${escapeHtml(track.id)}">100%</output></span><input type="range" data-project-track-width="${escapeHtml(track.id)}" min="0" max="2" step="0.01" value="1"></label>
        <details class="project-track-effects"><summary>${uiText("אפקטים ועיבוד לערוץ","Track effects & processing")}</summary><div class="project-track-effects-grid">
@@ -494,6 +494,28 @@ async function bindProjectTracks(){
   const baseSoloActive=window.ITZIK_PROJECT_TRACKS.setBaseSolo(project.metadata?.projectBaseSolo===true,false)
   if(baseSoloButton){baseSoloButton.disabled=false;baseSoloButton.setAttribute("aria-pressed",String(baseSoloActive));baseSoloButton.textContent=baseSoloActive?uiText("ביטול Solo","Unsolo"):"Solo";}
   const automationStatus=()=>{const lanes=window.ITZIK_PROJECT_TRACKS.getAutomationLanes();for(const item of audioItems){const out=document.querySelector('[data-project-track-automation-count="'+item.id+'"]');if(out)out.textContent=(lanes[item.id]?.length||0)+" "+uiText("נקודות","points");}};
+
+  const renderAutomationEditor=id=>{
+   const list=document.querySelector('[data-project-track-automation-list="'+id+'"]');if(!list)return;
+   const points=window.ITZIK_PROJECT_TRACKS.getAutomationLanes()[id]||[];
+   list.innerHTML=points.map((point,index)=>'<div class="project-track-automation-point"><label>'+uiText("זמן (שניות)","Time (seconds)")+'<input type="number" min="0" max="600" step="0.01" value="'+point.time.toFixed(2)+'" data-project-track-automation-field="time" data-project-track-automation-id="'+escapeHtml(id)+'" data-project-track-automation-index="'+index+'"></label><label>'+uiText("עוצמה (dB)","Level (dB)")+'<input type="number" min="-48" max="12" step="0.5" value="'+point.gainDb.toFixed(1)+'" data-project-track-automation-field="gainDb" data-project-track-automation-id="'+escapeHtml(id)+'" data-project-track-automation-index="'+index+'"></label><label>Pan<input type="number" min="-1" max="1" step="0.01" value="'+point.pan.toFixed(2)+'" data-project-track-automation-field="pan" data-project-track-automation-id="'+escapeHtml(id)+'" data-project-track-automation-index="'+index+'"></label><button type="button" class="secondary-btn" data-project-track-automation-remove="'+escapeHtml(id)+'" data-project-track-automation-index="'+index+'">'+uiText("מחק נקודה","Delete point")+'</button></div>').join("")||'<p class="project-track-automation-empty">'+uiText("אין עדיין נקודות אוטומציה.","No automation points yet.")+'</p>';
+  };
+  const persistAutomationEditor=async(id,next)=>{
+   const lanes=window.ITZIK_PROJECT_TRACKS.getAutomationLanes();lanes[id]=next.sort((x,y)=>x.time-y.time);window.ITZIK_PROJECT_TRACKS.setAutomationLanes(lanes);
+   const saved=await updateProjectMetadata({projectTrackAutomation:window.ITZIK_PROJECT_TRACKS.getAutomationLanes()});automationStatus();renderAutomationEditor(id);
+   if(status)status.textContent=saved?uiText("האוטומציה עודכנה ונשמרה.","Automation updated and saved."):uiText("האוטומציה עודכנה, אך השמירה בענן נכשלה.","Automation updated, but cloud saving failed.");
+  };
+  document.querySelectorAll("[data-project-track-automation-field]").forEach(input=>input.onchange=async()=>{
+   const id=input.dataset.projectTrackAutomationId,index=Number(input.dataset.projectTrackAutomationIndex),field=input.dataset.projectTrackAutomationField;
+   const lanes=window.ITZIK_PROJECT_TRACKS.getAutomationLanes(),points=[...(lanes[id]||[])];if(!points[index])return;
+   const value=Number(input.value);if(!Number.isFinite(value)){renderAutomationEditor(id);return;}
+   points[index]={...points[index],[field]:value};await persistAutomationEditor(id,points);
+  });
+  document.querySelectorAll("[data-project-track-automation-remove]").forEach(button=>button.onclick=async()=>{
+   const id=button.dataset.projectTrackAutomationRemove,index=Number(button.dataset.projectTrackAutomationIndex),lanes=window.ITZIK_PROJECT_TRACKS.getAutomationLanes(),points=[...(lanes[id]||[])];
+   if(index<0||index>=points.length)return;points.splice(index,1);await persistAutomationEditor(id,points);
+  });
+
   document.querySelectorAll("[data-project-track-automation-add]").forEach(button=>button.onclick=async()=>{
    const id=button.dataset.projectTrackAutomationAdd,state=window.ITZIK_PROJECT_TRACKS.getTrack(id);if(!state)return;
    const time=Math.max(0,Math.min(600,window.ITZIK_PROJECT_TRACKS.getPlaybackPosition()));
@@ -502,17 +524,17 @@ async function bindProjectTracks(){
    const existing=points.findIndex(item=>Math.abs(item.time-point.time)<0.05);if(existing>=0)points[existing]=point;else points.push(point);
    points.sort((x,y)=>x.time-y.time);if(points.length>256){if(status)status.textContent=uiText("אפשר לשמור עד 256 נקודות אוטומציה לערוץ.","A track can contain up to 256 automation points.");return;}
    lanes[id]=points;window.ITZIK_PROJECT_TRACKS.setAutomationLanes(lanes);
-   const saved=await updateProjectMetadata({projectTrackAutomation:window.ITZIK_PROJECT_TRACKS.getAutomationLanes()});automationStatus();
+   const saved=await updateProjectMetadata({projectTrackAutomation:window.ITZIK_PROJECT_TRACKS.getAutomationLanes()});automationStatus();renderAutomationEditor(id);
    if(status)status.textContent=saved?uiText("נקודת אוטומציה נשמרה ב־"+point.time.toFixed(2)+" שניות.","Automation point saved at "+point.time.toFixed(2)+" seconds."):uiText("האוטומציה פעילה, אך השמירה בענן נכשלה.","Automation is active, but cloud saving failed.");
   });
   document.querySelectorAll("[data-project-track-automation-clear]").forEach(button=>button.onclick=async()=>{
    const id=button.dataset.projectTrackAutomationClear,lanes=window.ITZIK_PROJECT_TRACKS.getAutomationLanes();if(!lanes[id]?.length)return;
    if(!confirm(uiText("למחוק את כל נקודות האוטומציה של הערוץ?","Delete all automation points for this track?")))return;
    delete lanes[id];window.ITZIK_PROJECT_TRACKS.setAutomationLanes(lanes);
-   const saved=await updateProjectMetadata({projectTrackAutomation:window.ITZIK_PROJECT_TRACKS.getAutomationLanes()});automationStatus();
+   const saved=await updateProjectMetadata({projectTrackAutomation:window.ITZIK_PROJECT_TRACKS.getAutomationLanes()});automationStatus();renderAutomationEditor(id);
    if(status)status.textContent=saved?uiText("האוטומציה נוקתה ונשמרה.","Automation cleared and saved."):uiText("האוטומציה נוקתה, אך השמירה בענן נכשלה.","Automation cleared, but cloud saving failed.");
   });
-  automationStatus();
+  automationStatus();audioItems.forEach(item=>renderAutomationEditor(item.id));
   const save=async id=>{
    const latest=projects.find(item=>item.id===currentProjectId);
    const settings={...(latest?.metadata?.projectTrackMixSettings||{}),[id]:window.ITZIK_PROJECT_TRACKS.getTrack(id)};
