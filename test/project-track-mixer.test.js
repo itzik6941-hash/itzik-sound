@@ -52,3 +52,41 @@ test("resume starts at zero when every track has ended", () => {
   const endedTrack = { currentTime: 10, ended: true };
   assert.equal(mixer.getPlaybackStartTime(endedBase, [endedTrack]), 0);
 });
+
+test("added tracks reuse the main mixer audio context and do not close it", async () => {
+  const connections = [];
+  const makeNode = () => ({
+    gain: { setTargetAtTime() {} },
+    pan: { setTargetAtTime() {} },
+    connect(destination) { connections.push(destination); },
+    disconnect() {}
+  });
+  let closed = false;
+  const sharedBus = makeNode();
+  const sharedContext = {
+    currentTime: 0,
+    destination: makeNode(),
+    createGain: makeNode,
+    createMediaElementSource() { return makeNode(); },
+    async close() { closed = true; }
+  };
+  global.window.ITZIK_MIXER = {
+    getAudioContext: () => sharedContext,
+    getProjectMixDestination: () => sharedBus,
+    getSettings: () => ({ mute: false }),
+    apply() {}
+  };
+  const makeAudio = () => ({
+    currentTime: 0, duration: 20, ended: false, paused: true, seeking: false,
+    addEventListener() {}, removeEventListener() {},
+    pause() {}, async play() {}
+  });
+  const leader = makeAudio();
+  const added = makeAudio();
+
+  await mixer.init([{ id: "track-1", audio: added }], leader);
+  assert.ok(connections.includes(sharedBus));
+  await mixer.destroy();
+  assert.equal(closed, false);
+  delete global.window.ITZIK_MIXER;
+});
