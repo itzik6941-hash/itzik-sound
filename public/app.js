@@ -156,6 +156,7 @@ function projectTracksPanel(){
      <div class="stem-mixer-heading"><h3>${uiText("מיקסר רב־ערוצי","Multitrack mixer")}</h3><p>${uiText("הקובץ הראשי וכל הערוצים הנוספים ינוגנו יחד. אפשר לשלוט בעוצמה, Pan, השתקה ו-Solo לכל ערוץ.","The original file and all added tracks play together. Control level, pan, mute and solo for each added track.")}</p></div>
      <div class="stem-transport"><button type="button" class="primary-btn" id="projectTracksPlay">${uiText("▶ נגן הכל","▶ Play all")}</button><button type="button" class="secondary-btn" id="projectTracksPause">${uiText("השהה","Pause")}</button><button type="button" class="secondary-btn" id="projectTracksStop">${uiText("עצור","Stop")}</button><button type="button" class="secondary-btn" id="projectTracksExport">${uiText("ייצא מיקס משולב WAV","Export combined WAV mix")}</button><button type="button" class="secondary-btn" id="projectTracksReset">${uiText("אפס מיקסר","Reset mixer")}</button></div>
      <label class="project-track-master"><span>${uiText("עוצמת מאסטר","Master level")} <output id="projectTrackMasterValue">-1.5 dB</output></span><input type="range" id="projectTrackMaster" min="-24" max="6" step="0.5" value="-1.5"></label>
+     <label class="project-track-master"><span>${uiText("תקרת יציאה (Limiter)","Output ceiling (Limiter)")} <output id="projectTrackCeilingValue">-1.0 dB</output></span><input type="range" id="projectTrackCeiling" min="-6" max="-0.1" step="0.1" value="-1"></label>
      <div class="project-track-master-meter" role="meter" aria-label="Master output level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
       <div class="project-track-master-meter-head"><span>${uiText("מד עוצמת יציאה","Output level")}</span><output id="projectTrackMasterMeterValue">Peak: -∞ dBFS</output></div>
       <div class="project-track-master-meter-rms"><span>RMS</span><output id="projectTrackMasterRmsValue">-∞ dBFS</output></div>
@@ -461,6 +462,7 @@ async function bindProjectTracks(){
    }
    if(bindGeneration!==projectTracksBindGeneration||!panel.isConnected)return;
    await window.ITZIK_PROJECT_TRACKS.init(audioItems,audio);
+   window.ITZIK_PROJECT_TRACKS.setOutputCeilingDb(project.metadata?.projectTrackOutputCeilingDb??-1);
    activeProjectTracksProjectId=currentProjectId;
    activeProjectTracksSignature=trackSignature;
   }else{
@@ -534,6 +536,15 @@ async function bindProjectTracks(){
    const value=window.ITZIK_PROJECT_TRACKS.setMasterDb(Number(masterSlider.value));
    if(masterValue)masterValue.textContent=value.toFixed(1)+" dB";
    if(!await updateProjectMetadata({projectTrackMasterDb:value})&&status)status.textContent=uiText("עוצמת המאסטר פעילה, אך השמירה בענן נכשלה.","Master level is active, but cloud saving failed.");
+  };
+  const ceilingSlider=$("#projectTrackCeiling"),ceilingValue=$("#projectTrackCeilingValue");
+  const activeCeiling=window.ITZIK_PROJECT_TRACKS.setOutputCeilingDb(project.metadata?.projectTrackOutputCeilingDb??-1);
+  if(ceilingSlider)ceilingSlider.value=String(activeCeiling);
+  if(ceilingValue)ceilingValue.textContent=activeCeiling.toFixed(1)+" dB";
+  if(ceilingSlider)ceilingSlider.oninput=async()=>{
+   const value=window.ITZIK_PROJECT_TRACKS.setOutputCeilingDb(Number(ceilingSlider.value));
+   if(ceilingValue)ceilingValue.textContent=value.toFixed(1)+" dB";
+   if(!await updateProjectMetadata({projectTrackOutputCeilingDb:value})&&status)status.textContent=uiText("תקרת היציאה פעילה, אך השמירה בענן נכשלה.","Output ceiling is active, but cloud saving failed.");
   };
   const masterMeterFill=$("#projectTrackMasterMeterFill"),masterMeterValue=$("#projectTrackMasterMeterValue"),masterMeterRms=$("#projectTrackMasterRmsValue"),masterMeterWrap=$(".project-track-master-meter"),masterClip=$("#projectTrackMasterClip");
   if(window.__itzikMasterMeterFrame)cancelAnimationFrame(window.__itzikMasterMeterFrame);
