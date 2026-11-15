@@ -584,9 +584,10 @@ async function bindProjectTracks(){
     const state={gainDb:0,pan:0,mute:false,solo:false,...window.ITZIK_PROJECT_TRACKS.effectDefaults,...(scene.settings?.[item.id]||{})};
     window.ITZIK_PROJECT_TRACKS.setTrack(item.id,state);
     settings[item.id]=window.ITZIK_PROJECT_TRACKS.getTrack(item.id);
-    const gain=document.querySelector('[data-project-track-gain="'+item.id+'"]'),pan=document.querySelector('[data-project-track-pan="'+item.id+'"]');
+    const gain=document.querySelector('[data-project-track-gain="'+item.id+'"]'),pan=document.querySelector('[data-project-track-pan="'+item.id+'"]'),width=document.querySelector('[data-project-track-width="'+item.id+'"]');
     if(gain)gain.value=String(settings[item.id].gainDb);
     if(pan)pan.value=String(settings[item.id].pan);
+    if(width)width.value=String(settings[item.id].stereoWidth);
     refresh(item.id);refreshTrackFx(item.id);
    }
    const baseSolo=window.ITZIK_PROJECT_TRACKS.setBaseSolo(scene.baseSolo===true);
