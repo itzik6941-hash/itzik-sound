@@ -212,10 +212,13 @@
     tracks.clear();
     leaderAudio = null;
     try { master?.disconnect(); } catch {}
+    try { masterAnalyser?.disconnect(); } catch {}
     try { limiter?.disconnect(); } catch {}
     if (context && ownsContext) await context.close().catch(() => {});
     context = null;
     master = null;
+    masterAnalyser = null;
+    masterMeterBuffer = null;
     limiter = null;
     ownsContext = false;
   }
