@@ -91,3 +91,10 @@ test("added tracks reuse the main mixer audio context and do not close it", asyn
   assert.equal(closed, false);
   delete global.window.ITZIK_MIXER;
 });
+
+test("base mute preference remains separate from temporary Solo muting", () => {
+  assert.equal(mixer.setBaseMute(true), true);
+  assert.equal(mixer.getBaseMute(), true);
+  assert.equal(mixer.setBaseMute(false), false);
+  assert.equal(mixer.getBaseMute(), false);
+});
