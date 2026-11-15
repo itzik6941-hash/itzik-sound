@@ -113,7 +113,7 @@ test("added tracks reuse the main mixer audio context and do not close it", asyn
   const leader = makeAudio();
   const added = makeAudio();
 
-  await mixer.init([{ id: "track-1", audio: added }], leader);
+  await mixer.init([{ id: "track-1", audio: added }], leader, {});
   assert.ok(connections.includes(sharedBus));
   mixer.setTrack("track-1", { stereoWidth: 0, solo: true });
   assert.equal(mixer.getTrack("track-1").stereoWidth, 0);
@@ -400,8 +400,22 @@ test("track automation points are normalized, interpolated and exposed by the mi
  assert.match(engine, /function interpolateAutomation/);
  assert.match(engine, /function applyAutomationAtTime/);
  assert.match(engine, /linearRampToValueAtTime/);
+ assert.match(engine, /async function init\(items, leader, automation = \{\}\)/);
  assert.match(engine, /setAutomationLanes, getAutomationLanes/);
  assert.match(app, /data-project-track-automation-add=/);
  assert.match(app, /data-project-track-automation-clear=/);
  assert.match(app, /projectTrackAutomation/);
+});
+
+
+test("track automation has an editable keyframe list with bounded numeric fields and per-point removal", () => {
+ const app = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+ const style = fs.readFileSync(new URL("../public/style.css", import.meta.url), "utf8");
+ assert.match(app, /data-project-track-automation-list=/);
+ assert.match(app, /data-project-track-automation-field="time"/);
+ assert.match(app, /data-project-track-automation-field="gainDb"/);
+ assert.match(app, /data-project-track-automation-field="pan"/);
+ assert.match(app, /data-project-track-automation-remove=/);
+ assert.match(app, /persistAutomationEditor/);
+ assert.match(style, /project-track-automation-point/);
 });
