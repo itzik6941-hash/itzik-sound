@@ -225,6 +225,20 @@
     return Object.fromEntries([...tracks].map(([id, track]) => [id, { ...track.state }]));
   }
 
+  function setBaseMute(value) {
+    leaderOriginalMute = value === true;
+    applyAll();
+    return leaderOriginalMute;
+  }
+
+  function getBaseMute() {
+    return leaderOriginalMute;
+  }
+
+  function isActive() {
+    return Boolean(context && tracks.size);
+  }
+
   async function renderMix(baseBuffer) {
     if (rendering) throw new Error("ייצוא מיקס כבר מתבצע.");
     if (!baseBuffer) throw new Error("לא נמצא קובץ המקור לייצוא.");
@@ -282,5 +296,5 @@
     }
   }
 
-  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, hasSoloState, shouldMuteBase, getPlaybackStartTime };
+  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, hasSoloState, shouldMuteBase, getPlaybackStartTime, setBaseMute, getBaseMute, isActive };
 })();

@@ -62,6 +62,7 @@ test("added tracks reuse the main mixer audio context and do not close it", asyn
     disconnect() {}
   });
   let closed = false;
+  let appliedBaseMute = false;
   const sharedBus = makeNode();
   const sharedContext = {
     currentTime: 0,
@@ -75,7 +76,7 @@ test("added tracks reuse the main mixer audio context and do not close it", asyn
     getAudioContext: () => sharedContext,
     getProjectMixDestination: () => sharedBus,
     getSettings: () => ({ mute: false }),
-    apply() {}
+    apply(settings) { appliedBaseMute = settings.mute; }
   };
   const makeAudio = () => ({
     currentTime: 0, duration: 20, ended: false, paused: true, seeking: false,
@@ -87,7 +88,20 @@ test("added tracks reuse the main mixer audio context and do not close it", asyn
 
   await mixer.init([{ id: "track-1", audio: added }], leader);
   assert.ok(connections.includes(sharedBus));
+  mixer.setTrack("track-1", { solo: true });
+  assert.equal(appliedBaseMute, true);
+  mixer.setBaseMute(false);
+  assert.equal(appliedBaseMute, true);
+  mixer.setTrack("track-1", { solo: false });
+  assert.equal(appliedBaseMute, false);
   await mixer.destroy();
   assert.equal(closed, false);
   delete global.window.ITZIK_MIXER;
+});
+
+test("base mute preference remains separate from temporary Solo muting", () => {
+  assert.equal(mixer.setBaseMute(true), true);
+  assert.equal(mixer.getBaseMute(), true);
+  assert.equal(mixer.setBaseMute(false), false);
+  assert.equal(mixer.getBaseMute(), false);
 });

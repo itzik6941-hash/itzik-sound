@@ -538,6 +538,7 @@ function scheduleMixSettingsSave(){
 async function persistMixSettings(){
  if(!window.ITZIK_MIXER)return;
  const settings=window.ITZIK_MIXER.getSettings();
+ if(window.ITZIK_PROJECT_TRACKS?.isActive?.())settings.mute=window.ITZIK_PROJECT_TRACKS.getBaseMute();
  try{localStorage.setItem(mixSettingsKey(),JSON.stringify(settings));}catch{}
  if(!currentProjectId||!supabaseClient)return;
  const saved=await updateProjectMetadata({mixSettings:settings});
@@ -615,9 +616,12 @@ function bindMixer(){
  });
  const mute=$("#mixMute");
  if(mute)mute.onclick=()=>{
-  const next=window.ITZIK_MIXER.apply({mute:!window.ITZIK_MIXER.getSettings().mute});
-  mute.setAttribute("aria-pressed",String(next.mute));
-  mute.textContent=next.mute?uiText("ביטול השתקה","Unmute"):uiText("השתק","Mute");
+  const projectTracks=window.ITZIK_PROJECT_TRACKS;
+  const muted=projectTracks?.isActive?.()
+   ?projectTracks.setBaseMute(!projectTracks.getBaseMute())
+   :window.ITZIK_MIXER.apply({mute:!window.ITZIK_MIXER.getSettings().mute}).mute;
+  mute.setAttribute("aria-pressed",String(muted));
+  mute.textContent=muted?uiText("ביטול השתקה","Unmute"):uiText("השתק","Mute");
   scheduleMixSettingsSave();
  };
  const ab=$("#mixAB");
