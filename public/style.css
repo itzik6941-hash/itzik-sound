@@ -1224,3 +1224,5 @@ body::after {
 .project-track-master-meter-track{height:12px;overflow:hidden;border-radius:999px;background:rgba(127,127,127,.2);direction:ltr}
 .project-track-master-meter-track span{display:block;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,#22a06b 0%,#d6a629 76%,#d94b4b 94%);transition:width 55ms linear}
 .project-track-master-clip{min-height:1em;color:#d94b4b;font-size:.78rem;font-weight:800;letter-spacing:.06em}
+
+.project-track-master-meter-rms{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:.8rem;opacity:.8}
