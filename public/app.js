@@ -477,7 +477,7 @@ async function bindProjectTracks(){
    }
    if(bindGeneration!==projectTracksBindGeneration||!panel.isConnected)return;
    await window.ITZIK_PROJECT_TRACKS.init(audioItems,audio);
-   window.ITZIK_PROJECT_TRACKS.setOutputCeilingDb(project.metadata?.projectTrackOutputCeilingDb??-1);
+   window.ITZIK_PROJECT_TRACKS.setOutputCeilingDb(project.metadata?.projectTrackOutputCeilingDb??-1,false)
    activeProjectTracksProjectId=currentProjectId;
    activeProjectTracksSignature=trackSignature;
   }else{
@@ -490,7 +490,7 @@ async function bindProjectTracks(){
   if(bindGeneration!==projectTracksBindGeneration||!panel.isConnected)return;
   updateProjectTrackPlayer();
   const baseSoloButton=$("#mixSolo");
-  const baseSoloActive=window.ITZIK_PROJECT_TRACKS.setBaseSolo(project.metadata?.projectBaseSolo===true);
+  const baseSoloActive=window.ITZIK_PROJECT_TRACKS.setBaseSolo(project.metadata?.projectBaseSolo===true,false)
   if(baseSoloButton){baseSoloButton.disabled=false;baseSoloButton.setAttribute("aria-pressed",String(baseSoloActive));baseSoloButton.textContent=baseSoloActive?uiText("ביטול Solo","Unsolo"):"Solo";}
   const save=async id=>{
    const latest=projects.find(item=>item.id===currentProjectId);
@@ -578,6 +578,7 @@ async function bindProjectTracks(){
   document.querySelectorAll("[data-project-group-action]").forEach(button=>button.onclick=async()=>{
    const group=button.dataset.projectGroup,action=button.dataset.projectGroupAction,items=groupTracks(group);
    if(!items.length)return;
+   window.ITZIK_PROJECT_TRACKS.beginHistoryTransaction("Group "+action);
    if(action==="solo"){
     const active=items.every(item=>window.ITZIK_PROJECT_TRACKS.getTrack(item.id)?.solo===true);
     for(const item of audioItems){window.ITZIK_PROJECT_TRACKS.setTrack(item.id,{solo:active?false:items.some(groupItem=>groupItem.id===item.id)});refresh(item.id);}
@@ -585,6 +586,8 @@ async function bindProjectTracks(){
    }else{
     for(const item of items){window.ITZIK_PROJECT_TRACKS.setTrack(item.id,{mute:action==="mute"});refresh(item.id);}
    }
+   window.ITZIK_PROJECT_TRACKS.commitHistoryTransaction();
+
    await persistGroupSettings(action==="solo");
   });
   document.querySelectorAll("[data-project-group-gain]").forEach(slider=>{
@@ -593,6 +596,7 @@ async function bindProjectTracks(){
    slider.onchange=async()=>{
     const delta=Number(slider.value);
     if(delta!==0){
+     window.ITZIK_PROJECT_TRACKS.beginHistoryTransaction("Group level");
      for(const item of groupTracks(group)){
       const state=window.ITZIK_PROJECT_TRACKS.getTrack(item.id);if(!state)continue;
       const gainDb=Math.max(-48,Math.min(12,state.gainDb+delta));
@@ -600,6 +604,8 @@ async function bindProjectTracks(){
       const gain=document.querySelector('[data-project-track-gain="'+item.id+'"]'),gainOutput=document.querySelector('[data-project-track-gain-value="'+item.id+'"]');
       if(gain)gain.value=String(gainDb);if(gainOutput)gainOutput.textContent=gainDb.toFixed(1)+" dB";
      }
+     window.ITZIK_PROJECT_TRACKS.commitHistoryTransaction();
+
      await persistGroupSettings();
     }
     slider.value="0";if(output)output.textContent="0.0 dB";
@@ -622,7 +628,10 @@ async function bindProjectTracks(){
   if(selectNone)selectNone.onclick=()=>{selectionInputs.forEach(input=>{input.checked=false;selectedTrackIds.delete(input.dataset.projectTrackSelect);});updateBulkControls();};
   const applyBulk=async patch=>{
    if(!selectedTrackIds.size)return;
+    window.ITZIK_PROJECT_TRACKS.beginHistoryTransaction("Bulk track change");
    for(const id of selectedTrackIds){window.ITZIK_PROJECT_TRACKS.setTrack(id,patch);refresh(id);}
+   window.ITZIK_PROJECT_TRACKS.commitHistoryTransaction();
+
    const latest=projects.find(item=>item.id===currentProjectId),settings={...(latest?.metadata?.projectTrackMixSettings||{}),...window.ITZIK_PROJECT_TRACKS.getSettings()};
    if(!await updateProjectMetadata({projectTrackMixSettings:settings})&&status)status.textContent=uiText("השינוי הקבוצתי פעיל, אך השמירה בענן נכשלה.","Group change applied, but cloud saving failed.");
   };
@@ -630,8 +639,11 @@ async function bindProjectTracks(){
   if(bulkUnmute)bulkUnmute.onclick=()=>applyBulk({mute:false});
   if(bulkGain)bulkGain.onchange=async()=>{
    const delta=Number(bulkGain.value);
+    window.ITZIK_PROJECT_TRACKS.beginHistoryTransaction("Selected track levels");
    if(bulkGainValue)bulkGainValue.textContent=(delta>0?"+":"")+delta.toFixed(1)+" dB";
    for(const id of selectedTrackIds){const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);if(state){const gainDb=Math.max(-48,Math.min(12,state.gainDb+delta));window.ITZIK_PROJECT_TRACKS.setTrack(id,{gainDb});refresh(id);const slider=document.querySelector('[data-project-track-gain="'+id+'"]'),output=document.querySelector('[data-project-track-gain-value="'+id+'"]');if(slider)slider.value=String(gainDb);if(output)output.textContent=gainDb.toFixed(1)+" dB";}}
+   window.ITZIK_PROJECT_TRACKS.commitHistoryTransaction();
+
    const latest=projects.find(item=>item.id===currentProjectId),settings={...(latest?.metadata?.projectTrackMixSettings||{}),...window.ITZIK_PROJECT_TRACKS.getSettings()};
    if(!await updateProjectMetadata({projectTrackMixSettings:settings})&&status)status.textContent=uiText("שינוי העוצמה פעיל, אך השמירה בענן נכשלה.","Level change applied, but cloud saving failed.");
   };
@@ -662,7 +674,7 @@ async function bindProjectTracks(){
   }
   const masterSlider=$("#projectTrackMaster"),masterValue=$("#projectTrackMasterValue");
   const savedMasterDb=Number.isFinite(Number(project.metadata?.projectTrackMasterDb))?Number(project.metadata.projectTrackMasterDb):-1.5;
-  const activeMasterDb=window.ITZIK_PROJECT_TRACKS.setMasterDb(savedMasterDb);
+  const activeMasterDb=window.ITZIK_PROJECT_TRACKS.setMasterDb(savedMasterDb,false)
   if(masterSlider)masterSlider.value=String(activeMasterDb);
   if(masterValue)masterValue.textContent=activeMasterDb.toFixed(1)+" dB";
   if(masterSlider)masterSlider.oninput=async()=>{
@@ -745,9 +757,11 @@ async function bindProjectTracks(){
   document.querySelectorAll("[data-project-track-scene-apply]").forEach(button=>button.onclick=async()=>{
    const id=button.dataset.projectTrackSceneApply,latest=projects.find(item=>item.id===currentProjectId);
    const scene=(latest?.metadata?.projectTrackScenes||[]).find(item=>item.id===id);if(!scene)return;
+   window.ITZIK_PROJECT_TRACKS.beginHistoryTransaction("Load mix scene");
+
    const settings={};
    for(const item of audioItems){
-    const state={gainDb:0,pan:0,mute:false,solo:false,...window.ITZIK_PROJECT_TRACKS.effectDefaults,...(scene.settings?.[item.id]||{})};
+     const state={gainDb:0,pan:0,mute:false,solo:false,...window.ITZIK_PROJECT_TRACKS.effectDefaults,...(scene.settings?.[item.id]||{})};
     window.ITZIK_PROJECT_TRACKS.setTrack(item.id,state);
     settings[item.id]=window.ITZIK_PROJECT_TRACKS.getTrack(item.id);
     const gain=document.querySelector('[data-project-track-gain="'+item.id+'"]'),pan=document.querySelector('[data-project-track-pan="'+item.id+'"]'),width=document.querySelector('[data-project-track-width="'+item.id+'"]');
@@ -762,6 +776,8 @@ async function bindProjectTracks(){
    if(masterValue)masterValue.textContent=master.toFixed(1)+" dB";
    const baseButton=$("#mixSolo");
    if(baseButton){baseButton.setAttribute("aria-pressed",String(baseSolo));baseButton.textContent=baseSolo?uiText("ביטול Solo","Unsolo"):"Solo";}
+   window.ITZIK_PROJECT_TRACKS.commitHistoryTransaction();
+
    const saved=await updateProjectMetadata({projectTrackMixSettings:settings,projectBaseSolo:baseSolo,projectTrackMasterDb:master});
    if(status)status.textContent=saved?uiText("מצב המיקס נטען ונשמר בפרויקט.","Mix scene loaded and saved to the project."):uiText("המצב נטען, אך השמירה בענן נכשלה.","Scene loaded, but cloud saving failed.");
   });
@@ -776,9 +792,11 @@ async function bindProjectTracks(){
   const resetButton=$("#projectTracksReset");
   if(resetButton)resetButton.onclick=async()=>{
    if(!confirm(uiText("לאפס את עוצמת הערוצים, Pan, השתקה ו-Solo?","Reset track levels, pan, mute and Solo?")))return;
+   window.ITZIK_PROJECT_TRACKS.beginHistoryTransaction("Reset mixer");
+
    const settings={};
    for(const item of audioItems){
-    window.ITZIK_PROJECT_TRACKS.setTrack(item.id,{gainDb:0,pan:0,mute:false,solo:false,...window.ITZIK_PROJECT_TRACKS.effectDefaults});
+     window.ITZIK_PROJECT_TRACKS.setTrack(item.id,{gainDb:0,pan:0,mute:false,solo:false,...window.ITZIK_PROJECT_TRACKS.effectDefaults});
     settings[item.id]=window.ITZIK_PROJECT_TRACKS.getTrack(item.id);
     const gain=document.querySelector('[data-project-track-gain="'+item.id+'"]');
     const pan=document.querySelector('[data-project-track-pan="'+item.id+'"]');
@@ -790,6 +808,8 @@ async function bindProjectTracks(){
    const master=window.ITZIK_PROJECT_TRACKS.setMasterDb(-1.5);
    if(masterSlider)masterSlider.value=String(master);
    if(masterValue)masterValue.textContent=master.toFixed(1)+" dB";
+   window.ITZIK_PROJECT_TRACKS.commitHistoryTransaction();
+
    const saved=await updateProjectMetadata({projectTrackMixSettings:settings,projectBaseSolo:false,projectTrackMasterDb:master});
    if(status)status.textContent=saved?uiText("המיקסר אופס ונשמר בפרויקט.","Mixer reset and saved to the project."):uiText("המיקסר אופס, אך השמירה בענן נכשלה.","Mixer reset, but cloud saving failed.");
   };
