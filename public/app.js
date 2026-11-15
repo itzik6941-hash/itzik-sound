@@ -196,10 +196,10 @@ function mixPage() {
       <p class="mixer-note">${uiText("A/B משווה בין האות המקורי לעיבוד. הייצוא משתמש בעיבוד הפעיל.","A/B switches between the original signal and processing. Export uses the active processing.")}</p>
     </div>` : `<div class="panel empty-state"><div class="big">♫</div><b>${uiText("קודם נעלה שיר","Upload a track first")}</b><p>${uiText("המיקסר יופעל על ערוץ הסטריאו שבפרויקט.","The mixer works on the stereo track in your project.")}</p><button class="secondary-btn" data-go="home">${uiText("העלאת שיר","Upload a track")}</button></div>`}
 
-    ${currentFile ? (() => {
     ${currentFile ? projectTracksPanel() : ""}
 
-      const stemMeta=projects.find(p=>p.id===currentProjectId)?.metadata?.stemSeparation||{};
+    ${currentFile ? (() => {
+    const stemMeta=projects.find(p=>p.id===currentProjectId)?.metadata?.stemSeparation||{};
       const stemNames=stemMeta.separationMode==="vocals_instrumental"?["vocals","instrumental"]:["vocals","drums","bass","other"];
       const stemLabels={vocals:uiText("שירה","Vocals"),drums:uiText("תופים","Drums"),bass:uiText("בס","Bass"),other:uiText("כלים נוספים","Other instruments"),instrumental:uiText("פלייבק ללא שירה","Instrumental")};
       const saved=stemNames.filter(name=>stemMeta.stems?.[name]);
