@@ -324,3 +324,13 @@ test("per-track meter displays RMS level", () => {
  assert.match(app, /data-project-track-meter-rms/);
  assert.match(app, /trackMeter\.rms/);
 });
+
+test("each project track exposes independent left and right level analysis", () => {
+ const mixer = fs.readFileSync(new URL("../public/project-track-mixer.js", import.meta.url), "utf8");
+ const app = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+ assert.match(mixer, /meterLeftAnalyser/);
+ assert.match(mixer, /meterRightAnalyser/);
+ assert.match(mixer, /stereoBalance: left\.peak/);
+ assert.match(app, /data-project-track-meter-left/);
+ assert.match(app, /data-project-track-meter-right/);
+});

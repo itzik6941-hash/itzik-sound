@@ -1242,3 +1242,5 @@ body::after {
 .project-track-channel-meter small{min-height:1em;color:#d94b4b;font-size:.72rem;font-weight:800}
 
 .project-track-channel-meter-rms{display:flex;justify-content:space-between;gap:8px;font-size:.7rem;font-variant-numeric:tabular-nums;opacity:.78}
+
+.project-track-channel-meter-stereo{display:flex;justify-content:space-between;gap:10px;font-size:.7rem;font-variant-numeric:tabular-nums;opacity:.78}.project-track-channel-meter-stereo span{display:flex;gap:5px}
