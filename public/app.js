@@ -156,6 +156,12 @@ function projectTracksPanel(){
      <div class="stem-mixer-heading"><h3>${uiText("מיקסר רב־ערוצי","Multitrack mixer")}</h3><p>${uiText("הקובץ הראשי וכל הערוצים הנוספים ינוגנו יחד. אפשר לשלוט בעוצמה, Pan, השתקה ו-Solo לכל ערוץ.","The original file and all added tracks play together. Control level, pan, mute and solo for each added track.")}</p></div>
      <div class="stem-transport"><button type="button" class="primary-btn" id="projectTracksPlay">${uiText("▶ נגן הכל","▶ Play all")}</button><button type="button" class="secondary-btn" id="projectTracksPause">${uiText("השהה","Pause")}</button><button type="button" class="secondary-btn" id="projectTracksStop">${uiText("עצור","Stop")}</button><button type="button" class="secondary-btn" id="projectTracksExport">${uiText("ייצא מיקס משולב WAV","Export combined WAV mix")}</button><button type="button" class="secondary-btn" id="projectTracksReset">${uiText("אפס מיקסר","Reset mixer")}</button></div>
      <label class="project-track-master"><span>${uiText("עוצמת מאסטר","Master level")} <output id="projectTrackMasterValue">-1.5 dB</output></span><input type="range" id="projectTrackMaster" min="-24" max="6" step="0.5" value="-1.5"></label>
+     <div class="project-track-master-meter" role="meter" aria-label="Master output level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div class="project-track-master-meter-head"><span>${uiText("מד עוצמת יציאה","Output level")}</span><output id="projectTrackMasterMeterValue">Peak: -∞ dBFS</output></div>
+      <div class="project-track-master-meter-rms"><span>RMS</span><output id="projectTrackMasterRmsValue">-∞ dBFS</output></div>
+      <div class="project-track-master-meter-track"><span id="projectTrackMasterMeterFill"></span></div>
+      <span id="projectTrackMasterClip" class="project-track-master-clip" aria-live="polite"></span>
+     </div>
      ${projectTrackScenesMarkup(scenes)}
      <div class="stem-mixer-tracks">
       ${tracks.map((track,index)=>`
@@ -529,6 +535,21 @@ async function bindProjectTracks(){
    if(masterValue)masterValue.textContent=value.toFixed(1)+" dB";
    if(!await updateProjectMetadata({projectTrackMasterDb:value})&&status)status.textContent=uiText("עוצמת המאסטר פעילה, אך השמירה בענן נכשלה.","Master level is active, but cloud saving failed.");
   };
+  const masterMeterFill=$("#projectTrackMasterMeterFill"),masterMeterValue=$("#projectTrackMasterMeterValue"),masterMeterRms=$("#projectTrackMasterRmsValue"),masterMeterWrap=$(".project-track-master-meter"),masterClip=$("#projectTrackMasterClip");
+  if(window.__itzikMasterMeterFrame)cancelAnimationFrame(window.__itzikMasterMeterFrame);
+  const updateMasterMeter=()=>{
+   if(!masterMeterFill||!masterMeterValue||!window.ITZIK_PROJECT_TRACKS.isActive?.()){window.__itzikMasterMeterFrame=0;return;}
+   const meter=window.ITZIK_PROJECT_TRACKS.getMasterMeter?.()||{peak:0,db:-120,clipping:false};
+   const level=Math.max(0,Math.min(100,(meter.db+60)/60*100));
+   masterMeterFill.style.width=level.toFixed(1)+"%";
+   masterMeterValue.textContent="Peak: "+(meter.db<=-59.9?"-∞":meter.db.toFixed(1))+" dBFS";
+   if(masterMeterRms){const rmsDb=20*Math.log10(Math.max(meter.rms||0,1e-6));masterMeterRms.textContent=rmsDb<=-59.9?"-∞ dBFS":rmsDb.toFixed(1)+" dBFS";}
+   if(masterMeterWrap)masterMeterWrap.setAttribute("aria-valuenow",String(Math.round(level)));
+   if(masterClip)masterClip.textContent=meter.clipping?uiText("שיא אות!","CLIP!"): "";
+   window.__itzikMasterMeterFrame=requestAnimationFrame(updateMasterMeter);
+  };
+  window.__itzikMasterMeterFrame=0;
+  if(window.ITZIK_PROJECT_TRACKS.isActive?.())window.__itzikMasterMeterFrame=requestAnimationFrame(updateMasterMeter);
   const sceneSave=$("#projectTrackSceneSave");
   if(sceneSave)sceneSave.onclick=async()=>{
    const latest=projects.find(item=>item.id===currentProjectId),savedScenes=[...(latest?.metadata?.projectTrackScenes||[])];

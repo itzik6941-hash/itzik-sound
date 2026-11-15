@@ -1,9 +1,10 @@
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
 
-global.window = {};
-require("../public/project-track-mixer.js");
-const mixer = global.window.ITZIK_PROJECT_TRACKS;
+globalThis.window = {};
+await import("../public/project-track-mixer.js");
+const mixer = globalThis.window.ITZIK_PROJECT_TRACKS;
 
 test("project track settings are normalized and bounded", () => {
   assert.deepEqual(mixer.normalize({}), {
@@ -88,6 +89,7 @@ test("added tracks reuse the main mixer audio context and do not close it", asyn
     createStereoPanner: makeNode,
     createBiquadFilter: makeNode,
     createDynamicsCompressor: makeNode,
+    createAnalyser() { return { fftSize: 2048, smoothingTimeConstant: 0, getFloatTimeDomainData(buffer) { buffer.fill(0); }, connect(destination) { connections.push(destination); }, disconnect() {} }; },
     createWaveShaper: makeNode,
     createDelay: makeNode,
     createConvolver: makeNode,
@@ -255,4 +257,11 @@ test("offline export tail grows to include feedback delay echoes", () => {
   assert.equal(mixer.getEffectsTailDuration([{delayMix:0,delayFeedback:0.65,delayTime:0.75}]),1.3);
   assert.ok(mixer.getEffectsTailDuration([{delayMix:0.5,delayFeedback:0.65,delayTime:0.75}])>1.3);
   assert.ok(mixer.getEffectsTailDuration([{delayMix:0.5,delayFeedback:0.65,delayTime:0.75}])<=12);
+});
+
+test("master meter returns a silent safe reading before mixer initialization", () => {
+  const source = fs.readFileSync(new URL("../public/project-track-mixer.js", import.meta.url), "utf8");
+  assert.match(source, /function getMasterMeter\(\)/);
+  assert.match(source, /clipping: peak >= 0\.999/);
+  assert.match(source, /masterAnalyser\.fftSize = 2048/);
 });
