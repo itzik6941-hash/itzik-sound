@@ -7,6 +7,9 @@ let currentFileUrl = null;
 let currentFile = null;
 let currentProjectId = null;
 let projectTracksBindGeneration = 0;
+let projectTrackAudioElements = new Map();
+let activeProjectTracksProjectId = null;
+let activeProjectTracksSignature = "";
 let projects = [];
 let supabaseClient = null;
 let currentUser = null;
@@ -153,8 +156,7 @@ function projectTracksPanel(){
         <button type="button" class="secondary-btn" data-project-track-mute="${escapeHtml(track.id)}" aria-pressed="false">${uiText("השתק","Mute")}</button><button type="button" class="secondary-btn" data-project-track-solo="${escapeHtml(track.id)}" aria-pressed="false">Solo</button><button type="button" class="secondary-btn" data-project-track-remove="${escapeHtml(track.id)}" title="${uiText("הסר מהפרויקט","Remove from project")}">✕</button>
        </div></div>
        <label class="stem-mix-control"><span>${uiText("עוצמה","Level")} <output data-project-track-gain-value="${escapeHtml(track.id)}">0 dB</output></span><input type="range" data-project-track-gain="${escapeHtml(track.id)}" min="-48" max="12" step="0.5" value="0"></label>
-       <label class="stem-mix-control"><span>Pan <output data-project-track-pan-value="${escapeHtml(track.id)}">Center</output></span><input type="range" data-project-track-pan="${escapeHtml(track.id)}" min="-1" max="1" step="0.01" value="0"></label>
-       <audio data-project-track-audio="${escapeHtml(track.id)}" preload="auto" crossorigin="anonymous"></audio></article>
+       <label class="stem-mix-control"><span>Pan <output data-project-track-pan-value="${escapeHtml(track.id)}">Center</output></span><input type="range" data-project-track-pan="${escapeHtml(track.id)}" min="-1" max="1" step="0.01" value="0"></label></article>
       `).join("")}
      </div>
     </div>`:""}
@@ -335,10 +337,19 @@ function render(page){
 }
 
 
+function clearProjectTrackAudioElements(){
+ for(const element of projectTrackAudioElements.values()){
+  try{element.pause();element.removeAttribute("src");element.load();}catch{}
+ }
+ projectTrackAudioElements.clear();
+ activeProjectTracksProjectId=null;
+ activeProjectTracksSignature="";
+}
+
 async function bindProjectTracks(){
  const bindGeneration=++projectTracksBindGeneration;
  const panel=$("#projectTrackMixer");
- if(!panel){await window.ITZIK_PROJECT_TRACKS?.destroy?.();return;}
+ if(!panel)return;
  const project=projects.find(item=>item.id===currentProjectId);
  const tracks=project?.metadata?.projectTracks||[];
  const status=$("#projectTracksStatus"),input=$("#projectTracksInput"),addButton=$("#addProjectTracks");
@@ -374,20 +385,42 @@ async function bindProjectTracks(){
    else{render("mix");const nextStatus=$("#projectTracksStatus");if(nextStatus)nextStatus.textContent=message;}
   }finally{if(addButton)addButton.disabled=false;}
  };
- if(!tracks.length){await window.ITZIK_PROJECT_TRACKS?.destroy?.();return;}
+ const trackSignature=tracks.map(track=>track.id).join("|");
+ if(!tracks.length){
+  if(activeProjectTracksProjectId===currentProjectId||window.ITZIK_PROJECT_TRACKS?.isActive?.()){
+   await window.ITZIK_PROJECT_TRACKS?.destroy?.();
+   clearProjectTrackAudioElements();
+  }
+  return;
+ }
+ const engineReady=activeProjectTracksProjectId===currentProjectId&&activeProjectTracksSignature===trackSignature&&window.ITZIK_PROJECT_TRACKS?.isActive?.();
  const audioItems=[];
  try{
-  for(const track of tracks){
-   const element=Array.from(document.querySelectorAll("[data-project-track-audio]")).find(node=>node.dataset.projectTrackAudio===track.id);
-   if(!element)continue;
-   const {data,error}=await supabaseClient.storage.from("project-audio").createSignedUrl(track.storagePath,3600);
+  if(!engineReady){
+   await window.ITZIK_PROJECT_TRACKS?.destroy?.();
+   clearProjectTrackAudioElements();
+   for(const track of tracks){
+    const element=new Audio();
+    element.preload="auto";
+    element.crossOrigin="anonymous";
+    projectTrackAudioElements.set(track.id,element);
+    const {data,error}=await supabaseClient.storage.from("project-audio").createSignedUrl(track.storagePath,3600);
+    if(bindGeneration!==projectTracksBindGeneration||!panel.isConnected)return;
+    if(error||!data?.signedUrl)throw new Error(uiText("לא ניתן לטעון את הערוץ: ","Could not load track: ")+track.name);
+    element.src=data.signedUrl;element.load();
+    audioItems.push({id:track.id,audio:element,settings:project.metadata?.projectTrackMixSettings?.[track.id]||{}});
+   }
    if(bindGeneration!==projectTracksBindGeneration||!panel.isConnected)return;
-   if(error||!data?.signedUrl)throw new Error(uiText("לא ניתן לטעון את הערוץ: ","Could not load track: ")+track.name);
-   element.src=data.signedUrl;element.load();
-   audioItems.push({id:track.id,audio:element,settings:project.metadata?.projectTrackMixSettings?.[track.id]||{}});
+   await window.ITZIK_PROJECT_TRACKS.init(audioItems,audio);
+   activeProjectTracksProjectId=currentProjectId;
+   activeProjectTracksSignature=trackSignature;
+  }else{
+   for(const track of tracks){
+    const element=projectTrackAudioElements.get(track.id);
+    if(!element)throw new Error(uiText("קובץ ערוץ חסר בזיכרון. טען מחדש את הפרויקט.","A project track is missing from memory. Reload the project."));
+    audioItems.push({id:track.id,audio:element,settings:window.ITZIK_PROJECT_TRACKS.getTrack(track.id)||{}});
+   }
   }
-  if(bindGeneration!==projectTracksBindGeneration||!panel.isConnected)return;
-  await window.ITZIK_PROJECT_TRACKS.init(audioItems,audio);
   if(bindGeneration!==projectTracksBindGeneration||!panel.isConnected)return;
   updateProjectTrackPlayer();
   const baseSoloButton=$("#mixSolo");
@@ -413,7 +446,7 @@ async function bindProjectTracks(){
    if(gain){gain.value=track.settings.gainDb??0;gain.oninput=()=>{window.ITZIK_PROJECT_TRACKS.setTrack(id,{gainDb:Number(gain.value)});refresh(id);save(id);};}
    if(pan){pan.value=track.settings.pan??0;pan.oninput=()=>{window.ITZIK_PROJECT_TRACKS.setTrack(id,{pan:Number(pan.value)});refresh(id);save(id);};}
    if(mute)mute.onclick=()=>{const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);window.ITZIK_PROJECT_TRACKS.setTrack(id,{mute:!state.mute});refresh(id);save(id);};
-   if(solo)solo.onclick=()=>{const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);window.ITZIK_PROJECT_TRACKS.setTrack(id,{solo:!state.solo});audioItems.forEach(item=>refresh(item.id));const baseButton=$("#mixSolo");if(baseButton){baseButton.setAttribute("aria-pressed","false");baseButton.textContent="Solo";}if(!state.solo)updateProjectMetadata({projectBaseSolo:false});save(id);};
+   if(solo)solo.onclick=async()=>{const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);window.ITZIK_PROJECT_TRACKS.setTrack(id,{solo:!state.solo});audioItems.forEach(item=>refresh(item.id));const baseButton=$("#mixSolo");if(baseButton){baseButton.setAttribute("aria-pressed","false");baseButton.textContent="Solo";}const settings=window.ITZIK_PROJECT_TRACKS.getSettings();const saved=await updateProjectMetadata({projectBaseSolo:false,projectTrackMixSettings:settings});if(!saved&&status)status.textContent=uiText("מצב Solo פעיל, אך השמירה בענן נכשלה.","Solo is active, but cloud saving failed.");};
    refresh(id);
   }
   const play=$("#projectTracksPlay"),pause=$("#projectTracksPause"),stop=$("#projectTracksStop");
@@ -1318,6 +1351,7 @@ async function signOut(){
 
 function resetWorkspace(){
  window.ITZIK_PROJECT_TRACKS?.destroy?.();
+ clearProjectTrackAudioElements();
  currentProjectId=null;
  currentFile=null;
 
@@ -1349,6 +1383,9 @@ async function loadFile(file,existingProjectId=null){
   alert("הקובץ גדול מ־50MB. כרגע מגבלת ההעלאה היא 50MB.");
   return;
  }
+
+ await window.ITZIK_PROJECT_TRACKS?.destroy?.();
+ clearProjectTrackAudioElements();
 
  if(referenceObjectUrl)URL.revokeObjectURL(referenceObjectUrl);
  referenceObjectUrl=null;referenceUrl=null;referenceFile=null;
@@ -1504,7 +1541,7 @@ if (bottomPlayer) {
 // data-go buttons are bound once per render by bindDynamic().
 
 function hasActiveProjectTracks(){
- return currentPage==="mix"&&(projects.find(item=>item.id===currentProjectId)?.metadata?.projectTracks||[]).length>0&&window.ITZIK_PROJECT_TRACKS?.isActive?.();
+ return Boolean(currentProjectId&&(projects.find(item=>item.id===currentProjectId)?.metadata?.projectTracks||[]).length>0&&window.ITZIK_PROJECT_TRACKS?.isActive?.());
 }
 
 function fmt(t){
