@@ -334,3 +334,13 @@ test("each project track exposes independent left and right level analysis", () 
  assert.match(app, /data-project-track-meter-left/);
  assert.match(app, /data-project-track-meter-right/);
 });
+
+
+test("multitrack mixer exposes selection and bulk controls", () => {
+ const app = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+ assert.match(app, /data-project-track-select/);
+ assert.match(app, /projectTrackBulkMute/);
+ assert.match(app, /projectTrackBulkUnmute/);
+ assert.match(app, /projectTrackBulkGain/);
+ assert.match(app, /updateBulkControls/);
+});
