@@ -627,8 +627,7 @@ function bindMixer(){
   solo.setAttribute("aria-pressed",String(active));
   solo.textContent=active?uiText("ביטול Solo","Unsolo"):"Solo";
   document.querySelectorAll("[data-project-track-solo]").forEach(button=>button.setAttribute("aria-pressed","false"));
-  const latest=projects.find(item=>item.id===currentProjectId);
-  const settings={...(latest?.metadata?.projectTrackMixSettings||{}),...engine.getSettings()};
+  const settings=engine.getSettings();
   const saved=await updateProjectMetadata({projectBaseSolo:active,projectTrackMixSettings:settings});
   if(!saved){const status=$("#projectTracksStatus");if(status)status.textContent=uiText("מצב Solo פעיל, אך השמירה בענן נכשלה.","Solo is active, but cloud saving failed.");}
  };
