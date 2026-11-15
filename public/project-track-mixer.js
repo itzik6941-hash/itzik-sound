@@ -11,12 +11,116 @@
   const getSynchronizedSeekTime = (start, duration) => Number.isFinite(duration) ? Math.max(0, Math.min(start, Math.max(0, duration - 0.02))) : Math.max(0, start);
   const getPlaybackDuration = (leader, trackAudios) => Math.max(0, ...[leader, ...trackAudios].filter(Boolean).map(audio => Number.isFinite(audio.duration) ? audio.duration : 0));
   const isAnyTrackPlaying = (leader, trackAudios) => [leader, ...trackAudios].some(audio => audio && !audio.paused && !audio.ended);
+  const effectDefaults = Object.freeze({
+    eqLowDb: 0, eqMidDb: 0, eqHighDb: 0,
+    compThreshold: -18, compRatio: 1,
+    reverbMix: 0, delayMix: 0, delayTime: 0.24, delayFeedback: 0.18
+  });
   const normalize = input => ({
     gainDb: clamp(input?.gainDb ?? 0, -48, 12),
     pan: clamp(input?.pan ?? 0, -1, 1),
     mute: input?.mute === true,
-    solo: input?.solo === true
+    solo: input?.solo === true,
+    eqLowDb: clamp(input?.eqLowDb ?? 0, -12, 12),
+    eqMidDb: clamp(input?.eqMidDb ?? 0, -12, 12),
+    eqHighDb: clamp(input?.eqHighDb ?? 0, -12, 12),
+    compThreshold: clamp(input?.compThreshold ?? -18, -36, 0),
+    compRatio: clamp(input?.compRatio ?? 1, 1, 12),
+    reverbMix: clamp(input?.reverbMix ?? 0, 0, 0.5),
+    delayMix: clamp(input?.delayMix ?? 0, 0, 0.5),
+    delayTime: clamp(input?.delayTime ?? 0.24, 0.05, 0.75),
+    delayFeedback: clamp(input?.delayFeedback ?? 0.18, 0, 0.65)
   });
+
+  function makeImpulse(ctx) {
+    const length = Math.floor(ctx.sampleRate * 1.25);
+    const impulse = ctx.createBuffer(2, length, ctx.sampleRate);
+    for (let channel = 0; channel < 2; channel++) {
+      const data = impulse.getChannelData(channel);
+      for (let i = 0; i < length; i++) {
+        const decay = (1 - i / length) ** 2.6;
+        const seed = Math.sin((i + 1) * (channel ? 12.9898 : 78.233)) * 43758.5453;
+        data[i] = (2 * (seed - Math.floor(seed)) - 1) * decay;
+      }
+    }
+    return impulse;
+  }
+
+  function setParam(param, value, ctx) {
+    if (!param) return;
+    if (typeof param.setTargetAtTime === "function" && ctx) param.setTargetAtTime(value, ctx.currentTime, 0.015);
+    else param.value = value;
+  }
+
+  function buildTrackGraph(ctx, source, destination, state) {
+    const gain = ctx.createGain();
+    const low = ctx.createBiquadFilter();
+    const mid = ctx.createBiquadFilter();
+    const high = ctx.createBiquadFilter();
+    const compressor = ctx.createDynamicsCompressor();
+    const dry = ctx.createGain();
+    const delay = ctx.createDelay(1.5);
+    const feedback = ctx.createGain();
+    const delayWet = ctx.createGain();
+    const effectBus = ctx.createGain();
+    const reverbDry = ctx.createGain();
+    const convolver = ctx.createConvolver();
+    const reverbWet = ctx.createGain();
+    const pan = ctx.createStereoPanner();
+
+    low.type = "lowshelf"; low.frequency.value = 100;
+    mid.type = "peaking"; mid.frequency.value = 1000; mid.Q.value = 0.8;
+    high.type = "highshelf"; high.frequency.value = 8000;
+    convolver.buffer = makeImpulse(ctx);
+    dry.gain.value = 1;
+    delayWet.gain.value = 0;
+    feedback.gain.value = 0.18;
+    reverbDry.gain.value = 1;
+    reverbWet.gain.value = 0;
+    compressor.knee.value = 0;
+    compressor.attack.value = 0.012;
+    compressor.release.value = 0.22;
+
+    source.connect(gain);
+    gain.connect(low); low.connect(mid); mid.connect(high); high.connect(compressor);
+    compressor.connect(dry); dry.connect(effectBus);
+    compressor.connect(delay); delay.connect(feedback); feedback.connect(delay);
+    delay.connect(delayWet); delayWet.connect(effectBus);
+    effectBus.connect(reverbDry); reverbDry.connect(pan);
+    effectBus.connect(convolver); convolver.connect(reverbWet); reverbWet.connect(pan);
+    pan.connect(destination);
+
+    const graph = { gain, low, mid, high, compressor, dry, delay, feedback, delayWet, effectBus, reverbDry, convolver, reverbWet, pan };
+    applyTrackGraph(graph, state, ctx);
+    return graph;
+  }
+
+  function applyTrackGraph(graph, state, ctx) {
+    const v = normalize(state);
+    setParam(graph.gain.gain, v.mute ? 0 : 10 ** (v.gainDb / 20), ctx);
+    setParam(graph.low.gain, v.eqLowDb, ctx);
+    setParam(graph.mid.gain, v.eqMidDb, ctx);
+    setParam(graph.high.gain, v.eqHighDb, ctx);
+    setParam(graph.compressor.threshold, v.compThreshold, ctx);
+    setParam(graph.compressor.ratio, v.compRatio, ctx);
+    setParam(graph.compressor.knee, v.compRatio <= 1 ? 0 : 12, ctx);
+    setParam(graph.delay.delayTime, v.delayTime, ctx);
+    setParam(graph.feedback.gain, v.delayMix > 0 ? v.delayFeedback : 0, ctx);
+    setParam(graph.delayWet.gain, v.delayMix, ctx);
+    setParam(graph.reverbWet.gain, v.reverbMix, ctx);
+    setParam(graph.pan.pan, v.pan, ctx);
+  }
+
+  function getEffectsTailDuration(states) {
+    let tail = 1.3;
+    for (const state of states || []) {
+      if ((state?.delayMix || 0) <= 0 || (state?.delayFeedback || 0) <= 0) continue;
+      const feedback = clamp(state.delayFeedback, 0, 0.65);
+      const repeats = Math.ceil(Math.log(0.001) / Math.log(Math.max(0.01, feedback)));
+      tail = Math.max(tail, Math.min(12, clamp(state.delayTime ?? 0.24, 0.05, 0.75) * repeats + 1.3));
+    }
+    return tail;
+  }
 
   let context = null;
   let master = null;
@@ -50,8 +154,7 @@
     for (const track of tracks.values()) {
       const state = track.state;
       const muted = shouldMuteAdded(state, hasSolo, baseSolo);
-      track.gain.gain.setTargetAtTime(muted ? 0 : 10 ** (state.gainDb / 20), now, 0.015);
-      track.pan.pan.setTargetAtTime(state.pan, now, 0.015);
+      applyTrackGraph(track.graph, { ...state, mute: muted }, context);
     }
   }
 
@@ -66,8 +169,7 @@
     baseSolo = false;
     for (const track of tracks.values()) {
       try { track.source.disconnect(); } catch {}
-      try { track.gain.disconnect(); } catch {}
-      try { track.pan.disconnect(); } catch {}
+      for (const node of Object.values(track.graph || {})) { try { node.disconnect(); } catch {} }
     }
     tracks.clear();
     leaderAudio = null;
@@ -124,19 +226,9 @@
     for (const item of items) {
       const audio = item.audio;
       const source = context.createMediaElementSource(audio);
-      const gain = context.createGain();
-      const pan = context.createStereoPanner();
-      source.connect(gain);
-      gain.connect(pan);
-      pan.connect(master);
-      tracks.set(item.id, {
-        id: item.id,
-        audio,
-        source,
-        gain,
-        pan,
-        state: normalize(item.settings)
-      });
+      const state = normalize(item.settings);
+      const graph = buildTrackGraph(context, source, master, state);
+      tracks.set(item.id, { id: item.id, audio, source, graph, state });
     }
     applyAll();
   }
@@ -319,7 +411,8 @@
       if (duration > 600) throw new Error("ייצוא מוגבל ל־10 דקות.");
       const Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
       if (!Offline) throw new Error("הדפדפן אינו תומך בייצוא Offline.");
-      const output = new Offline(2, Math.ceil(duration * sampleRate), sampleRate);
+      const tailDuration = getEffectsTailDuration(decoded.map(item => item.state));
+      const output = new Offline(2, Math.ceil((duration + tailDuration) * sampleRate), sampleRate);
       const bus = output.createGain();
       const outputLimiter = output.createDynamicsCompressor();
       outputLimiter.threshold.value = -1;
@@ -338,15 +431,9 @@
       if (shouldPlayBase(hasSolo, leaderOriginalMute)) baseSource.start(0);
       for (const item of decoded) {
         const source = output.createBufferSource();
-        const gain = output.createGain();
-        const pan = output.createStereoPanner();
         source.buffer = item.buffer;
         const state = item.state;
-        gain.gain.value = shouldMuteAdded(state, hasSolo, baseSolo) ? 0 : 10 ** (state.gainDb / 20);
-        pan.pan.value = state.pan;
-        source.connect(gain);
-        gain.connect(pan);
-        pan.connect(bus);
+        buildTrackGraph(output, source, bus, { ...state, mute: shouldMuteAdded(state, hasSolo, baseSolo) });
         source.start(0);
       }
       return await output.startRendering();
@@ -355,5 +442,5 @@
     }
   }
 
-  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, normalizeMasterDb, setMasterDb, getMasterDb, hasSoloState, shouldMuteBase, shouldMuteAdded, shouldPlayBase, shouldPauseTracksOnLeaderPause, getSynchronizedSeekTime, getPlaybackStartTime, getPlaybackDuration, isAnyTrackPlaying, getDuration, getPlaybackPosition, isPlaying, seek, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
+  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, effectDefaults: { ...effectDefaults }, getEffectsTailDuration, normalizeMasterDb, setMasterDb, getMasterDb, hasSoloState, shouldMuteBase, shouldMuteAdded, shouldPlayBase, shouldPauseTracksOnLeaderPause, getSynchronizedSeekTime, getPlaybackStartTime, getPlaybackDuration, isAnyTrackPlaying, getDuration, getPlaybackPosition, isPlaying, seek, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
 })();

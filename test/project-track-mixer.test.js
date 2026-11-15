@@ -7,17 +7,25 @@ const mixer = global.window.ITZIK_PROJECT_TRACKS;
 
 test("project track settings are normalized and bounded", () => {
   assert.deepEqual(mixer.normalize({}), {
-    gainDb: 0, pan: 0, mute: false, solo: false
+    gainDb: 0, pan: 0, mute: false, solo: false,
+    eqLowDb: 0, eqMidDb: 0, eqHighDb: 0, compThreshold: -18, compRatio: 1,
+    reverbMix: 0, delayMix: 0, delayTime: 0.24, delayFeedback: 0.18
   });
   assert.deepEqual(mixer.normalize({
-    gainDb: 99, pan: -5, mute: true, solo: true
+    gainDb: 99, pan: -5, mute: true, solo: true,
+    eqLowDb: 99, eqMidDb: -99, eqHighDb: 99, compThreshold: -99, compRatio: 99,
+    reverbMix: 99, delayMix: 99, delayTime: 99, delayFeedback: 99
   }), {
-    gainDb: 12, pan: -1, mute: true, solo: true
+    gainDb: 12, pan: -1, mute: true, solo: true,
+    eqLowDb: 12, eqMidDb: -12, eqHighDb: 12, compThreshold: -36, compRatio: 12,
+    reverbMix: 0.5, delayMix: 0.5, delayTime: 0.75, delayFeedback: 0.65
   });
   assert.deepEqual(mixer.normalize({
     gainDb: -99, pan: 5, mute: 1, solo: 0
   }), {
-    gainDb: -48, pan: 1, mute: false, solo: false
+    gainDb: -48, pan: 1, mute: false, solo: false,
+    eqLowDb: 0, eqMidDb: 0, eqHighDb: 0, compThreshold: -18, compRatio: 1,
+    reverbMix: 0, delayMix: 0, delayTime: 0.24, delayFeedback: 0.18
   });
 });
 
@@ -56,8 +64,12 @@ test("resume starts at zero when every track has ended", () => {
 test("added tracks reuse the main mixer audio context and do not close it", async () => {
   const connections = [];
   const makeNode = () => ({
-    gain: { setTargetAtTime() {} },
-    pan: { setTargetAtTime() {} },
+    gain: { value: 1, setTargetAtTime() {} },
+    pan: { value: 0, setTargetAtTime() {} },
+    frequency: { value: 0 }, Q: { value: 0 },
+    threshold: { value: 0 }, ratio: { value: 1 }, knee: { value: 0 },
+    attack: { value: 0 }, release: { value: 0 }, delayTime: { value: 0 },
+    buffer: null,
     connect(destination) { connections.push(destination); },
     disconnect() {}
   });
@@ -67,8 +79,14 @@ test("added tracks reuse the main mixer audio context and do not close it", asyn
   const sharedContext = {
     currentTime: 0,
     destination: makeNode(),
+    sampleRate: 44100,
     createGain: makeNode,
     createStereoPanner: makeNode,
+    createBiquadFilter: makeNode,
+    createDynamicsCompressor: makeNode,
+    createDelay: makeNode,
+    createConvolver: makeNode,
+    createBuffer(channels, length) { const data=Array.from({length:channels},()=>new Float32Array(length));return {getChannelData(channel){return data[channel];}}; },
     createMediaElementSource() { return makeNode(); },
     async close() { closed = true; }
   };
@@ -188,4 +206,40 @@ test("master level can be changed and read back", () => {
   assert.equal(mixer.getMasterDb(), -8.5);
   assert.equal(mixer.setMasterDb(99), 6);
   assert.equal(mixer.setMasterDb(-1.5), -1.5);
+});
+
+
+test("per-track EQ, compressor, reverb and delay settings are safely bounded", () => {
+  const state=mixer.normalize({
+    eqLowDb:20,eqMidDb:-20,eqHighDb:3,
+    compThreshold:-100,compRatio:30,reverbMix:1,delayMix:-1,
+    delayTime:2,delayFeedback:1
+  });
+  assert.deepEqual({
+    eqLowDb:state.eqLowDb,eqMidDb:state.eqMidDb,eqHighDb:state.eqHighDb,
+    compThreshold:state.compThreshold,compRatio:state.compRatio,
+    reverbMix:state.reverbMix,delayMix:state.delayMix,
+    delayTime:state.delayTime,delayFeedback:state.delayFeedback
+  },{
+    eqLowDb:12,eqMidDb:-12,eqHighDb:3,
+    compThreshold:-36,compRatio:12,reverbMix:0.5,delayMix:0,
+    delayTime:0.75,delayFeedback:0.65
+  });
+});
+
+test("neutral track effects stay disabled by default", () => {
+  const state=mixer.normalize({});
+  assert.equal(state.eqLowDb,0);
+  assert.equal(state.eqMidDb,0);
+  assert.equal(state.eqHighDb,0);
+  assert.equal(state.compRatio,1);
+  assert.equal(state.compThreshold,-18);
+  assert.equal(state.reverbMix,0);
+  assert.equal(state.delayMix,0);
+});
+
+test("offline export tail grows to include feedback delay echoes", () => {
+  assert.equal(mixer.getEffectsTailDuration([{delayMix:0,delayFeedback:0.65,delayTime:0.75}]),1.3);
+  assert.ok(mixer.getEffectsTailDuration([{delayMix:0.5,delayFeedback:0.65,delayTime:0.75}])>1.3);
+  assert.ok(mixer.getEffectsTailDuration([{delayMix:0.5,delayFeedback:0.65,delayTime:0.75}])<=12);
 });
