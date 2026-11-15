@@ -149,10 +149,12 @@ function projectTracksPanel(){
    ${tracks.length?`
     <div class="stem-mixer" id="projectTracksMixer">
      <div class="stem-mixer-heading"><h3>${uiText("מיקסר רב־ערוצי","Multitrack mixer")}</h3><p>${uiText("הקובץ הראשי וכל הערוצים הנוספים ינוגנו יחד. אפשר לשלוט בעוצמה, Pan, השתקה ו-Solo לכל ערוץ.","The original file and all added tracks play together. Control level, pan, mute and solo for each added track.")}</p></div>
-     <div class="stem-transport"><button type="button" class="primary-btn" id="projectTracksPlay">${uiText("▶ נגן הכל","▶ Play all")}</button><button type="button" class="secondary-btn" id="projectTracksPause">${uiText("השהה","Pause")}</button><button type="button" class="secondary-btn" id="projectTracksStop">${uiText("עצור","Stop")}</button><button type="button" class="secondary-btn" id="projectTracksExport">${uiText("ייצא מיקס משולב WAV","Export combined WAV mix")}</button></div>
+     <div class="stem-transport"><button type="button" class="primary-btn" id="projectTracksPlay">${uiText("▶ נגן הכל","▶ Play all")}</button><button type="button" class="secondary-btn" id="projectTracksPause">${uiText("השהה","Pause")}</button><button type="button" class="secondary-btn" id="projectTracksStop">${uiText("עצור","Stop")}</button><button type="button" class="secondary-btn" id="projectTracksExport">${uiText("ייצא מיקס משולב WAV","Export combined WAV mix")}</button><button type="button" class="secondary-btn" id="projectTracksReset">${uiText("אפס מיקסר","Reset mixer")}</button></div>
+     <label class="project-track-master"><span>${uiText("עוצמת מאסטר","Master level")} <output id="projectTrackMasterValue">-1.5 dB</output></span><input type="range" id="projectTrackMaster" min="-24" max="6" step="0.5" value="-1.5"></label>
      <div class="stem-mixer-tracks">
-      ${tracks.map(track=>`
+      ${tracks.map((track,index)=>`
        <article class="stem-mix-track"><div class="stem-track-heading"><b>${escapeHtml(track.name)}</b><div class="stem-track-actions">
+        <button type="button" class="secondary-btn" data-project-track-rename="${escapeHtml(track.id)}">${uiText("שם","Rename")}</button><button type="button" class="secondary-btn" data-project-track-up="${escapeHtml(track.id)}" ${index===0?"disabled":""} title="${uiText("הזז למעלה","Move up")}">↑</button><button type="button" class="secondary-btn" data-project-track-down="${escapeHtml(track.id)}" ${index===tracks.length-1?"disabled":""} title="${uiText("הזז למטה","Move down")}">↓</button>
         <button type="button" class="secondary-btn" data-project-track-mute="${escapeHtml(track.id)}" aria-pressed="false">${uiText("השתק","Mute")}</button><button type="button" class="secondary-btn" data-project-track-solo="${escapeHtml(track.id)}" aria-pressed="false">Solo</button><button type="button" class="secondary-btn" data-project-track-remove="${escapeHtml(track.id)}" title="${uiText("הסר מהפרויקט","Remove from project")}">✕</button>
        </div></div>
        <label class="stem-mix-control"><span>${uiText("עוצמה","Level")} <output data-project-track-gain-value="${escapeHtml(track.id)}">0 dB</output></span><input type="range" data-project-track-gain="${escapeHtml(track.id)}" min="-48" max="12" step="0.5" value="0"></label>
@@ -404,7 +406,7 @@ async function bindProjectTracks(){
    else{render("mix");const nextStatus=$("#projectTracksStatus");if(nextStatus)nextStatus.textContent=message;}
   }finally{if(addButton)addButton.disabled=false;}
  };
- const trackSignature=tracks.map(track=>track.id).join("|");
+ const trackSignature=tracks.map(track=>track.id).sort().join("|");
  if(!tracks.length){
   if(activeProjectTracksProjectId===currentProjectId||window.ITZIK_PROJECT_TRACKS?.isActive?.()){
    await window.ITZIK_PROJECT_TRACKS?.destroy?.();
@@ -468,6 +470,58 @@ async function bindProjectTracks(){
    if(solo)solo.onclick=async()=>{const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);window.ITZIK_PROJECT_TRACKS.setTrack(id,{solo:!state.solo});audioItems.forEach(item=>refresh(item.id));const baseButton=$("#mixSolo");if(baseButton){baseButton.setAttribute("aria-pressed","false");baseButton.textContent="Solo";}const settings=window.ITZIK_PROJECT_TRACKS.getSettings();const saved=await updateProjectMetadata({projectBaseSolo:false,projectTrackMixSettings:settings});if(!saved&&status)status.textContent=uiText("מצב Solo פעיל, אך השמירה בענן נכשלה.","Solo is active, but cloud saving failed.");};
    refresh(id);
   }
+  const masterSlider=$("#projectTrackMaster"),masterValue=$("#projectTrackMasterValue");
+  const savedMasterDb=Number.isFinite(Number(project.metadata?.projectTrackMasterDb))?Number(project.metadata.projectTrackMasterDb):-1.5;
+  const activeMasterDb=window.ITZIK_PROJECT_TRACKS.setMasterDb(savedMasterDb);
+  if(masterSlider)masterSlider.value=String(activeMasterDb);
+  if(masterValue)masterValue.textContent=activeMasterDb.toFixed(1)+" dB";
+  if(masterSlider)masterSlider.oninput=async()=>{
+   const value=window.ITZIK_PROJECT_TRACKS.setMasterDb(Number(masterSlider.value));
+   if(masterValue)masterValue.textContent=value.toFixed(1)+" dB";
+   if(!await updateProjectMetadata({projectTrackMasterDb:value})&&status)status.textContent=uiText("עוצמת המאסטר פעילה, אך השמירה בענן נכשלה.","Master level is active, but cloud saving failed.");
+  };
+  const resetButton=$("#projectTracksReset");
+  if(resetButton)resetButton.onclick=async()=>{
+   if(!confirm(uiText("לאפס את עוצמת הערוצים, Pan, השתקה ו-Solo?","Reset track levels, pan, mute and Solo?")))return;
+   const settings={};
+   for(const item of audioItems){
+    window.ITZIK_PROJECT_TRACKS.setTrack(item.id,{gainDb:0,pan:0,mute:false,solo:false});
+    settings[item.id]=window.ITZIK_PROJECT_TRACKS.getTrack(item.id);
+    const gain=document.querySelector('[data-project-track-gain="'+item.id+'"]');
+    const pan=document.querySelector('[data-project-track-pan="'+item.id+'"]');
+    if(gain)gain.value="0";if(pan)pan.value="0";refresh(item.id);
+   }
+   window.ITZIK_PROJECT_TRACKS.setBaseSolo(false);
+   const baseButton=$("#mixSolo");
+   if(baseButton){baseButton.setAttribute("aria-pressed","false");baseButton.textContent="Solo";}
+   const master=window.ITZIK_PROJECT_TRACKS.setMasterDb(-1.5);
+   if(masterSlider)masterSlider.value=String(master);
+   if(masterValue)masterValue.textContent=master.toFixed(1)+" dB";
+   const saved=await updateProjectMetadata({projectTrackMixSettings:settings,projectBaseSolo:false,projectTrackMasterDb:master});
+   if(status)status.textContent=saved?uiText("המיקסר אופס ונשמר בפרויקט.","Mixer reset and saved to the project."):uiText("המיקסר אופס, אך השמירה בענן נכשלה.","Mixer reset, but cloud saving failed.");
+  };
+  document.querySelectorAll("[data-project-track-rename]").forEach(button=>button.onclick=async()=>{
+   const id=button.dataset.projectTrackRename,latest=projects.find(item=>item.id===currentProjectId);
+   const track=(latest?.metadata?.projectTracks||[]).find(item=>item.id===id);if(!track)return;
+   const entered=prompt(uiText("הקלד שם חדש לערוץ:","Enter a new track name:"),track.name);
+   if(entered===null)return;
+   const name=entered.trim().slice(0,80);
+   if(!name){if(status)status.textContent=uiText("שם הערוץ לא יכול להיות ריק.","Track name cannot be empty.");return;}
+   if(name===track.name)return;
+   const updated=(latest.metadata.projectTracks||[]).map(item=>item.id===id?{...item,name}:item);
+   if(await updateProjectMetadata({projectTracks:updated}))render("mix");
+   else if(status)status.textContent=uiText("שינוי שם הערוץ לא נשמר.","Track rename could not be saved.");
+  });
+  const moveTrack=async(id,direction)=>{
+   const latest=projects.find(item=>item.id===currentProjectId),ordered=[...(latest?.metadata?.projectTracks||[])];
+   const index=ordered.findIndex(item=>item.id===id),target=index+direction;
+   if(index<0||target<0||target>=ordered.length)return;
+   [ordered[index],ordered[target]]=[ordered[target],ordered[index]];
+   if(await updateProjectMetadata({projectTracks:ordered}))render("mix");
+   else if(status)status.textContent=uiText("שינוי סדר הערוצים לא נשמר.","Track order could not be saved.");
+  };
+  document.querySelectorAll("[data-project-track-up]").forEach(button=>button.onclick=()=>moveTrack(button.dataset.projectTrackUp,-1));
+  document.querySelectorAll("[data-project-track-down]").forEach(button=>button.onclick=()=>moveTrack(button.dataset.projectTrackDown,1));
   const play=$("#projectTracksPlay"),pause=$("#projectTracksPause"),stop=$("#projectTracksStop");
   if(play)play.onclick=async()=>{try{await window.ITZIK_PROJECT_TRACKS.play();if(status)status.textContent=uiText("מנגן את הקובץ הראשי ואת כל הערוצים הנוספים בסנכרון.","Playing the original file and all added tracks in sync.");}catch(error){if(status)status.textContent=error.message;}};
   if(pause)pause.onclick=()=>window.ITZIK_PROJECT_TRACKS.pause();
