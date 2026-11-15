@@ -299,3 +299,12 @@ test("stereo meter computes independent peak and RMS for left and right channels
   assert.match(source, /left, right, correlation, stereoBalance/);
   assert.match(source, /cross \/ Math\.sqrt\(leftEnergy \* rightEnergy\)/);
 });
+
+
+test("each added track exposes an independent live level meter", () => {
+  const source = fs.readFileSync(new URL("../public/project-track-mixer.js", import.meta.url), "utf8");
+  assert.match(source, /meterAnalyser = ctx\.createAnalyser\(\)/);
+  assert.match(source, /pan\.connect\(meterAnalyser\)/);
+  assert.match(source, /function getTrackMeter\(id\)/);
+  assert.match(source, /getTrackMeter, getMasterMeter/);
+});
