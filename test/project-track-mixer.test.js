@@ -265,3 +265,9 @@ test("master meter returns a silent safe reading before mixer initialization", (
   assert.match(source, /clipping: peak >= 0\.999/);
   assert.match(source, /masterAnalyser\.fftSize = 2048/);
 });
+
+test("master output ceiling is constrained to a safe limiter range", () => {
+  assert.equal(mixer.normalizeOutputCeilingDb(-99), -6);
+  assert.equal(mixer.normalizeOutputCeilingDb(0), -0.1);
+  assert.equal(mixer.normalizeOutputCeilingDb(-3.5), -3.5);
+});
