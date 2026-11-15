@@ -113,7 +113,7 @@ test("added tracks reuse the main mixer audio context and do not close it", asyn
   const leader = makeAudio();
   const added = makeAudio();
 
-  await mixer.init([{ id: "track-1", audio: added }], leader);
+  await mixer.init([{ id: "track-1", audio: added }], leader, {});
   assert.ok(connections.includes(sharedBus));
   mixer.setTrack("track-1", { stereoWidth: 0, solo: true });
   assert.equal(mixer.getTrack("track-1").stereoWidth, 0);
@@ -400,6 +400,7 @@ test("track automation points are normalized, interpolated and exposed by the mi
  assert.match(engine, /function interpolateAutomation/);
  assert.match(engine, /function applyAutomationAtTime/);
  assert.match(engine, /linearRampToValueAtTime/);
+ assert.match(engine, /async function init\(items, leader, automation = \{\}\)/);
  assert.match(engine, /setAutomationLanes, getAutomationLanes/);
  assert.match(app, /data-project-track-automation-add=/);
  assert.match(app, /data-project-track-automation-clear=/);
