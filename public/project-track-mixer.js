@@ -32,7 +32,9 @@
 
   function notifyPlaybackState() {
     if (typeof window.dispatchEvent === "function" && typeof Event === "function") window.dispatchEvent(new Event("itzik-project-tracks-statechange"));
-  }\n\n  function stopSync() {
+  }
+
+  function stopSync() {
     if (syncTimer) clearInterval(syncTimer);
     syncTimer = null;
   }
