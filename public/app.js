@@ -495,7 +495,9 @@ async function bindProjectTracks(){
   const save=async id=>{
    const latest=projects.find(item=>item.id===currentProjectId);
    const settings={...(latest?.metadata?.projectTrackMixSettings||{}),[id]:window.ITZIK_PROJECT_TRACKS.getTrack(id)};
-   if(!await updateProjectMetadata({projectTrackMixSettings:settings})&&status)status.textContent=uiText("השינוי פעיל, אך השמירה בענן נכשלה.","The change is active, but cloud saving failed.");
+   const saved=await updateProjectMetadata({projectTrackMixSettings:settings});
+   if(!saved&&status)status.textContent=uiText("השינוי פעיל, אך השמירה בענן נכשלה.","The change is active, but cloud saving failed.");
+   return saved;
   };
   const refresh=id=>{
    const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);if(!state)return;
@@ -666,8 +668,8 @@ async function bindProjectTracks(){
    window.ITZIK_PROJECT_TRACKS.beginHistoryTransaction("Paste channel settings");
    window.ITZIK_PROJECT_TRACKS.setTrack(id,{...copiedTrackSettings});
    window.ITZIK_PROJECT_TRACKS.commitHistoryTransaction();syncTrackControls(id);
-   await save(id);
-   if(status)status.textContent=uiText("הגדרות הערוץ הודבקו ונשמרו.","Channel settings pasted and saved.");
+   const saved=await save(id);
+   if(status)status.textContent=saved?uiText("הגדרות הערוץ הודבקו ונשמרו.","Channel settings pasted and saved."):uiText("ההגדרות הודבקו, אך השמירה בענן נכשלה.","Settings pasted, but cloud saving failed.");
   });
   document.querySelectorAll("[data-project-track-reset]").forEach(button=>button.onclick=async()=>{
    const id=button.dataset.projectTrackReset,trackName=tracks.find(item=>item.id===id)?.name||"";
@@ -675,8 +677,8 @@ async function bindProjectTracks(){
    window.ITZIK_PROJECT_TRACKS.beginHistoryTransaction("Reset channel settings");
    window.ITZIK_PROJECT_TRACKS.setTrack(id,window.ITZIK_PROJECT_TRACKS.normalize({}));
    window.ITZIK_PROJECT_TRACKS.commitHistoryTransaction();syncTrackControls(id);
-   await save(id);
-   if(status)status.textContent=uiText("הערוץ אופס ונשמר.","Track reset and saved.");
+   const saved=await save(id);
+   if(status)status.textContent=saved?uiText("הערוץ אופס ונשמר.","Track reset and saved."):uiText("הערוץ אופס, אך השמירה בענן נכשלה.","Track reset, but cloud saving failed.");
   });
   for(const track of audioItems){
    const id=track.id,gain=document.querySelector('[data-project-track-gain="'+id+'"]'),pan=document.querySelector('[data-project-track-pan="'+id+'"]'),width=document.querySelector('[data-project-track-width="'+id+'"]');
