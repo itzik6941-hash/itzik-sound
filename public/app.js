@@ -2373,7 +2373,8 @@ async function deleteProject(id) {
   }
 
   const stemPaths=Object.values(p.metadata?.stemSeparation?.stems||{});
-  const paths=[...new Set([p.storage_path,p.metadata?.reference?.storagePath,p.metadata?.mastering?.storagePath,...stemPaths].filter(path=>typeof path==="string"&&path.length>0))];
+  const projectTrackPaths=(p.metadata?.projectTracks||[]).map(track=>track?.storagePath);
+  const paths=[...new Set([p.storage_path,p.metadata?.reference?.storagePath,p.metadata?.mastering?.storagePath,...stemPaths,...projectTrackPaths].filter(path=>typeof path==="string"&&path.length>0))];
   let storageCleanupFailed=false;
   if(paths.length){
     const {error:storageError}=await supabaseClient.storage.from("project-audio").remove(paths);
