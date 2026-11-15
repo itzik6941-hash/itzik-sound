@@ -446,7 +446,7 @@ async function bindProjectTracks(){
    if(gain){gain.value=track.settings.gainDb??0;gain.oninput=()=>{window.ITZIK_PROJECT_TRACKS.setTrack(id,{gainDb:Number(gain.value)});refresh(id);save(id);};}
    if(pan){pan.value=track.settings.pan??0;pan.oninput=()=>{window.ITZIK_PROJECT_TRACKS.setTrack(id,{pan:Number(pan.value)});refresh(id);save(id);};}
    if(mute)mute.onclick=()=>{const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);window.ITZIK_PROJECT_TRACKS.setTrack(id,{mute:!state.mute});refresh(id);save(id);};
-   if(solo)solo.onclick=()=>{const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);window.ITZIK_PROJECT_TRACKS.setTrack(id,{solo:!state.solo});audioItems.forEach(item=>refresh(item.id));const baseButton=$("#mixSolo");if(baseButton){baseButton.setAttribute("aria-pressed","false");baseButton.textContent="Solo";}if(!state.solo)updateProjectMetadata({projectBaseSolo:false});save(id);};
+   if(solo)solo.onclick=async()=>{const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);window.ITZIK_PROJECT_TRACKS.setTrack(id,{solo:!state.solo});audioItems.forEach(item=>refresh(item.id));const baseButton=$("#mixSolo");if(baseButton){baseButton.setAttribute("aria-pressed","false");baseButton.textContent="Solo";}const settings=window.ITZIK_PROJECT_TRACKS.getSettings();const saved=await updateProjectMetadata({projectBaseSolo:false,projectTrackMixSettings:settings});if(!saved&&status)status.textContent=uiText("מצב Solo פעיל, אך השמירה בענן נכשלה.","Solo is active, but cloud saving failed.");};
    refresh(id);
   }
   const play=$("#projectTracksPlay"),pause=$("#projectTracksPause"),stop=$("#projectTracksStop");
