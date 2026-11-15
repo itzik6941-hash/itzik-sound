@@ -286,7 +286,8 @@
   function getAutomationLanes() { return Object.fromEntries(Object.entries(automationLanes).map(([id,points])=>[id,points.map(point=>({...point}))])); }
   function interpolateAutomation(points, time, key, fallback) {
     if (!points?.length) return fallback;
-    if (time <= points[0].time) return points[0][key];
+    if (time < points[0].time) return fallback;
+    if (time === points[0].time) return points[0][key];
     for (let i=1;i<points.length;i++) {
       const right=points[i],left=points[i-1];
       if (time <= right.time) {
@@ -423,7 +424,7 @@
       tracks.set(item.id, { id: item.id, audio, source, graph, state });
     }
     applyAll();
-    automationLanes = normalizeAutomationLanes(arguments[2] || {});
+    automationLanes = normalizeAutomationLanes(automation);
     applyAutomationAtTime(getPlaybackPosition());
   }
 
@@ -682,8 +683,7 @@
         const points=automationLanes[entries[decoded.indexOf(item)]?.id]||[];
         if(points.length){
           const gain=graph.gain.gain,pan=graph.pan.pan;
-          gain.setValueAtTime(10**(state.gainDb/20),0);pan.setValueAtTime(state.pan,0);
-          for(const point of points){gain.linearRampToValueAtTime(10**(point.gainDb/20),point.time);pan.linearRampToValueAtTime(point.pan,point.time);}
+undefined
         }
         source.start(0);
       }
