@@ -535,18 +535,19 @@ async function bindProjectTracks(){
    if(!await updateProjectMetadata({projectTrackMasterDb:value})&&status)status.textContent=uiText("עוצמת המאסטר פעילה, אך השמירה בענן נכשלה.","Master level is active, but cloud saving failed.");
   };
   const masterMeterFill=$("#projectTrackMasterMeterFill"),masterMeterValue=$("#projectTrackMasterMeterValue"),masterMeterWrap=$(".project-track-master-meter"),masterClip=$("#projectTrackMasterClip");
-  let masterMeterFrame=0;
+  if(window.__itzikMasterMeterFrame)cancelAnimationFrame(window.__itzikMasterMeterFrame);
   const updateMasterMeter=()=>{
-   if(!masterMeterFill||!masterMeterValue||!window.ITZIK_PROJECT_TRACKS.isActive?.())return;
+   if(!masterMeterFill||!masterMeterValue||!window.ITZIK_PROJECT_TRACKS.isActive?.()){window.__itzikMasterMeterFrame=0;return;}
    const meter=window.ITZIK_PROJECT_TRACKS.getMasterMeter?.()||{peak:0,db:-120,clipping:false};
    const level=Math.max(0,Math.min(100,(meter.db+60)/60*100));
    masterMeterFill.style.width=level.toFixed(1)+"%";
    masterMeterValue.textContent=meter.db<=-59.9?"-∞ dBFS":meter.db.toFixed(1)+" dBFS";
    if(masterMeterWrap)masterMeterWrap.setAttribute("aria-valuenow",String(Math.round(level)));
    if(masterClip)masterClip.textContent=meter.clipping?uiText("שיא אות!","CLIP!"): "";
-   masterMeterFrame=requestAnimationFrame(updateMasterMeter);
+   window.__itzikMasterMeterFrame=requestAnimationFrame(updateMasterMeter);
   };
-  if(window.ITZIK_PROJECT_TRACKS.isActive?.())masterMeterFrame=requestAnimationFrame(updateMasterMeter);
+  window.__itzikMasterMeterFrame=0;
+  if(window.ITZIK_PROJECT_TRACKS.isActive?.())window.__itzikMasterMeterFrame=requestAnimationFrame(updateMasterMeter);
   const sceneSave=$("#projectTrackSceneSave");
   if(sceneSave)sceneSave.onclick=async()=>{
    const latest=projects.find(item=>item.id===currentProjectId),savedScenes=[...(latest?.metadata?.projectTrackScenes||[])];
