@@ -8,6 +8,8 @@
   const shouldPlayBase = (hasSolo, baseMute) => !hasSolo && baseMute !== true;
   const shouldPauseTracksOnLeaderPause = leader => !leader?.ended;
   const getSynchronizedSeekTime = (start, duration) => Number.isFinite(duration) ? Math.max(0, Math.min(start, Math.max(0, duration - 0.02))) : Math.max(0, start);
+  const getPlaybackDuration = (leader, trackAudios) => Math.max(0, ...[leader, ...trackAudios].filter(Boolean).map(audio => Number.isFinite(audio.duration) ? audio.duration : 0));
+  const isAnyTrackPlaying = (leader, trackAudios) => [leader, ...trackAudios].some(audio => audio && !audio.paused && !audio.ended);
   const normalize = input => ({
     gainDb: clamp(input?.gainDb ?? 0, -48, 12),
     pan: clamp(input?.pan ?? 0, -1, 1),
@@ -27,6 +29,10 @@
   let tracks = new Map();
   let syncTimer = null;
   let rendering = false;
+
+  function notifyPlaybackState() {
+    if (typeof window.dispatchEvent === "function" && typeof Event === "function") window.dispatchEvent(new Event("itzik-project-tracks-statechange"));
+  }
 
   function stopSync() {
     if (syncTimer) clearInterval(syncTimer);
@@ -143,6 +149,24 @@
     return getPlaybackStartTime(leaderAudio, [...tracks.values()].map(track => track.audio));
   }
 
+  function getDuration() {
+    return getPlaybackDuration(leaderAudio, [...tracks.values()].map(track => track.audio));
+  }
+
+  function isPlaying() {
+    return isAnyTrackPlaying(leaderAudio, [...tracks.values()].map(track => track.audio));
+  }
+
+  function seek(time) {
+    const target = Math.max(0, Number(time) || 0);
+    const players = [...(leaderAudio ? [leaderAudio] : []), ...[...tracks.values()].map(track => track.audio)];
+    for (const audio of players) {
+      try { audio.currentTime = getSynchronizedSeekTime(target, audio.duration); } catch {}
+    }
+    notifyPlaybackState();
+    return getPlaybackPosition();
+  }
+
   function sync() {
     const active = [];
     if (leaderAudio && !leaderAudio.paused && !leaderAudio.ended) active.push(leaderAudio);
@@ -188,13 +212,16 @@
       throw error;
     }
     stopSync();
+    notifyPlaybackState();
     syncTimer = setInterval(() => {
       const active = players.filter(audio => !audio.paused && !audio.ended);
-      if (active.length < 2) {
-        if (!active.length) stopSync();
+      if (!active.length) {
+        stopSync();
+        notifyPlaybackState();
         return;
       }
-      sync();
+      if (active.length > 1) sync();
+      notifyPlaybackState();
     }, 250);
   }
 
@@ -202,6 +229,7 @@
     stopSync();
     if (leaderAudio) leaderAudio.pause();
     for (const track of tracks.values()) track.audio.pause();
+    notifyPlaybackState();
   }
 
   function stop() {
@@ -212,6 +240,7 @@
     for (const track of tracks.values()) {
       try { track.audio.currentTime = 0; } catch {}
     }
+    notifyPlaybackState();
   }
 
   function setTrack(id, patch) {
@@ -314,5 +343,5 @@
     }
   }
 
-  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, hasSoloState, shouldMuteBase, shouldMuteAdded, shouldPlayBase, shouldPauseTracksOnLeaderPause, getSynchronizedSeekTime, getPlaybackStartTime, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
+  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, hasSoloState, shouldMuteBase, shouldMuteAdded, shouldPlayBase, shouldPauseTracksOnLeaderPause, getSynchronizedSeekTime, getPlaybackStartTime, getPlaybackDuration, isAnyTrackPlaying, getDuration, getPlaybackPosition, isPlaying, seek, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
 })();
