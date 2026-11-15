@@ -305,8 +305,9 @@
       const gainDb=interpolateAutomation(points,time,"gainDb",track.state.gainDb);
       const pan=interpolateAutomation(points,time,"pan",track.state.pan);
       const muted=shouldMuteAdded(track.state,hasSolo,baseSolo);
-      setParam(track.graph.gain.gain,muted?0:10**(gainDb/20),context);
-      setParam(track.graph.pan.pan,pan,context);
+      const targetGain=muted?0:10**(gainDb/20);
+      track.graph.gain.gain.setTargetAtTime(targetGain,context.currentTime,0.025);
+      track.graph.pan.pan.setTargetAtTime(pan,context.currentTime,0.025);
     }
   }
 
@@ -358,7 +359,7 @@
     ownsContext = false;
   }
 
-  async function init(items, leader) {
+  async function init(items, leader, automation = {}) {
     await destroy();
     leaderAudio = leader || null;
     leaderOriginalMute = window.ITZIK_MIXER?.getSettings?.().mute === true;
@@ -648,7 +649,7 @@
         const response = await fetch(track.audio.src);
         if (!response.ok) throw new Error("לא ניתן לטעון ערוץ לצורך ייצוא.");
         const bytes = await response.arrayBuffer();
-        decoded.push({ buffer: await context.decodeAudioData(bytes.slice(0)), state: { ...track.state } });
+        decoded.push({ id: track.id, buffer: await context.decodeAudioData(bytes.slice(0)), state: { ...track.state } });
       }
       const decodedBytes = baseBuffer.length * baseBuffer.numberOfChannels * 4 + decoded.reduce((total, item) => total + item.buffer.length * item.buffer.numberOfChannels * 4, 0);
       if (decodedBytes > 512 * 1024 * 1024) throw new Error("הקבצים גדולים מדי לייצוא בטוח בדפדפן. נסה לייצא פחות ערוצים בכל פעם.");
@@ -680,10 +681,14 @@
         source.buffer = item.buffer;
         const state = item.state;
         const graph=buildTrackGraph(output, source, bus, { ...state, mute: shouldMuteAdded(state, hasSolo, baseSolo) });
-        const points=automationLanes[entries[decoded.indexOf(item)]?.id]||[];
+        const points=automationLanes[item.id]||[];
         if(points.length){
           const gain=graph.gain.gain,pan=graph.pan.pan;
-undefined
+          points.forEach((point,index)=>{
+            const gainValue=10**(point.gainDb/20);
+            if(index===0){gain.setValueAtTime(gainValue,point.time);pan.setValueAtTime(point.pan,point.time);}
+            else{gain.linearRampToValueAtTime(gainValue,point.time);pan.linearRampToValueAtTime(point.pan,point.time);}
+          });
         }
         source.start(0);
       }
