@@ -296,5 +296,6 @@ test("stereo meter computes independent peak and RMS for left and right channels
   assert.match(source, /masterStereoSplitter\.connect\(masterLeftAnalyser, 0\)/);
   assert.match(source, /masterStereoSplitter\.connect\(masterRightAnalyser, 1\)/);
   assert.match(source, /stereoBalance: left\.peak \+ right\.peak/);
-  assert.match(source, /left, right, stereoBalance/);
+  assert.match(source, /left, right, correlation, stereoBalance/);
+  assert.match(source, /cross \/ Math\.sqrt\(leftEnergy \* rightEnergy\)/);
 });
