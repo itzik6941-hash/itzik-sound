@@ -344,3 +344,13 @@ test("multitrack mixer exposes selection and bulk controls", () => {
  assert.match(app, /projectTrackBulkGain/);
  assert.match(app, /updateBulkControls/);
 });
+
+
+test("project tracks support persistent groups and group filtering", () => {
+ const app = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+ assert.match(app, /data-project-track-group=/);
+ assert.match(app, /data-track-group=/);
+ assert.match(app, /projectTrackGroupFilter/);
+ assert.match(app, /updateProjectMetadata\(\{projectTracks:next\}\)/);
+ assert.match(app, /data-project-track-card/);
+});

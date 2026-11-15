@@ -1246,3 +1246,5 @@ body::after {
 .project-track-channel-meter-stereo{display:flex;justify-content:space-between;gap:10px;font-size:.7rem;font-variant-numeric:tabular-nums;opacity:.78}.project-track-channel-meter-stereo span{display:flex;gap:5px}
 
 .project-track-bulk{display:grid;gap:10px;padding:14px;margin:14px 0;border:1px solid var(--border-color,rgba(128,128,128,.25));border-radius:12px}.project-track-bulk-heading,.project-track-bulk-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.project-track-bulk-heading span{font-size:.85rem;opacity:.75}.project-track-select{display:flex;align-items:center;gap:7px;margin:8px 0;font-size:.85rem}.project-track-select input{width:18px;height:18px}
+
+.project-track-group-filter,.project-track-group-select{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}.project-track-group-filter select,.project-track-group-select select{min-width:150px;max-width:100%;padding:8px 10px;border:1px solid var(--border-color,rgba(128,128,128,.3));border-radius:8px;background:var(--panel-bg,transparent);color:inherit}.stem-mix-track[hidden]{display:none!important}
