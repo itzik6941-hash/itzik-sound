@@ -171,12 +171,14 @@ function projectTracksPanel(){
      </div>
      ${projectTrackScenesMarkup(scenes)}
      <section class="project-track-bulk" aria-label="${uiText("שליטה קבוצתית","Group controls")}"><div class="project-track-bulk-heading"><b>${uiText("שליטה על ערוצים נבחרים","Selected track controls")}</b><span id="projectTrackSelectionCount">${uiText("לא נבחרו ערוצים","No tracks selected")}</span></div><div class="project-track-bulk-actions"><button type="button" class="secondary-btn" id="projectTrackSelectAll">${uiText("בחר הכל","Select all")}</button><button type="button" class="secondary-btn" id="projectTrackSelectNone">${uiText("נקה בחירה","Clear selection")}</button><button type="button" class="secondary-btn" id="projectTrackBulkMute" disabled>${uiText("השתק נבחרים","Mute selected")}</button><button type="button" class="secondary-btn" id="projectTrackBulkUnmute" disabled>${uiText("בטל השתקה","Unmute selected")}</button></div><label class="stem-mix-control"><span>${uiText("שינוי עוצמה קבוצתי","Group level adjustment")} <output id="projectTrackBulkGainValue">0 dB</output></span><input type="range" id="projectTrackBulkGain" min="-12" max="12" step="0.5" value="0" disabled></label></section>
+     <div class="project-track-group-filter"><label>${uiText("סינון לפי קבוצה","Filter by group")} <select id="projectTrackGroupFilter"><option value="all">${uiText("כל הערוצים","All tracks")}</option><option value="drums">${uiText("תופים","Drums")}</option><option value="bass">Bass</option><option value="vocals">${uiText("שירה","Vocals")}</option><option value="instruments">${uiText("כלי נגינה","Instruments")}</option><option value="fx">FX</option><option value="other">${uiText("אחר","Other")}</option></select></label></div>
      <div class="stem-mixer-tracks">
       ${tracks.map((track,index)=>`
-       <article class="stem-mix-track"><label class="project-track-select"><input type="checkbox" data-project-track-select="${escapeHtml(track.id)}"><span>${uiText("בחר ערוץ","Select track")}</span></label><div class="stem-track-heading"><b>${escapeHtml(track.name)}</b><div class="stem-track-actions">
+       <article class="stem-mix-track" data-project-track-card="${escapeHtml(track.id)}" data-track-group="${escapeHtml(track.group||"other")}"><label class="project-track-select"><input type="checkbox" data-project-track-select="${escapeHtml(track.id)}"><span>${uiText("בחר ערוץ","Select track")}</span></label><div class="stem-track-heading"><b>${escapeHtml(track.name)}</b><div class="stem-track-actions">
         <button type="button" class="secondary-btn" data-project-track-rename="${escapeHtml(track.id)}">${uiText("שם","Rename")}</button><button type="button" class="secondary-btn" data-project-track-up="${escapeHtml(track.id)}" ${index===0?"disabled":""} title="${uiText("הזז למעלה","Move up")}">↑</button><button type="button" class="secondary-btn" data-project-track-down="${escapeHtml(track.id)}" ${index===tracks.length-1?"disabled":""} title="${uiText("הזז למטה","Move down")}">↓</button>
         <button type="button" class="secondary-btn" data-project-track-mute="${escapeHtml(track.id)}" aria-pressed="false">${uiText("השתק","Mute")}</button><button type="button" class="secondary-btn" data-project-track-solo="${escapeHtml(track.id)}" aria-pressed="false">Solo</button><button type="button" class="secondary-btn" data-project-track-remove="${escapeHtml(track.id)}" title="${uiText("הסר מהפרויקט","Remove from project")}">✕</button>
        </div></div>
+       <label class="project-track-group-select"><span>${uiText("קבוצת ערוץ","Track group")}</span><select data-project-track-group="${escapeHtml(track.id)}"><option value="drums" ${track.group==="drums"?"selected":""}>${uiText("תופים","Drums")}</option><option value="bass" ${track.group==="bass"?"selected":""}>Bass</option><option value="vocals" ${track.group==="vocals"?"selected":""}>${uiText("שירה","Vocals")}</option><option value="instruments" ${track.group==="instruments"?"selected":""}>${uiText("כלי נגינה","Instruments")}</option><option value="fx" ${track.group==="fx"?"selected":""}>FX</option><option value="other" ${!track.group||track.group==="other"?"selected":""}>${uiText("אחר","Other")}</option></select></label>
        <label class="stem-mix-control"><span>${uiText("עוצמה","Level")} <output data-project-track-gain-value="${escapeHtml(track.id)}">0 dB</output></span><input type="range" data-project-track-gain="${escapeHtml(track.id)}" min="-48" max="12" step="0.5" value="0"></label>
        <label class="stem-mix-control"><span>Pan <output data-project-track-pan-value="${escapeHtml(track.id)}">Center</output></span><input type="range" data-project-track-pan="${escapeHtml(track.id)}" min="-1" max="1" step="0.01" value="0"></label>
        <div class="project-track-channel-meter" data-project-track-meter="${escapeHtml(track.id)}" data-peak-db="-120" role="meter" aria-label="${escapeHtml(track.name)} level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="project-track-channel-meter-head"><span>${uiText("מד עוצמת ערוץ","Track level")}</span><output data-project-track-meter-value="${escapeHtml(track.id)}">-∞ dBFS</output></div><div class="project-track-channel-meter-rms"><span>RMS</span><output data-project-track-meter-rms="${escapeHtml(track.id)}">-∞ dBFS</output></div><div class="project-track-channel-meter-stereo"><span>L <output data-project-track-meter-left="${escapeHtml(track.id)}">-∞</output></span><span>R <output data-project-track-meter-right="${escapeHtml(track.id)}">-∞</output></span></div><div class="project-track-channel-meter-track"><span data-project-track-meter-fill="${escapeHtml(track.id)}"></span><i data-project-track-meter-hold="${escapeHtml(track.id)}"></i></div><div class="project-track-channel-meter-foot"><small data-project-track-meter-clip="${escapeHtml(track.id)}"></small><output data-project-track-meter-peak="${escapeHtml(track.id)}">Peak hold: -∞ dBFS</output></div></div>
@@ -514,6 +516,26 @@ async function bindProjectTracks(){
     if(trackId===id)input.checked=state[key]===true;
    });
   };
+  const groupFilter=$("#projectTrackGroupFilter");
+  const applyGroupFilter=()=>{
+   const value=groupFilter?.value||"all";
+   document.querySelectorAll("[data-project-track-card]").forEach(card=>{card.hidden=value!=="all"&&card.dataset.trackGroup!==value;});
+  };
+  if(groupFilter)groupFilter.onchange=applyGroupFilter;
+  document.querySelectorAll("[data-project-track-group]").forEach(select=>select.onchange=async()=>{
+   const id=select.dataset.projectTrackGroup,group=select.value,latest=projects.find(item=>item.id===currentProjectId);
+   const next=(latest?.metadata?.projectTracks||[]).map(track=>track.id===id?{...track,group}:track);
+   const card=document.querySelector('[data-project-track-card="'+id+'"]');
+   if(card)card.dataset.trackGroup=group;
+   if(!await updateProjectMetadata({projectTracks:next})){
+    const saved=(projects.find(item=>item.id===currentProjectId)?.metadata?.projectTracks||[]).find(track=>track.id===id);
+    select.value=saved?.group||"other";
+    if(card)card.dataset.trackGroup=select.value;
+    if(status)status.textContent=uiText("לא ניתן לשמור את קבוצת הערוץ.","Could not save the track group.");
+   }
+   applyGroupFilter();
+  });
+  applyGroupFilter();
   const selectedTrackIds=new Set();
   const selectionInputs=Array.from(document.querySelectorAll("[data-project-track-select]"));
   const selectionCount=$("#projectTrackSelectionCount"),bulkMute=$("#projectTrackBulkMute"),bulkUnmute=$("#projectTrackBulkUnmute"),bulkGain=$("#projectTrackBulkGain"),bulkGainValue=$("#projectTrackBulkGainValue");
