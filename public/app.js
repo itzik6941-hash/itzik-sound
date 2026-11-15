@@ -491,6 +491,10 @@ async function bindProjectTracks(){
     const output=document.querySelector('[data-project-track-fx-value="'+key+':'+id+'"]');
     if(output)output.textContent=key==="compRatio"?Number(state[key]).toFixed(1)+":1":key==="delayTime"||key==="compAttack"||key==="compRelease"?Math.round(state[key]*1000)+" ms":key==="reverbMix"||key==="delayMix"||key==="delayFeedback"||key==="saturation"?Math.round(state[key]*100)+"%":Number(state[key]).toFixed(1)+" dB";
    });
+   document.querySelectorAll('[data-project-track-fx-toggle]').forEach(input=>{
+    const [key,trackId]=input.dataset.projectTrackFxToggle.split(":");
+    if(trackId===id)input.checked=state[key]===true;
+   });
   };
   for(const track of audioItems){
    const id=track.id,gain=document.querySelector('[data-project-track-gain="'+id+'"]'),pan=document.querySelector('[data-project-track-pan="'+id+'"]');
