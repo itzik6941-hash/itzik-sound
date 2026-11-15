@@ -133,6 +133,33 @@ async function saveSoundPreference(enabled){
     }
   }
 }
+
+function projectTracksPanel(){
+ const project=projects.find(item=>item.id===currentProjectId);
+ const tracks=project?.metadata?.projectTracks||[];
+ return `
+  <section class="panel stem-panel" id="projectTrackMixer">
+   <div class="workspace-title"><div class="quick-icon">♫</div><div><h2>${uiText("ערוצים שהוספת לפרויקט","Project audio tracks")}</h2><p>${uiText("הוסף כמה קובצי אודיו לאותו פרויקט. כולם יתחילו יחד ויישארו מסונכרנים.","Add multiple audio files to this project. They start together and stay synchronized.")}</p></div></div>
+   <div class="stem-controls"><button type="button" class="primary-btn" id="addProjectTracks">${uiText("＋ הוסף ערוצים מהמחשב","＋ Add tracks from computer")}</button><input id="projectTracksInput" type="file" accept="audio/*,.mp3,.wav,.m4a,.aac,.flac" multiple hidden></div>
+   <p id="projectTracksStatus" aria-live="polite">${tracks.length?`${tracks.length} ${uiText("ערוצים נוספים שמורים בפרויקט","additional tracks saved in this project")}`:uiText("עדיין לא הוספת ערוצים נוספים. הקובץ הראשי נשאר ערוץ הבסיס.","No additional tracks yet. The original project file remains the base track.")}</p>
+   ${tracks.length?`
+    <div class="stem-mixer" id="projectTracksMixer">
+     <div class="stem-mixer-heading"><h3>${uiText("מיקסר רב־ערוצי","Multitrack mixer")}</h3><p>${uiText("הקובץ הראשי וכל הערוצים הנוספים ינוגנו יחד. אפשר לשלוט בעוצמה, Pan, השתקה ו-Solo לכל ערוץ.","The original file and all added tracks play together. Control level, pan, mute and solo for each added track.")}</p></div>
+     <div class="stem-transport"><button type="button" class="primary-btn" id="projectTracksPlay">${uiText("▶ נגן הכל","▶ Play all")}</button><button type="button" class="secondary-btn" id="projectTracksPause">${uiText("השהה","Pause")}</button><button type="button" class="secondary-btn" id="projectTracksStop">${uiText("עצור","Stop")}</button><button type="button" class="secondary-btn" id="projectTracksExport">${uiText("ייצא מיקס משולב WAV","Export combined WAV mix")}</button></div>
+     <div class="stem-mixer-tracks">
+      ${tracks.map(track=>`
+       <article class="stem-mix-track"><div class="stem-track-heading"><b>${escapeHtml(track.name)}</b><div class="stem-track-actions">
+        <button type="button" class="secondary-btn" data-project-track-mute="${escapeHtml(track.id)}" aria-pressed="false">${uiText("השתק","Mute")}</button><button type="button" class="secondary-btn" data-project-track-solo="${escapeHtml(track.id)}" aria-pressed="false">Solo</button><button type="button" class="secondary-btn" data-project-track-remove="${escapeHtml(track.id)}" title="${uiText("הסר מהפרויקט","Remove from project")}">✕</button>
+       </div></div>
+       <label class="stem-mix-control"><span>${uiText("עוצמה","Level")} <output data-project-track-gain-value="${escapeHtml(track.id)}">0 dB</output></span><input type="range" data-project-track-gain="${escapeHtml(track.id)}" min="-48" max="12" step="0.5" value="0"></label>
+       <label class="stem-mix-control"><span>Pan <output data-project-track-pan-value="${escapeHtml(track.id)}">Center</output></span><input type="range" data-project-track-pan="${escapeHtml(track.id)}" min="-1" max="1" step="0.01" value="0"></label>
+       <audio data-project-track-audio="${escapeHtml(track.id)}" preload="auto" crossorigin="anonymous"></audio></article>
+      `).join("")}
+     </div>
+    </div>`:""}
+  </section>`;
+}
+
 function mixPage() {
   const s = window.ITZIK_MIXER?.getSettings?.() || {};
   const savedEnhanceTask=projects.find(p=>p.id===currentProjectId)?.metadata?.mixEnhance?.taskId||"";
@@ -169,8 +196,10 @@ function mixPage() {
       <p class="mixer-note">${uiText("A/B משווה בין האות המקורי לעיבוד. הייצוא משתמש בעיבוד הפעיל.","A/B switches between the original signal and processing. Export uses the active processing.")}</p>
     </div>` : `<div class="panel empty-state"><div class="big">♫</div><b>${uiText("קודם נעלה שיר","Upload a track first")}</b><p>${uiText("המיקסר יופעל על ערוץ הסטריאו שבפרויקט.","The mixer works on the stereo track in your project.")}</p><button class="secondary-btn" data-go="home">${uiText("העלאת שיר","Upload a track")}</button></div>`}
 
+    ${currentFile ? projectTracksPanel() : ""}
+
     ${currentFile ? (() => {
-      const stemMeta=projects.find(p=>p.id===currentProjectId)?.metadata?.stemSeparation||{};
+    const stemMeta=projects.find(p=>p.id===currentProjectId)?.metadata?.stemSeparation||{};
       const stemNames=stemMeta.separationMode==="vocals_instrumental"?["vocals","instrumental"]:["vocals","drums","bass","other"];
       const stemLabels={vocals:uiText("שירה","Vocals"),drums:uiText("תופים","Drums"),bass:uiText("בס","Bass"),other:uiText("כלים נוספים","Other instruments"),instrumental:uiText("פלייבק ללא שירה","Instrumental")};
       const saved=stemNames.filter(name=>stemMeta.stems?.[name]);
@@ -302,6 +331,98 @@ function render(page){
  bindDynamic();
 }
 
+
+async function bindProjectTracks(){
+ const panel=$("#projectTrackMixer");
+ if(!panel){await window.ITZIK_PROJECT_TRACKS?.destroy?.();return;}
+ const project=projects.find(item=>item.id===currentProjectId);
+ const tracks=project?.metadata?.projectTracks||[];
+ const status=$("#projectTracksStatus"),input=$("#projectTracksInput"),addButton=$("#addProjectTracks");
+ if(!project||!currentProjectId){if(status)status.textContent=uiText("צריך לשמור את הפרויקט בענן לפני הוספת ערוצים.","Save this project to the cloud before adding tracks.");if(addButton)addButton.disabled=true;return;}
+ if(addButton&&input)addButton.onclick=()=>input.click();
+ if(input)input.onchange=async()=>{
+  const selected=Array.from(input.files||[]);input.value="";if(!selected.length)return;
+  if(tracks.length+selected.length>16){if(status)status.textContent=uiText("אפשר לשמור עד 16 ערוצים נוספים בפרויקט.","You can save up to 16 additional tracks per project.");return;}
+  addButton.disabled=true;
+  try{
+   for(const file of selected){
+    if(!file.type.startsWith("audio/")&&!/\.(mp3|wav|m4a|aac|flac)$/i.test(file.name))throw new Error(uiText("הקובץ "+file.name+" אינו קובץ אודיו נתמך.","The file "+file.name+" is not a supported audio file."));
+    if(file.size>50*1024*1024)throw new Error(uiText("הקובץ "+file.name+" גדול מ־50MB.","The file "+file.name+" exceeds 50 MB."));
+    if(status)status.textContent=uiText("מעלה ושומר: ","Uploading and saving: ")+file.name;
+    const id=crypto.randomUUID(),safeName=file.name.replace(/[^\w.() -]/g,"_").slice(0,100)||"audio-file";
+    const storagePath=`${currentUser.id}/${currentProjectId}/tracks/${id}-${safeName}`;
+    const {error:uploadError}=await supabaseClient.storage.from("project-audio").upload(storagePath,file,{contentType:file.type||"application/octet-stream",upsert:false});
+    if(uploadError)throw new Error(uiText("העלאת הקובץ נכשלה: ","Upload failed: ")+uploadError.message);
+    const latest=projects.find(item=>item.id===currentProjectId);
+    const next=[...(latest?.metadata?.projectTracks||[]),{id,name:file.name,storagePath,size:file.size,type:file.type||"application/octet-stream",createdAt:new Date().toISOString()}];
+    if(!await updateProjectMetadata({projectTracks:next})){await supabaseClient.storage.from("project-audio").remove([storagePath]);throw new Error(uiText("הקובץ הועלה, אך שמירת פרטי הערוץ בפרויקט נכשלה.","The file uploaded, but its project record could not be saved."));}
+   }
+   render("mix");
+  }catch(error){if(status)status.textContent=error.message||uiText("הוספת הערוצים נכשלה.","Could not add tracks.");}
+  finally{if(addButton)addButton.disabled=false;}
+ };
+ if(!tracks.length){await window.ITZIK_PROJECT_TRACKS?.destroy?.();return;}
+ const audioItems=[];
+ try{
+  for(const track of tracks){
+   const element=Array.from(document.querySelectorAll("[data-project-track-audio]")).find(node=>node.dataset.projectTrackAudio===track.id);
+   if(!element)continue;
+   const {data,error}=await supabaseClient.storage.from("project-audio").createSignedUrl(track.storagePath,3600);
+   if(error||!data?.signedUrl)throw new Error(uiText("לא ניתן לטעון את הערוץ: ","Could not load track: ")+track.name);
+   element.src=data.signedUrl;element.load();
+   audioItems.push({id:track.id,audio:element,settings:project.metadata?.projectTrackMixSettings?.[track.id]||{}});
+  }
+  await window.ITZIK_PROJECT_TRACKS.init(audioItems,audio);
+  const save=async id=>{
+   const latest=projects.find(item=>item.id===currentProjectId);
+   const settings={...(latest?.metadata?.projectTrackMixSettings||{}),[id]:window.ITZIK_PROJECT_TRACKS.getTrack(id)};
+   if(!await updateProjectMetadata({projectTrackMixSettings:settings})&&status)status.textContent=uiText("השינוי פעיל, אך השמירה בענן נכשלה.","The change is active, but cloud saving failed.");
+  };
+  const refresh=id=>{
+   const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);if(!state)return;
+   const gain=document.querySelector('[data-project-track-gain-value="'+id+'"]'),pan=document.querySelector('[data-project-track-pan-value="'+id+'"]');
+   const mute=document.querySelector('[data-project-track-mute="'+id+'"]'),solo=document.querySelector('[data-project-track-solo="'+id+'"]');
+   if(gain)gain.textContent=state.gainDb.toFixed(1)+" dB";
+   if(pan)pan.textContent=state.pan<=-.98?"L":state.pan>=.98?"R":state.pan===0?uiText("מרכז","Center"):state.pan<0?"L "+Math.round(-state.pan*100)+"%":"R "+Math.round(state.pan*100)+"%";
+   if(mute){mute.setAttribute("aria-pressed",String(state.mute));mute.textContent=state.mute?uiText("בטל השתקה","Unmute"):uiText("השתק","Mute");}
+   if(solo)solo.setAttribute("aria-pressed",String(state.solo));
+  };
+  for(const track of audioItems){
+   const id=track.id,gain=document.querySelector('[data-project-track-gain="'+id+'"]'),pan=document.querySelector('[data-project-track-pan="'+id+'"]');
+   const mute=document.querySelector('[data-project-track-mute="'+id+'"]'),solo=document.querySelector('[data-project-track-solo="'+id+'"]');
+   if(gain){gain.value=track.settings.gainDb??0;gain.oninput=()=>{window.ITZIK_PROJECT_TRACKS.setTrack(id,{gainDb:Number(gain.value)});refresh(id);save(id);};}
+   if(pan){pan.value=track.settings.pan??0;pan.oninput=()=>{window.ITZIK_PROJECT_TRACKS.setTrack(id,{pan:Number(pan.value)});refresh(id);save(id);};}
+   if(mute)mute.onclick=()=>{const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);window.ITZIK_PROJECT_TRACKS.setTrack(id,{mute:!state.mute});refresh(id);save(id);};
+   if(solo)solo.onclick=()=>{const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);window.ITZIK_PROJECT_TRACKS.setTrack(id,{solo:!state.solo});audioItems.forEach(item=>refresh(item.id));save(id);};
+   refresh(id);
+  }
+  const play=$("#projectTracksPlay"),pause=$("#projectTracksPause"),stop=$("#projectTracksStop");
+  if(play)play.onclick=async()=>{try{await window.ITZIK_PROJECT_TRACKS.play();if(status)status.textContent=uiText("מנגן את הקובץ הראשי ואת כל הערוצים הנוספים בסנכרון.","Playing the original file and all added tracks in sync.");}catch(error){if(status)status.textContent=error.message;}};
+  if(pause)pause.onclick=()=>window.ITZIK_PROJECT_TRACKS.pause();
+  if(stop)stop.onclick=()=>window.ITZIK_PROJECT_TRACKS.stop();
+  const exportButton=$("#projectTracksExport");
+  if(exportButton)exportButton.onclick=async()=>{
+   exportButton.disabled=true;if(status)status.textContent=uiText("מחשב את המיקס המשולב...","Rendering the combined mix...");
+   try{
+    const AudioCtx=window.AudioContext||window.webkitAudioContext,context=new AudioCtx();let base;
+    try{base=await context.decodeAudioData((await currentFile.arrayBuffer()).slice(0));if(window.ITZIK_MIXER?.hasProcessing?.())base=await window.ITZIK_MIXER.renderOffline(base,window.ITZIK_MIXER.getSettings());}
+    finally{await context.close().catch(()=>{});}
+    const rendered=await window.ITZIK_PROJECT_TRACKS.renderMix(base),blob=encodeWav(rendered,24),url=URL.createObjectURL(blob),link=document.createElement("a");
+    link.href=url;link.download=(currentFile.name.replace(/\.[^.]+$/,"")||"itzik-sound")+"-multitrack-mix.wav";document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+    if(status)status.textContent=uiText("המיקס המשולב מוכן. קובץ WAV באיכות 24-bit הורד למחשב.","Combined mix exported as a 24-bit WAV file.");
+   }catch(error){if(status)status.textContent=error.message||uiText("ייצוא המיקס נכשל.","Mix export failed.");}
+   finally{exportButton.disabled=false;}
+  };
+  document.querySelectorAll("[data-project-track-remove]").forEach(button=>button.onclick=async()=>{
+   const id=button.dataset.projectTrackRemove,latest=projects.find(item=>item.id===currentProjectId);
+   const track=(latest?.metadata?.projectTracks||[]).find(item=>item.id===id);if(!track)return;
+   button.disabled=true;const next=(latest.metadata.projectTracks||[]).filter(item=>item.id!==id),settings={...(latest.metadata?.projectTrackMixSettings||{})};delete settings[id];
+   if(!await updateProjectMetadata({projectTracks:next,projectTrackMixSettings:settings})){button.disabled=false;if(status)status.textContent=uiText("לא ניתן לעדכן את הפרויקט. הערוץ לא הוסר.","Could not update the project. The track was not removed.");return;}
+   await supabaseClient.storage.from("project-audio").remove([track.storagePath]);render("mix");
+  });
+ }catch(error){if(status)status.textContent=error.message||uiText("טעינת הערוצים נכשלה.","Could not load project tracks.");}
+}
+
 function bindDynamic(){
  if(stopMixMeter){stopMixMeter();stopMixMeter=null;}
  const zone=$("#uploadZone");
@@ -324,6 +445,7 @@ document.querySelectorAll("[data-delete-project]").forEach(b=>{
  bindMixer();
  bindStemSeparation();
  bindStemAudioPlayers();
+ bindProjectTracks();
  bindRoexFullMix();
  bindIdeas();
  bindPitchAnalysis();
@@ -1159,6 +1281,7 @@ async function signOut(){
 }
 
 function resetWorkspace(){
+ window.ITZIK_PROJECT_TRACKS?.destroy?.();
  currentProjectId=null;
  currentFile=null;
 
@@ -1345,6 +1468,12 @@ if (bottomPlayer) {
 // data-go buttons are bound once per render by bindDynamic().
 
 $("#playBtn").onclick=()=>{
+ const hasProjectTracks=currentPage==="mix"&&(projects.find(item=>item.id===currentProjectId)?.metadata?.projectTracks||[]).length>0;
+ if(hasProjectTracks){
+  if(audio.paused)window.ITZIK_PROJECT_TRACKS.play().catch(error=>{const status=$("#projectTracksStatus");if(status)status.textContent=error.message;});
+  else window.ITZIK_PROJECT_TRACKS.pause();
+  return;
+ }
  if(audio.paused)audio.play();
  else audio.pause();
 };
