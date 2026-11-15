@@ -189,6 +189,11 @@
   let limiter = null;
   let masterAnalyser = null;
   let masterMeterBuffer = null;
+  let masterStereoSplitter = null;
+  let masterLeftAnalyser = null;
+  let masterRightAnalyser = null;
+  let masterLeftBuffer = null;
+  let masterRightBuffer = null;
   let ownsContext = false;
   let leaderAudio = null;
   let leaderOriginalMute = false;
@@ -238,12 +243,20 @@
     leaderAudio = null;
     try { master?.disconnect(); } catch {}
     try { masterAnalyser?.disconnect(); } catch {}
+    try { masterStereoSplitter?.disconnect(); } catch {}
+    try { masterLeftAnalyser?.disconnect(); } catch {}
+    try { masterRightAnalyser?.disconnect(); } catch {}
     try { limiter?.disconnect(); } catch {}
     if (context && ownsContext) await context.close().catch(() => {});
     context = null;
     master = null;
     masterAnalyser = null;
     masterMeterBuffer = null;
+    masterStereoSplitter = null;
+    masterLeftAnalyser = null;
+    masterRightAnalyser = null;
+    masterLeftBuffer = null;
+    masterRightBuffer = null;
     limiter = null;
     ownsContext = false;
   }
