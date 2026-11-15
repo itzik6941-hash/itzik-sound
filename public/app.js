@@ -1607,6 +1607,12 @@ async function exportCurrentFile(){
    status.textContent=uiText("מחשב את עיבוד המיקס לייצוא...","Rendering the processed mix for export...");
    buffer=await window.ITZIK_MIXER.renderOffline(buffer,window.ITZIK_MIXER.getSettings());
   }
+  const multitrack = hasActiveProjectTracks();
+  if(multitrack){
+   status.textContent=uiText("משלב את כל הערוצים לייצוא...","Combining all project tracks for export...");
+   buffer=await window.ITZIK_PROJECT_TRACKS.renderMix(buffer);
+   if(buffer.duration>600)throw new Error(uiText("המיקס המשולב ארוך מ־10 דקות. הייצוא נעצר כדי לשמור על יציבות הדפדפן.","The combined mix exceeds 10 minutes. Export stopped to keep the browser stable."));
+  }
 
   let blob;
 
@@ -1620,14 +1626,14 @@ async function exportCurrentFile(){
   const url=URL.createObjectURL(blob);
   const a=document.createElement("a");
   a.href=url;
-  a.download=(currentFile.name.replace(/\.[^.]+$/,"")||"itzik-sound")+"."+format;
+  a.download=(currentFile.name.replace(/\\.[^.]+$/,"")||"itzik-sound")+(multitrack?"-multitrack-mix":"")+"."+format;
 
   document.body.appendChild(a);
   a.click();
   a.remove();
 
   setTimeout(()=>URL.revokeObjectURL(url),30000);
-  status.textContent="הקובץ מוכן! בדוק את תיקיית ההורדות.";
+  status.textContent=multitrack?uiText("המיקס המשולב מוכן להורדה.","The combined multitrack mix is ready to download."): "הקובץ מוכן! בדוק את תיקיית ההורדות.";
  }catch(err){
   console.error(err);
   status.textContent="הייצוא נכשל: "+(err.message||"שגיאה לא ידועה");
@@ -2258,40 +2264,26 @@ if (miniContainer) miniContainer.innerHTML = waveformHtml;
 
   // עדכון ההתקדמות בנגן
   function updateWaveformProgress() {
-const waveContainers = document.querySelectorAll(
-  ".itzik-wave-area, .itzik-mini-wave-area"
-);
-
+const waveContainers = document.querySelectorAll(".itzik-wave-area, .itzik-mini-wave-area");
 if (!waveContainers.length) return;
-
-    const duration = audio.duration || 0;
-    const progress = duration
-      ? audio.currentTime / duration
-      : 0;
-
+const multitrack = hasActiveProjectTracks(), engine = window.ITZIK_PROJECT_TRACKS;
+const duration = multitrack ? engine.getDuration() : (audio.duration || 0);
+const position = multitrack ? engine.getPlaybackPosition() : audio.currentTime;
+const playing = multitrack ? engine.isPlaying() : !audio.paused;
+const progress = duration ? Math.max(0, Math.min(1, position / duration)) : 0;
 waveContainers.forEach(container => {
   const bars = container.querySelectorAll(".itzik-wave-bar");
   const activeIndex = Math.floor(progress * bars.length);
-
-  bars.forEach((bar, index) => {
-    bar.classList.toggle("active", index < activeIndex);
-  });
+  bars.forEach((bar, index) => bar.classList.toggle("active", index < activeIndex));
 });
-
-    const seek = $("#itzikWaveSeek");
-    const current = $("#itzikWaveCurrent");
-    const total = $("#itzikWaveDuration");
-
-    if (seek) seek.value = progress * 100;
-    if (current) current.textContent = waveTime(audio.currentTime);
-    if (total) total.textContent = waveTime(duration);
-
-    const playButton = $("#itzikWavePlay");
-    if (playButton) {
-      playButton.textContent = audio.paused ? "▶" : "Ⅱ";
-    }
+const seek = $("#itzikWaveSeek"), current = $("#itzikWaveCurrent"), total = $("#itzikWaveDuration");
+if (seek) seek.value = progress * 100;
+if (current) current.textContent = waveTime(position);
+if (total) total.textContent = waveTime(duration);
+const playButton = $("#itzikWavePlay");
+if (playButton) playButton.textContent = playing ? "Ⅱ" : "▶";
   }
-window.refreshIzikWaveform = buildWaveform;
+window.refreshIzikWaveformwindow.refreshIzikWaveform = buildWaveform;
     
   // הרחבת render הקיים בלי לפגוע בו
   const originalRender = render;
@@ -2313,15 +2305,13 @@ window.refreshIzikWaveform = buildWaveform;
 
 if (miniWave) {
   miniWave.onclick = event => {
-    if (!audio.duration) return;
-
+    const multitrack = hasActiveProjectTracks();
+    const duration = multitrack ? window.ITZIK_PROJECT_TRACKS.getDuration() : audio.duration;
+    if (!duration) return;
     const rect = miniWave.getBoundingClientRect();
-    const ratio = Math.max(
-      0,
-      Math.min(1, (event.clientX - rect.left) / rect.width)
-    );
-
-    audio.currentTime = ratio * audio.duration;
+    const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    if (multitrack) window.ITZIK_PROJECT_TRACKS.seek(ratio * duration);
+    else audio.currentTime = ratio * duration;
     updateWaveformProgress();
   };
 }
@@ -2340,26 +2330,23 @@ if (waveExportButton) {
 }
       if (playButton) {
         playButton.onclick = async () => {
-          if (audio.paused) {
-            try {
-              await audio.play();
-            } catch (error) {
-              console.error("Playback failed:", error);
-            }
-          } else {
-            audio.pause();
-          }
-
+          try {
+            if (hasActiveProjectTracks()) {
+              if (window.ITZIK_PROJECT_TRACKS.isPlaying()) window.ITZIK_PROJECT_TRACKS.pause();
+              else await window.ITZIK_PROJECT_TRACKS.play();
+            } else if (audio.paused) await audio.play();
+            else audio.pause();
+          } catch (error) { console.error("Playback failed:", error); }
           updateWaveformProgress();
         };
       }
 
       if (seek) {
         seek.oninput = () => {
-          if (audio.duration) {
-            audio.currentTime =
-              Number(seek.value) / 100 * audio.duration;
-          }
+          if (hasActiveProjectTracks()) {
+            const duration = window.ITZIK_PROJECT_TRACKS.getDuration();
+            if (duration) window.ITZIK_PROJECT_TRACKS.seek(Number(seek.value) / 100 * duration);
+          } else if (audio.duration) audio.currentTime = Number(seek.value) / 100 * audio.duration;
           updateWaveformProgress();
         };
       }
@@ -2380,6 +2367,7 @@ if (waveExportButton) {
   audio.addEventListener("play", updateWaveformProgress);
   audio.addEventListener("pause", updateWaveformProgress);
   audio.addEventListener("loadedmetadata", updateWaveformProgress);
+  window.addEventListener("itzik-project-tracks-statechange", updateWaveformProgress);
 
   // The maintenance administrator session is separate from Supabase login.
   async function initializeAdminMode() {
