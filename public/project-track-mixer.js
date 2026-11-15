@@ -246,12 +246,11 @@
       bus.connect(outputLimiter);
       outputLimiter.connect(output.destination);
 
+      const hasSolo = hasSoloState(decoded.map(item => item.state));
       const baseSource = output.createBufferSource();
       baseSource.buffer = baseBuffer;
       baseSource.connect(bus);
       if (!hasSolo) baseSource.start(0);
-
-      const hasSolo = hasSoloState(decoded.map(item => item.state));
       for (const item of decoded) {
         const source = output.createBufferSource();
         const gain = output.createGain();
