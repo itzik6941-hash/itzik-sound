@@ -154,3 +154,23 @@ test("when all tracks ended, playback restarts from the beginning", () => {
   assert.equal(start, 0);
   assert.equal(mixer.getSynchronizedSeekTime(start, 12), 0);
 });
+
+test("multitrack duration uses the longest available track", () => {
+  const audio = (duration) => ({ duration });
+  assert.equal(mixer.getPlaybackDuration(audio(60), [audio(90), audio(45)]), 90);
+  assert.equal(mixer.getPlaybackDuration(audio(60), [audio(30)]), 60);
+  assert.equal(mixer.getPlaybackDuration(null, [audio(30), audio(45)]), 45);
+  assert.equal(mixer.getPlaybackDuration(null, []), 0);
+});
+
+test("multitrack playing state remains active if the base track ended", () => {
+  const audio = (paused, ended) => ({ paused, ended });
+  assert.equal(mixer.isAnyTrackPlaying(audio(true, true), [audio(false, false)]), true);
+  assert.equal(mixer.isAnyTrackPlaying(audio(false, false), [audio(true, false)]), true);
+  assert.equal(mixer.isAnyTrackPlaying(audio(true, true), [audio(true, true)]), false);
+});
+
+test("multitrack seek clamps each file to its own duration", () => {
+  assert.equal(mixer.getSynchronizedSeekTime(25, 10), 9.98);
+  assert.equal(mixer.getSynchronizedSeekTime(25, 40), 25);
+});
