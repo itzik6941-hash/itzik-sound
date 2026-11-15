@@ -511,7 +511,7 @@ async function bindProjectTracks(){
    const mute=document.querySelector('[data-project-track-mute="'+id+'"]'),solo=document.querySelector('[data-project-track-solo="'+id+'"]');
    if(gain){gain.value=track.settings.gainDb??0;gain.oninput=()=>{window.ITZIK_PROJECT_TRACKS.setTrack(id,{gainDb:Number(gain.value)});refresh(id);save(id);};}
    if(pan){pan.value=track.settings.pan??0;pan.oninput=()=>{window.ITZIK_PROJECT_TRACKS.setTrack(id,{pan:Number(pan.value)});refresh(id);save(id);};}
-   if(width){width.value=track.settings.stereoWidth??1;width.oninput=()=>{const value=Number(width.value);window.ITZIK_PROJECT_TRACKS.setTrack(id,{stereoWidth:value});const output=document.querySelector('[data-project-track-width-value="'+id+'"]');if(output)output.textContent=Math.round(value*100)+"%";save(id);};}
+   if(width){const value=track.settings.stereoWidth??1;width.value=value;const output=document.querySelector('[data-project-track-width-value="'+id+'"]');if(output)output.textContent=Math.round(value*100)+"%";width.oninput=()=>{const next=Number(width.value);window.ITZIK_PROJECT_TRACKS.setTrack(id,{stereoWidth:next});if(output)output.textContent=Math.round(next*100)+"%";save(id);};}
    document.querySelectorAll('[data-project-track-fx]').forEach(input=>{
     const [key,trackId]=input.dataset.projectTrackFx.split(":");if(trackId!==id)return;
     input.value=String(track.settings[key]??window.ITZIK_PROJECT_TRACKS.effectDefaults[key]);
