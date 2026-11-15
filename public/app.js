@@ -165,7 +165,12 @@ function projectTracksPanel(){
        </div></div>
        <label class="stem-mix-control"><span>${uiText("עוצמה","Level")} <output data-project-track-gain-value="${escapeHtml(track.id)}">0 dB</output></span><input type="range" data-project-track-gain="${escapeHtml(track.id)}" min="-48" max="12" step="0.5" value="0"></label>
        <label class="stem-mix-control"><span>Pan <output data-project-track-pan-value="${escapeHtml(track.id)}">Center</output></span><input type="range" data-project-track-pan="${escapeHtml(track.id)}" min="-1" max="1" step="0.01" value="0"></label>
-       <details class="project-track-effects"><summary>${uiText("אפקטים לערוץ","Track effects")}</summary><div class="project-track-effects-grid">
+       <details class="project-track-effects"><summary>${uiText("אפקטים ועיבוד לערוץ","Track effects & processing")}</summary><div class="project-track-effects-grid">
+        <label class="stem-mix-control"><span>${uiText("עוצמת כניסה","Input trim")} <output data-project-track-fx-value="inputTrimDb:${escapeHtml(track.id)}">0.0 dB</output></span><input type="range" data-project-track-fx="inputTrimDb:${escapeHtml(track.id)}" min="-24" max="24" step="0.5" value="0"></label>
+        <label class="stem-mix-control"><span>Saturation <output data-project-track-fx-value="saturation:${escapeHtml(track.id)}">0%</output></span><input type="range" data-project-track-fx="saturation:${escapeHtml(track.id)}" min="0" max="100" step="1" value="0"></label>
+        <label class="stem-mix-control"><span>Compressor attack <output data-project-track-fx-value="compAttack:${escapeHtml(track.id)}">12 ms</output></span><input type="range" data-project-track-fx="compAttack:${escapeHtml(track.id)}" min="0.001" max="0.1" step="0.001" value="0.012"></label>
+        <label class="stem-mix-control"><span>Compressor release <output data-project-track-fx-value="compRelease:${escapeHtml(track.id)}">220 ms</output></span><input type="range" data-project-track-fx="compRelease:${escapeHtml(track.id)}" min="0.05" max="1" step="0.01" value="0.22"></label>
+        <label class="stem-mix-control"><span>${uiText("היפוך פאזה","Phase invert")}</span><input type="checkbox" data-project-track-fx-toggle="phaseInvert:${escapeHtml(track.id)}"></label>
         <label class="stem-mix-control"><span>EQ Low <output data-project-track-fx-value="eqLowDb:${escapeHtml(track.id)}">0 dB</output></span><input type="range" data-project-track-fx="eqLowDb:${escapeHtml(track.id)}" min="-12" max="12" step="0.5" value="0"></label>
         <label class="stem-mix-control"><span>EQ Mid <output data-project-track-fx-value="eqMidDb:${escapeHtml(track.id)}">0 dB</output></span><input type="range" data-project-track-fx="eqMidDb:${escapeHtml(track.id)}" min="-12" max="12" step="0.5" value="0"></label>
         <label class="stem-mix-control"><span>EQ High <output data-project-track-fx-value="eqHighDb:${escapeHtml(track.id)}">0 dB</output></span><input type="range" data-project-track-fx="eqHighDb:${escapeHtml(track.id)}" min="-12" max="12" step="0.5" value="0"></label>
@@ -484,7 +489,7 @@ async function bindProjectTracks(){
     const [key,trackId]=input.dataset.projectTrackFx.split(":");if(trackId!==id)return;
     input.value=String(state[key]);
     const output=document.querySelector('[data-project-track-fx-value="'+key+':'+id+'"]');
-    if(output)output.textContent=key==="compRatio"?Number(state[key]).toFixed(1)+":1":key==="delayTime"?Math.round(state[key]*1000)+" ms":key==="reverbMix"||key==="delayMix"||key==="delayFeedback"?Math.round(state[key]*100)+"%":Number(state[key]).toFixed(1)+" dB";
+    if(output)output.textContent=key==="compRatio"?Number(state[key]).toFixed(1)+":1":key==="delayTime"||key==="compAttack"||key==="compRelease"?Math.round(state[key]*1000)+" ms":key==="reverbMix"||key==="delayMix"||key==="delayFeedback"||key==="saturation"?Math.round(state[key]*100)+"%":Number(state[key]).toFixed(1)+" dB";
    });
   };
   for(const track of audioItems){
@@ -496,9 +501,14 @@ async function bindProjectTracks(){
     const [key,trackId]=input.dataset.projectTrackFx.split(":");if(trackId!==id)return;
     input.value=String(track.settings[key]??window.ITZIK_PROJECT_TRACKS.effectDefaults[key]);
     const output=document.querySelector('[data-project-track-fx-value="'+key+':'+id+'"]');
-    const display=value=>key==="compRatio"?Number(value).toFixed(1)+":1":key==="delayTime"?Math.round(value*1000)+" ms":key==="reverbMix"||key==="delayMix"||key==="delayFeedback"?Math.round(value*100)+"%":Number(value).toFixed(1)+" dB";
+    const display=value=>key==="compRatio"?Number(value).toFixed(1)+":1":key==="delayTime"||key==="compAttack"||key==="compRelease"?Math.round(value*1000)+" ms":key==="reverbMix"||key==="delayMix"||key==="delayFeedback"||key==="saturation"?Math.round(value*100)+"%":Number(value).toFixed(1)+" dB";
     if(output)output.textContent=display(input.value);
     input.oninput=()=>{window.ITZIK_PROJECT_TRACKS.setTrack(id,{[key]:Number(input.value)});if(output)output.textContent=display(input.value);save(id);};
+   });
+   document.querySelectorAll('[data-project-track-fx-toggle]').forEach(input=>{
+    const [key,trackId]=input.dataset.projectTrackFxToggle.split(":");if(trackId!==id)return;
+    input.checked=track.settings[key]===true;
+    input.onchange=()=>{window.ITZIK_PROJECT_TRACKS.setTrack(id,{[key]:input.checked});save(id);};
    });
    refreshTrackFx(id);
    if(mute)mute.onclick=()=>{const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);window.ITZIK_PROJECT_TRACKS.setTrack(id,{mute:!state.mute});refresh(id);save(id);};
