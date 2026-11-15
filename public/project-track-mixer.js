@@ -14,6 +14,7 @@
   let context = null;
   let master = null;
   let limiter = null;
+  let ownsContext = false;
   let leaderAudio = null;
   let leaderOriginalMute = false;
   let leaderPauseHandler = null;
@@ -56,13 +57,13 @@
     }
     tracks.clear();
     leaderAudio = null;
-    if (context) {
-      const oldContext = context;
-      context = null;
-      master = null;
-      limiter = null;
-      await oldContext.close().catch(() => {});
-    }
+    try { master?.disconnect(); } catch {}
+    try { limiter?.disconnect(); } catch {}
+    if (context && ownsContext) await context.close().catch(() => {});
+    context = null;
+    master = null;
+    limiter = null;
+    ownsContext = false;
   }
 
   async function init(items, leader) {
@@ -71,18 +72,25 @@
     leaderOriginalMute = window.ITZIK_MIXER?.getSettings?.().mute === true;
     if (!items?.length) return;
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) throw new Error("הדפדפן אינו תומך במיקסר רב־ערוצי.");
-    context = new AudioContextClass();
+    const sharedContext = window.ITZIK_MIXER?.getAudioContext?.();
+    const sharedDestination = window.ITZIK_MIXER?.getProjectMixDestination?.();
+    if (!sharedContext && !AudioContextClass) throw new Error("הדפדפן אינו תומך במיקסר רב־ערוצי.");
+    context = sharedContext || new AudioContextClass();
+    ownsContext = !sharedContext;
     master = context.createGain();
-    limiter = context.createDynamicsCompressor();
-    limiter.threshold.value = -1;
-    limiter.knee.value = 0;
-    limiter.ratio.value = 20;
-    limiter.attack.value = 0.003;
-    limiter.release.value = 0.12;
     master.gain.value = 0.85;
-    master.connect(limiter);
-    limiter.connect(context.destination);
+    if (sharedContext && sharedDestination) {
+      master.connect(sharedDestination);
+    } else {
+      limiter = context.createDynamicsCompressor();
+      limiter.threshold.value = -1;
+      limiter.knee.value = 0;
+      limiter.ratio.value = 20;
+      limiter.attack.value = 0.003;
+      limiter.release.value = 0.12;
+      master.connect(limiter);
+      limiter.connect(context.destination);
+    }
 
     if (leaderAudio) {
       leaderPauseHandler = () => pause();
