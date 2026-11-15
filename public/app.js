@@ -178,6 +178,7 @@ function projectTracksPanel(){
        </div></div>
        <label class="stem-mix-control"><span>${uiText("עוצמה","Level")} <output data-project-track-gain-value="${escapeHtml(track.id)}">0 dB</output></span><input type="range" data-project-track-gain="${escapeHtml(track.id)}" min="-48" max="12" step="0.5" value="0"></label>
        <label class="stem-mix-control"><span>Pan <output data-project-track-pan-value="${escapeHtml(track.id)}">Center</output></span><input type="range" data-project-track-pan="${escapeHtml(track.id)}" min="-1" max="1" step="0.01" value="0"></label>
+       <div class="project-track-channel-meter" data-project-track-meter="${escapeHtml(track.id)}" role="meter" aria-label="${escapeHtml(track.name)} level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="project-track-channel-meter-head"><span>${uiText("מד עוצמת ערוץ","Track level")}</span><output data-project-track-meter-value="${escapeHtml(track.id)}">-∞ dBFS</output></div><div class="project-track-channel-meter-track"><span data-project-track-meter-fill="${escapeHtml(track.id)}"></span></div><small data-project-track-meter-clip="${escapeHtml(track.id)}"></small></div>
        <label class="stem-mix-control"><span>${uiText("רוחב סטריאו","Stereo width")} <output data-project-track-width-value="${escapeHtml(track.id)}">100%</output></span><input type="range" data-project-track-width="${escapeHtml(track.id)}" min="0" max="2" step="0.01" value="1"></label>
        <details class="project-track-effects"><summary>${uiText("אפקטים ועיבוד לערוץ","Track effects & processing")}</summary><div class="project-track-effects-grid">
         <label class="stem-mix-control"><span>${uiText("עוצמת כניסה","Input trim")} <output data-project-track-fx-value="inputTrimDb:${escapeHtml(track.id)}">0.0 dB</output></span><input type="range" data-project-track-fx="inputTrimDb:${escapeHtml(track.id)}" min="-24" max="24" step="0.5" value="0"></label>
@@ -573,6 +574,15 @@ async function bindProjectTracks(){
    if(stereoCorrelationValue)stereoCorrelationValue.textContent=Number.isFinite(meter.correlation)?meter.correlation.toFixed(2):"—";
    if(masterMeterWrap)masterMeterWrap.setAttribute("aria-valuenow",String(Math.round(level)));
    if(masterClip)masterClip.textContent=meter.clipping?uiText("שיא אות!","CLIP!"): "";
+   document.querySelectorAll("[data-project-track-meter]").forEach(wrap=>{
+    const id=wrap.dataset.projectTrackMeter,trackMeter=window.ITZIK_PROJECT_TRACKS.getTrackMeter?.(id)||{db:-Infinity,clipping:false};
+    const fill=wrap.querySelector("[data-project-track-meter-fill]"),value=wrap.querySelector("[data-project-track-meter-value]"),clip=wrap.querySelector("[data-project-track-meter-clip]");
+    const trackLevel=Math.max(0,Math.min(100,(trackMeter.db+60)/60*100));
+    if(fill)fill.style.width=trackLevel.toFixed(1)+"%";
+    if(value)value.textContent=trackMeter.db<=-59.9?"-∞ dBFS":trackMeter.db.toFixed(1)+" dBFS";
+    if(clip)clip.textContent=trackMeter.clipping?uiText("שיא אות!","CLIP!"):"";
+    wrap.setAttribute("aria-valuenow",String(Math.round(trackLevel)));
+   });
    window.__itzikMasterMeterFrame=requestAnimationFrame(updateMasterMeter);
   };
   window.__itzikMasterMeterFrame=0;
