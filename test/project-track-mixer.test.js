@@ -306,5 +306,5 @@ test("each added track exposes an independent live level meter", () => {
   assert.match(source, /meterAnalyser = ctx\.createAnalyser\(\)/);
   assert.match(source, /pan\.connect\(meterAnalyser\)/);
   assert.match(source, /function getTrackMeter\(id\)/);
-  assert.match(source, /getTrackMeter, getMasterMeter/);
+  assert.match(source, /getMasterMeter, getTrackMeter/);
 });
