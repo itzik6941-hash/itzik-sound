@@ -506,30 +506,30 @@
     return Object.fromEntries([...tracks].map(([id, track]) => [id, { ...track.state }]));
   }
 
-  function setBaseMute(value) {
+  function setBaseMute(value, record = true) {
     const before=captureHistoryState();leaderOriginalMute=value===true;applyAll();
-    recordHistory(before,captureHistoryState(),"Base mute","base-mute");return leaderOriginalMute;
+    if(record)recordHistory(before,captureHistoryState(),"Base mute","base-mute");return leaderOriginalMute;
   }
 
   function getBaseMute() {
     return leaderOriginalMute;
   }
 
-  function setMasterDb(value) {
+  function setMasterDb(value, record = true) {
     const before=captureHistoryState();masterDb=normalizeMasterDb(value);
     if(master&&context)master.gain.setTargetAtTime(10**(masterDb/20),context.currentTime,0.015);
-    recordHistory(before,captureHistoryState(),"Master level","master-level");return masterDb;
+    if(record)recordHistory(before,captureHistoryState(),"Master level","master-level");return masterDb;
   }
 
   function getMasterDb() {
     return masterDb;
   }
 
-  function setOutputCeilingDb(value) {
+  function setOutputCeilingDb(value, record = true) {
     const before=captureHistoryState();outputCeilingDb=normalizeOutputCeilingDb(value);
     if(limiter&&context)limiter.threshold.setTargetAtTime(outputCeilingDb,context.currentTime,0.015);
     window.ITZIK_MIXER?.setProjectOutputCeiling?.(outputCeilingDb);
-    recordHistory(before,captureHistoryState(),"Output ceiling","output-ceiling");return outputCeilingDb;
+    if(record)recordHistory(before,captureHistoryState(),"Output ceiling","output-ceiling");return outputCeilingDb;
   }
 
   function getOutputCeilingDb() {
@@ -575,10 +575,10 @@
     return { ...overall, left, right, correlation, stereoBalance: left.peak + right.peak > 1e-6 ? (right.peak - left.peak) / (right.peak + left.peak) : 0 };
   }
 
-  function setBaseSolo(value) {
+  function setBaseSolo(value, record = true) {
     const before=captureHistoryState();baseSolo=value===true;
     if(baseSolo)for(const track of tracks.values())track.state.solo=false;
-    applyAll();recordHistory(before,captureHistoryState(),"Base Solo","base-solo");return baseSolo;
+    applyAll();if(record)recordHistory(before,captureHistoryState(),"Base Solo","base-solo");return baseSolo;
   }
 
   function getBaseSolo() {
