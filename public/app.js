@@ -172,6 +172,7 @@ function projectTracksPanel(){
        </div></div>
        <label class="stem-mix-control"><span>${uiText("עוצמה","Level")} <output data-project-track-gain-value="${escapeHtml(track.id)}">0 dB</output></span><input type="range" data-project-track-gain="${escapeHtml(track.id)}" min="-48" max="12" step="0.5" value="0"></label>
        <label class="stem-mix-control"><span>Pan <output data-project-track-pan-value="${escapeHtml(track.id)}">Center</output></span><input type="range" data-project-track-pan="${escapeHtml(track.id)}" min="-1" max="1" step="0.01" value="0"></label>
+       <label class="stem-mix-control"><span>${uiText("רוחב סטריאו","Stereo width")} <output data-project-track-width-value="${escapeHtml(track.id)}">100%</output></span><input type="range" data-project-track-width="${escapeHtml(track.id)}" min="0" max="2" step="0.01" value="1"></label>
        <details class="project-track-effects"><summary>${uiText("אפקטים ועיבוד לערוץ","Track effects & processing")}</summary><div class="project-track-effects-grid">
         <label class="stem-mix-control"><span>${uiText("עוצמת כניסה","Input trim")} <output data-project-track-fx-value="inputTrimDb:${escapeHtml(track.id)}">0.0 dB</output></span><input type="range" data-project-track-fx="inputTrimDb:${escapeHtml(track.id)}" min="-24" max="24" step="0.5" value="0"></label>
         <label class="stem-mix-control"><span>Saturation <output data-project-track-fx-value="saturation:${escapeHtml(track.id)}">0%</output></span><input type="range" data-project-track-fx="saturation:${escapeHtml(track.id)}" min="0" max="100" step="1" value="0"></label>
@@ -488,6 +489,7 @@ async function bindProjectTracks(){
    const mute=document.querySelector('[data-project-track-mute="'+id+'"]'),solo=document.querySelector('[data-project-track-solo="'+id+'"]');
    if(gain)gain.textContent=state.gainDb.toFixed(1)+" dB";
    if(pan)pan.textContent=state.pan<=-.98?"L":state.pan>=.98?"R":state.pan===0?uiText("מרכז","Center"):state.pan<0?"L "+Math.round(-state.pan*100)+"%":"R "+Math.round(state.pan*100)+"%";
+   const width=document.querySelector('[data-project-track-width-value="'+id+'"]');if(width)width.textContent=Math.round(state.stereoWidth*100)+"%";
    if(mute){mute.setAttribute("aria-pressed",String(state.mute));mute.textContent=state.mute?uiText("בטל השתקה","Unmute"):uiText("השתק","Mute");}
    if(solo)solo.setAttribute("aria-pressed",String(state.solo));
   };
@@ -505,10 +507,11 @@ async function bindProjectTracks(){
    });
   };
   for(const track of audioItems){
-   const id=track.id,gain=document.querySelector('[data-project-track-gain="'+id+'"]'),pan=document.querySelector('[data-project-track-pan="'+id+'"]');
+   const id=track.id,gain=document.querySelector('[data-project-track-gain="'+id+'"]'),pan=document.querySelector('[data-project-track-pan="'+id+'"]'),width=document.querySelector('[data-project-track-width="'+id+'"]');
    const mute=document.querySelector('[data-project-track-mute="'+id+'"]'),solo=document.querySelector('[data-project-track-solo="'+id+'"]');
    if(gain){gain.value=track.settings.gainDb??0;gain.oninput=()=>{window.ITZIK_PROJECT_TRACKS.setTrack(id,{gainDb:Number(gain.value)});refresh(id);save(id);};}
    if(pan){pan.value=track.settings.pan??0;pan.oninput=()=>{window.ITZIK_PROJECT_TRACKS.setTrack(id,{pan:Number(pan.value)});refresh(id);save(id);};}
+   if(width){const value=track.settings.stereoWidth??1;width.value=value;const output=document.querySelector('[data-project-track-width-value="'+id+'"]');if(output)output.textContent=Math.round(value*100)+"%";width.oninput=()=>{const next=Number(width.value);window.ITZIK_PROJECT_TRACKS.setTrack(id,{stereoWidth:next});if(output)output.textContent=Math.round(next*100)+"%";save(id);};}
    document.querySelectorAll('[data-project-track-fx]').forEach(input=>{
     const [key,trackId]=input.dataset.projectTrackFx.split(":");if(trackId!==id)return;
     input.value=String(track.settings[key]??window.ITZIK_PROJECT_TRACKS.effectDefaults[key]);
@@ -581,9 +584,10 @@ async function bindProjectTracks(){
     const state={gainDb:0,pan:0,mute:false,solo:false,...window.ITZIK_PROJECT_TRACKS.effectDefaults,...(scene.settings?.[item.id]||{})};
     window.ITZIK_PROJECT_TRACKS.setTrack(item.id,state);
     settings[item.id]=window.ITZIK_PROJECT_TRACKS.getTrack(item.id);
-    const gain=document.querySelector('[data-project-track-gain="'+item.id+'"]'),pan=document.querySelector('[data-project-track-pan="'+item.id+'"]');
+    const gain=document.querySelector('[data-project-track-gain="'+item.id+'"]'),pan=document.querySelector('[data-project-track-pan="'+item.id+'"]'),width=document.querySelector('[data-project-track-width="'+item.id+'"]');
     if(gain)gain.value=String(settings[item.id].gainDb);
     if(pan)pan.value=String(settings[item.id].pan);
+    if(width)width.value=String(settings[item.id].stereoWidth);
     refresh(item.id);refreshTrackFx(item.id);
    }
    const baseSolo=window.ITZIK_PROJECT_TRACKS.setBaseSolo(scene.baseSolo===true);

@@ -17,7 +17,8 @@
     inputTrimDb: 0, phaseInvert: false, saturation: 0,
     eqLowDb: 0, eqMidDb: 0, eqHighDb: 0,
     compThreshold: -18, compRatio: 1, compAttack: 0.012, compRelease: 0.22,
-    reverbMix: 0, delayMix: 0, delayTime: 0.24, delayFeedback: 0.18
+    reverbMix: 0, delayMix: 0, delayTime: 0.24, delayFeedback: 0.18,
+    stereoWidth: 1
   });
   const normalize = input => ({
     gainDb: clamp(input?.gainDb ?? 0, -48, 12),
@@ -37,7 +38,8 @@
     reverbMix: clamp(input?.reverbMix ?? 0, 0, 0.5),
     delayMix: clamp(input?.delayMix ?? 0, 0, 0.5),
     delayTime: clamp(input?.delayTime ?? 0.24, 0.05, 0.75),
-    delayFeedback: clamp(input?.delayFeedback ?? 0.18, 0, 0.65)
+    delayFeedback: clamp(input?.delayFeedback ?? 0.18, 0, 0.65),
+    stereoWidth: clamp(input?.stereoWidth ?? 1, 0, 2)
   });
 
   const saturationCurveCache = new Map();
@@ -96,6 +98,14 @@
     const convolver = ctx.createConvolver();
     const reverbWet = ctx.createGain();
     const pan = ctx.createStereoPanner();
+    const widthSplitter = ctx.createChannelSplitter(2);
+    const widthMerger = ctx.createChannelMerger(2);
+    const widthMid = ctx.createGain();
+    const widthSide = ctx.createGain();
+    const widthSideInvert = ctx.createGain();
+    const widthSideRightInvert = ctx.createGain();
+    const widthLeft = ctx.createGain();
+    const widthRight = ctx.createGain();
 
     low.type = "lowshelf"; low.frequency.value = 100;
     mid.type = "peaking"; mid.frequency.value = 1000; mid.Q.value = 0.8;
@@ -118,11 +128,21 @@
     saturator.connect(dry); dry.connect(effectBus);
     saturator.connect(delay); delay.connect(feedback); feedback.connect(delay);
     delay.connect(delayWet); delayWet.connect(effectBus);
-    effectBus.connect(reverbDry); reverbDry.connect(pan);
-    effectBus.connect(convolver); convolver.connect(reverbWet); reverbWet.connect(pan);
+    effectBus.connect(widthSplitter);
+    widthSplitter.connect(widthMid, 0); widthSplitter.connect(widthMid, 1);
+    widthSplitter.connect(widthSide, 0); widthSplitter.connect(widthSideInvert, 1);
+    widthSideInvert.connect(widthSide);
+    widthMid.gain.value = 0.5;
+    widthSide.gain.value = 0.5;
+    widthSide.connect(widthSideRightInvert);
+    widthMid.connect(widthLeft); widthSide.connect(widthLeft);
+    widthMid.connect(widthRight); widthSideRightInvert.connect(widthRight);
+    widthLeft.connect(widthMerger, 0, 0); widthRight.connect(widthMerger, 0, 1);
+    widthMerger.connect(reverbDry); reverbDry.connect(pan);
+    widthMerger.connect(convolver); convolver.connect(reverbWet); reverbWet.connect(pan);
     pan.connect(destination);
 
-    const graph = { input, gain, polarity, low, mid, high, compressor, saturator, dry, delay, feedback, delayWet, effectBus, reverbDry, convolver, reverbWet, pan };
+    const graph = { input, gain, polarity, low, mid, high, compressor, saturator, dry, delay, feedback, delayWet, effectBus, widthSplitter, widthMerger, widthMid, widthSide, widthSideInvert, widthSideRightInvert, widthLeft, widthRight, reverbDry, convolver, reverbWet, pan };
     applyTrackGraph(graph, state, ctx);
     return graph;
   }
@@ -146,6 +166,9 @@
     setParam(graph.feedback.gain, v.delayMix > 0 ? v.delayFeedback : 0, ctx);
     setParam(graph.delayWet.gain, v.delayMix, ctx);
     setParam(graph.reverbWet.gain, v.reverbMix, ctx);
+    setParam(graph.widthSide.gain, 0.5 * v.stereoWidth, ctx);
+    setParam(graph.widthSideInvert.gain, -1, ctx);
+    setParam(graph.widthSideRightInvert.gain, -1, ctx);
     setParam(graph.pan.pan, v.pan, ctx);
   }
 
