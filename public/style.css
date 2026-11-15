@@ -1256,3 +1256,9 @@ body::after {
 .project-track-group-heading span{font-size:.78rem;opacity:.72}
 .project-track-group-actions button[aria-pressed="true"]{border-color:var(--accent-color,#4b91d1);font-weight:700}
 .project-track-group .stem-mix-control{margin:0}
+
+
+.project-track-history{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0;padding:10px 12px;border:1px solid var(--border-color,rgba(128,128,128,.25));border-radius:10px;background:var(--surface-soft,rgba(127,127,127,.04))}
+.project-track-history span{font-size:.8rem;opacity:.72;margin-inline-start:auto}
+.project-track-history button:disabled{opacity:.42;cursor:not-allowed}
+@media(max-width:620px){.project-track-history span{width:100%;margin-inline-start:0}}
