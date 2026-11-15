@@ -3,6 +3,8 @@
 
   const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value) || 0));
   const normalizeMasterDb = value => clamp(value ?? -1.5, -24, 6);
+  const normalizeOutputCeilingDb = value => clamp(value ?? -1, -6, -0.1);
+  let outputCeilingDb = -1;
   const hasSoloState = states => states.some(state => state?.solo === true);
   const shouldMuteBase = states => hasSoloState(states);
   const shouldMuteAdded = (state, hasSolo, baseSolo) => state?.mute === true || baseSolo === true || (hasSolo && state?.solo !== true);
@@ -245,7 +247,7 @@
       masterAnalyser.connect(sharedDestination);
     } else {
       limiter = context.createDynamicsCompressor();
-      limiter.threshold.value = -1;
+      limiter.threshold.value = outputCeilingDb;
       limiter.knee.value = 0;
       limiter.ratio.value = 20;
       limiter.attack.value = 0.003;
@@ -421,6 +423,17 @@
     return masterDb;
   }
 
+  function setOutputCeilingDb(value) {
+    outputCeilingDb = normalizeOutputCeilingDb(value);
+    if (limiter) limiter.threshold.setTargetAtTime(outputCeilingDb, context.currentTime, 0.015);
+    window.ITZIK_MIXER?.setProjectOutputCeiling?.(outputCeilingDb);
+    return outputCeilingDb;
+  }
+
+  function getOutputCeilingDb() {
+    return outputCeilingDb;
+  }
+
   function getMasterMeter() {
     if (!masterAnalyser || !masterMeterBuffer) return { peak: 0, rms: 0, db: -Infinity, clipping: false };
     masterAnalyser.getFloatTimeDomainData(masterMeterBuffer);
@@ -476,7 +489,7 @@
       const output = new Offline(2, Math.ceil((duration + tailDuration) * sampleRate), sampleRate);
       const bus = output.createGain();
       const outputLimiter = output.createDynamicsCompressor();
-      outputLimiter.threshold.value = -1;
+      outputLimiter.threshold.value = outputCeilingDb;
       outputLimiter.knee.value = 0;
       outputLimiter.ratio.value = 20;
       outputLimiter.attack.value = 0.003;
@@ -503,5 +516,5 @@
     }
   }
 
-  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, effectDefaults: { ...effectDefaults }, getEffectsTailDuration, normalizeMasterDb, setMasterDb, getMasterDb, getMasterMeter, hasSoloState, shouldMuteBase, shouldMuteAdded, shouldPlayBase, shouldPauseTracksOnLeaderPause, getSynchronizedSeekTime, getPlaybackStartTime, getPlaybackDuration, isAnyTrackPlaying, getDuration, getPlaybackPosition, isPlaying, seek, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
+  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, effectDefaults: { ...effectDefaults }, getEffectsTailDuration, normalizeMasterDb, setMasterDb, getMasterDb, normalizeOutputCeilingDb, setOutputCeilingDb, getOutputCeilingDb, getMasterMeter, hasSoloState, shouldMuteBase, shouldMuteAdded, shouldPlayBase, shouldPauseTracksOnLeaderPause, getSynchronizedSeekTime, getPlaybackStartTime, getPlaybackDuration, isAnyTrackPlaying, getDuration, getPlaybackPosition, isPlaying, seek, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
 })();

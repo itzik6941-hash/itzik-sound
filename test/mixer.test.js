@@ -38,3 +38,10 @@ test("stem mixer clamps pan and formats stereo positions consistently", () => {
   assert.equal(mixer.effectiveGain(mixer.normalizeTrack({ mute: true }), false), 0);
   assert.equal(mixer.effectiveGain(mixer.normalizeTrack({ solo: false }), true), 0);
 });
+
+test("project output ceiling clamps and updates the shared output limiter", () => {
+  const mixer = global.window.ITZIK_MIXER;
+  assert.equal(mixer.setProjectOutputCeiling(-99), -6);
+  assert.equal(mixer.setProjectOutputCeiling(0), -0.1);
+  assert.equal(mixer.setProjectOutputCeiling(-2.5), -2.5);
+});
