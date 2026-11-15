@@ -1,9 +1,10 @@
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
 
-global.window = {};
-require("../public/project-track-mixer.js");
-const mixer = global.window.ITZIK_PROJECT_TRACKS;
+globalThis.window = {};
+await import("../public/project-track-mixer.js");
+const mixer = globalThis.window.ITZIK_PROJECT_TRACKS;
 
 test("project track settings are normalized and bounded", () => {
   assert.deepEqual(mixer.normalize({}), {
