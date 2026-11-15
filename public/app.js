@@ -343,6 +343,9 @@ async function bindProjectTracks(){
  if(input)input.onchange=async()=>{
   const selected=Array.from(input.files||[]);input.value="";if(!selected.length)return;
   if(tracks.length+selected.length>16){if(status)status.textContent=uiText("אפשר לשמור עד 16 ערוצים נוספים בפרויקט.","You can save up to 16 additional tracks per project.");return;}
+  const currentBytes=tracks.reduce((sum,track)=>sum+(Number(track.size)||0),0);
+  const selectedBytes=selected.reduce((sum,file)=>sum+file.size,0);
+  if(currentBytes+selectedBytes>200*1024*1024){if(status)status.textContent=uiText("נפח הערוצים הנוספים מוגבל ל־200MB לפרויקט.","Additional tracks are limited to 200 MB per project.");return;}
   addButton.disabled=true;
   try{
    for(const file of selected){
