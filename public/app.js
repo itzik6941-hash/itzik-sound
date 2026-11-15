@@ -164,7 +164,18 @@ function projectTracksPanel(){
         <button type="button" class="secondary-btn" data-project-track-mute="${escapeHtml(track.id)}" aria-pressed="false">${uiText("השתק","Mute")}</button><button type="button" class="secondary-btn" data-project-track-solo="${escapeHtml(track.id)}" aria-pressed="false">Solo</button><button type="button" class="secondary-btn" data-project-track-remove="${escapeHtml(track.id)}" title="${uiText("הסר מהפרויקט","Remove from project")}">✕</button>
        </div></div>
        <label class="stem-mix-control"><span>${uiText("עוצמה","Level")} <output data-project-track-gain-value="${escapeHtml(track.id)}">0 dB</output></span><input type="range" data-project-track-gain="${escapeHtml(track.id)}" min="-48" max="12" step="0.5" value="0"></label>
-       <label class="stem-mix-control"><span>Pan <output data-project-track-pan-value="${escapeHtml(track.id)}">Center</output></span><input type="range" data-project-track-pan="${escapeHtml(track.id)}" min="-1" max="1" step="0.01" value="0"></label></article>
+       <label class="stem-mix-control"><span>Pan <output data-project-track-pan-value="${escapeHtml(track.id)}">Center</output></span><input type="range" data-project-track-pan="${escapeHtml(track.id)}" min="-1" max="1" step="0.01" value="0"></label>
+       <details class="project-track-effects"><summary>${uiText("אפקטים לערוץ","Track effects")}</summary><div class="project-track-effects-grid">
+        <label class="stem-mix-control"><span>EQ Low <output data-project-track-fx-value="eqLowDb:${escapeHtml(track.id)}">0 dB</output></span><input type="range" data-project-track-fx="eqLowDb:${escapeHtml(track.id)}" min="-12" max="12" step="0.5" value="0"></label>
+        <label class="stem-mix-control"><span>EQ Mid <output data-project-track-fx-value="eqMidDb:${escapeHtml(track.id)}">0 dB</output></span><input type="range" data-project-track-fx="eqMidDb:${escapeHtml(track.id)}" min="-12" max="12" step="0.5" value="0"></label>
+        <label class="stem-mix-control"><span>EQ High <output data-project-track-fx-value="eqHighDb:${escapeHtml(track.id)}">0 dB</output></span><input type="range" data-project-track-fx="eqHighDb:${escapeHtml(track.id)}" min="-12" max="12" step="0.5" value="0"></label>
+        <label class="stem-mix-control"><span>Compressor Threshold <output data-project-track-fx-value="compThreshold:${escapeHtml(track.id)}">0 dB</output></span><input type="range" data-project-track-fx="compThreshold:${escapeHtml(track.id)}" min="-36" max="0" step="1" value="0"></label>
+        <label class="stem-mix-control"><span>Compressor Ratio <output data-project-track-fx-value="compRatio:${escapeHtml(track.id)}">1:1</output></span><input type="range" data-project-track-fx="compRatio:${escapeHtml(track.id)}" min="1" max="12" step="0.5" value="1"></label>
+        <label class="stem-mix-control"><span>Reverb <output data-project-track-fx-value="reverbMix:${escapeHtml(track.id)}">0%</output></span><input type="range" data-project-track-fx="reverbMix:${escapeHtml(track.id)}" min="0" max="0.5" step="0.01" value="0"></label>
+        <label class="stem-mix-control"><span>Delay <output data-project-track-fx-value="delayMix:${escapeHtml(track.id)}">0%</output></span><input type="range" data-project-track-fx="delayMix:${escapeHtml(track.id)}" min="0" max="0.5" step="0.01" value="0"></label>
+        <label class="stem-mix-control"><span>${uiText("זמן השהיה","Delay time")} <output data-project-track-fx-value="delayTime:${escapeHtml(track.id)}">240 ms</output></span><input type="range" data-project-track-fx="delayTime:${escapeHtml(track.id)}" min="0.05" max="0.75" step="0.01" value="0.24"></label>
+        <label class="stem-mix-control"><span>${uiText("משוב Delay","Delay feedback")} <output data-project-track-fx-value="delayFeedback:${escapeHtml(track.id)}">18%</output></span><input type="range" data-project-track-fx="delayFeedback:${escapeHtml(track.id)}" min="0" max="0.65" step="0.01" value="0.18"></label>
+       </div></details></article>
       `).join("")}
      </div>
     </div>`:""}
@@ -467,11 +478,29 @@ async function bindProjectTracks(){
    if(mute){mute.setAttribute("aria-pressed",String(state.mute));mute.textContent=state.mute?uiText("בטל השתקה","Unmute"):uiText("השתק","Mute");}
    if(solo)solo.setAttribute("aria-pressed",String(state.solo));
   };
+  const refreshTrackFx=id=>{
+   const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);if(!state)return;
+   document.querySelectorAll('[data-project-track-fx]').forEach(input=>{
+    const [key,trackId]=input.dataset.projectTrackFx.split(":");if(trackId!==id)return;
+    input.value=String(state[key]);
+    const output=document.querySelector('[data-project-track-fx-value="'+key+':'+id+'"]');
+    if(output)output.textContent=key==="compRatio"?Number(state[key]).toFixed(1)+":1":key==="delayTime"?Math.round(state[key]*1000)+" ms":key==="reverbMix"||key==="delayMix"||key==="delayFeedback"?Math.round(state[key]*100)+"%":Number(state[key]).toFixed(1)+" dB";
+   });
+  };
   for(const track of audioItems){
    const id=track.id,gain=document.querySelector('[data-project-track-gain="'+id+'"]'),pan=document.querySelector('[data-project-track-pan="'+id+'"]');
    const mute=document.querySelector('[data-project-track-mute="'+id+'"]'),solo=document.querySelector('[data-project-track-solo="'+id+'"]');
    if(gain){gain.value=track.settings.gainDb??0;gain.oninput=()=>{window.ITZIK_PROJECT_TRACKS.setTrack(id,{gainDb:Number(gain.value)});refresh(id);save(id);};}
    if(pan){pan.value=track.settings.pan??0;pan.oninput=()=>{window.ITZIK_PROJECT_TRACKS.setTrack(id,{pan:Number(pan.value)});refresh(id);save(id);};}
+   document.querySelectorAll('[data-project-track-fx]').forEach(input=>{
+    const [key,trackId]=input.dataset.projectTrackFx.split(":");if(trackId!==id)return;
+    input.value=String(track.settings[key]??window.ITZIK_PROJECT_TRACKS.effectDefaults[key]);
+    const output=document.querySelector('[data-project-track-fx-value="'+key+':'+id+'"]');
+    const display=value=>key==="compRatio"?Number(value).toFixed(1)+":1":key==="delayTime"?Math.round(value*1000)+" ms":key==="reverbMix"||key==="delayMix"||key==="delayFeedback"?Math.round(value*100)+"%":Number(value).toFixed(1)+" dB";
+    if(output)output.textContent=display(input.value);
+    input.oninput=()=>{window.ITZIK_PROJECT_TRACKS.setTrack(id,{[key]:Number(input.value)});if(output)output.textContent=display(input.value);save(id);};
+   });
+   refreshTrackFx(id);
    if(mute)mute.onclick=()=>{const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);window.ITZIK_PROJECT_TRACKS.setTrack(id,{mute:!state.mute});refresh(id);save(id);};
    if(solo)solo.onclick=async()=>{const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);window.ITZIK_PROJECT_TRACKS.setTrack(id,{solo:!state.solo});audioItems.forEach(item=>refresh(item.id));const baseButton=$("#mixSolo");if(baseButton){baseButton.setAttribute("aria-pressed","false");baseButton.textContent="Solo";}const settings=window.ITZIK_PROJECT_TRACKS.getSettings();const saved=await updateProjectMetadata({projectBaseSolo:false,projectTrackMixSettings:settings});if(!saved&&status)status.textContent=uiText("מצב Solo פעיל, אך השמירה בענן נכשלה.","Solo is active, but cloud saving failed.");};
    refresh(id);
@@ -509,7 +538,7 @@ async function bindProjectTracks(){
     const gain=document.querySelector('[data-project-track-gain="'+item.id+'"]'),pan=document.querySelector('[data-project-track-pan="'+item.id+'"]');
     if(gain)gain.value=String(settings[item.id].gainDb);
     if(pan)pan.value=String(settings[item.id].pan);
-    refresh(item.id);
+    refresh(item.id);refreshTrackFx(item.id);
    }
    const baseSolo=window.ITZIK_PROJECT_TRACKS.setBaseSolo(scene.baseSolo===true);
    const master=window.ITZIK_PROJECT_TRACKS.setMasterDb(scene.masterDb);
@@ -533,11 +562,11 @@ async function bindProjectTracks(){
    if(!confirm(uiText("לאפס את עוצמת הערוצים, Pan, השתקה ו-Solo?","Reset track levels, pan, mute and Solo?")))return;
    const settings={};
    for(const item of audioItems){
-    window.ITZIK_PROJECT_TRACKS.setTrack(item.id,{gainDb:0,pan:0,mute:false,solo:false});
+    window.ITZIK_PROJECT_TRACKS.setTrack(item.id,{gainDb:0,pan:0,mute:false,solo:false,...window.ITZIK_PROJECT_TRACKS.effectDefaults});
     settings[item.id]=window.ITZIK_PROJECT_TRACKS.getTrack(item.id);
     const gain=document.querySelector('[data-project-track-gain="'+item.id+'"]');
     const pan=document.querySelector('[data-project-track-pan="'+item.id+'"]');
-    if(gain)gain.value="0";if(pan)pan.value="0";refresh(item.id);
+    if(gain)gain.value="0";if(pan)pan.value="0";refresh(item.id);refreshTrackFx(item.id);
    }
    window.ITZIK_PROJECT_TRACKS.setBaseSolo(false);
    const baseButton=$("#mixSolo");
