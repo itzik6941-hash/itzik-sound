@@ -89,6 +89,7 @@ test("added tracks reuse the main mixer audio context and do not close it", asyn
     createStereoPanner: makeNode,
     createBiquadFilter: makeNode,
     createDynamicsCompressor: makeNode,
+    createAnalyser() { return { fftSize: 2048, smoothingTimeConstant: 0, getFloatTimeDomainData(buffer) { buffer.fill(0); }, connect(destination) { connections.push(destination); }, disconnect() {} }; },
     createWaveShaper: makeNode,
     createDelay: makeNode,
     createConvolver: makeNode,
