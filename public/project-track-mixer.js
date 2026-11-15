@@ -13,6 +13,8 @@
   let master = null;
   let limiter = null;
   let leaderAudio = null;
+  let leaderPauseHandler = null;
+  let leaderSeekingHandler = null;
   let tracks = new Map();
   let syncTimer = null;
   let rendering = false;
@@ -36,6 +38,10 @@
 
   async function destroy() {
     pause();
+    if (leaderAudio && leaderPauseHandler) leaderAudio.removeEventListener("pause", leaderPauseHandler);
+    if (leaderAudio && leaderSeekingHandler) leaderAudio.removeEventListener("seeking", leaderSeekingHandler);
+    leaderPauseHandler = null;
+    leaderSeekingHandler = null;
     for (const track of tracks.values()) {
       try { track.source.disconnect(); } catch {}
       try { track.gain.disconnect(); } catch {}
@@ -71,8 +77,8 @@
     limiter.connect(context.destination);
 
     if (leaderAudio) {
-      leaderAudio.addEventListener("pause", pause);
-      leaderAudio.addEventListener("seeking", () => {
+      leaderPauseHandler = () => pause();
+      leaderSeekingHandler = () => {
         if (leaderAudio && Number.isFinite(leaderAudio.currentTime)) {
           for (const track of tracks.values()) {
             if (!track.audio.paused && !track.audio.seeking) {
@@ -80,7 +86,9 @@
             }
           }
         }
-      });
+      };
+      leaderAudio.addEventListener("pause", leaderPauseHandler);
+      leaderAudio.addEventListener("seeking", leaderSeekingHandler);
     }
 
     for (const item of items) {
