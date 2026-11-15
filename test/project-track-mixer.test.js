@@ -8,7 +8,7 @@ const mixer = global.window.ITZIK_PROJECT_TRACKS;
 test("project track settings are normalized and bounded", () => {
   assert.deepEqual(mixer.normalize({}), {
     gainDb: 0, pan: 0, mute: false, solo: false,
-    eqLowDb: 0, eqMidDb: 0, eqHighDb: 0, compThreshold: 0, compRatio: 1,
+    eqLowDb: 0, eqMidDb: 0, eqHighDb: 0, compThreshold: -18, compRatio: 1,
     reverbMix: 0, delayMix: 0, delayTime: 0.24, delayFeedback: 0.18
   });
   assert.deepEqual(mixer.normalize({
@@ -231,6 +231,7 @@ test("neutral track effects stay disabled by default", () => {
   assert.equal(state.eqMidDb,0);
   assert.equal(state.eqHighDb,0);
   assert.equal(state.compRatio,1);
+  assert.equal(state.compThreshold,-18);
   assert.equal(state.reverbMix,0);
   assert.equal(state.delayMix,0);
 });
