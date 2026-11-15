@@ -149,6 +149,24 @@
     return getPlaybackStartTime(leaderAudio, [...tracks.values()].map(track => track.audio));
   }
 
+  function getDuration() {
+    return getPlaybackDuration(leaderAudio, [...tracks.values()].map(track => track.audio));
+  }
+
+  function isPlaying() {
+    return isAnyTrackPlaying(leaderAudio, [...tracks.values()].map(track => track.audio));
+  }
+
+  function seek(time) {
+    const target = Math.max(0, Number(time) || 0);
+    const players = [...(leaderAudio ? [leaderAudio] : []), ...[...tracks.values()].map(track => track.audio)];
+    for (const audio of players) {
+      try { audio.currentTime = getSynchronizedSeekTime(target, audio.duration); } catch {}
+    }
+    notifyPlaybackState();
+    return getPlaybackPosition();
+  }
+
   function sync() {
     const active = [];
     if (leaderAudio && !leaderAudio.paused && !leaderAudio.ended) active.push(leaderAudio);
