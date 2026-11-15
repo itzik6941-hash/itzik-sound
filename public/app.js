@@ -499,23 +499,21 @@ async function bindProjectTracks(){
    const list=document.querySelector('[data-project-track-automation-list="'+id+'"]');if(!list)return;
    const points=window.ITZIK_PROJECT_TRACKS.getAutomationLanes()[id]||[];
    list.innerHTML=points.map((point,index)=>'<div class="project-track-automation-point"><label>'+uiText("זמן (שניות)","Time (seconds)")+'<input type="number" min="0" max="600" step="0.01" value="'+point.time.toFixed(2)+'" data-project-track-automation-field="time" data-project-track-automation-id="'+escapeHtml(id)+'" data-project-track-automation-index="'+index+'"></label><label>'+uiText("עוצמה (dB)","Level (dB)")+'<input type="number" min="-48" max="12" step="0.5" value="'+point.gainDb.toFixed(1)+'" data-project-track-automation-field="gainDb" data-project-track-automation-id="'+escapeHtml(id)+'" data-project-track-automation-index="'+index+'"></label><label>Pan<input type="number" min="-1" max="1" step="0.01" value="'+point.pan.toFixed(2)+'" data-project-track-automation-field="pan" data-project-track-automation-id="'+escapeHtml(id)+'" data-project-track-automation-index="'+index+'"></label><button type="button" class="secondary-btn" data-project-track-automation-remove="'+escapeHtml(id)+'" data-project-track-automation-index="'+index+'">'+uiText("מחק נקודה","Delete point")+'</button></div>').join("")||'<p class="project-track-automation-empty">'+uiText("אין עדיין נקודות אוטומציה.","No automation points yet.")+'</p>';
+   list.querySelectorAll("[data-project-track-automation-field]").forEach(input=>input.onchange=async()=>{
+    const field=input.dataset.projectTrackAutomationField,index=Number(input.dataset.projectTrackAutomationIndex),value=Number(input.value),lanes=window.ITZIK_PROJECT_TRACKS.getAutomationLanes(),next=[...(lanes[id]||[])];
+    if(!next[index]||!Number.isFinite(value)){renderAutomationEditor(id);return;}
+    next[index]={...next[index],[field]:value};await persistAutomationEditor(id,next);
+   });
+   list.querySelectorAll("[data-project-track-automation-remove]").forEach(button=>button.onclick=async()=>{
+    const index=Number(button.dataset.projectTrackAutomationIndex),lanes=window.ITZIK_PROJECT_TRACKS.getAutomationLanes(),next=[...(lanes[id]||[])];
+    if(index<0||index>=next.length)return;next.splice(index,1);await persistAutomationEditor(id,next);
+   });
   };
   const persistAutomationEditor=async(id,next)=>{
    const lanes=window.ITZIK_PROJECT_TRACKS.getAutomationLanes();lanes[id]=next.sort((x,y)=>x.time-y.time);window.ITZIK_PROJECT_TRACKS.setAutomationLanes(lanes);
    const saved=await updateProjectMetadata({projectTrackAutomation:window.ITZIK_PROJECT_TRACKS.getAutomationLanes()});automationStatus();renderAutomationEditor(id);
    if(status)status.textContent=saved?uiText("האוטומציה עודכנה ונשמרה.","Automation updated and saved."):uiText("האוטומציה עודכנה, אך השמירה בענן נכשלה.","Automation updated, but cloud saving failed.");
   };
-  document.querySelectorAll("[data-project-track-automation-field]").forEach(input=>input.onchange=async()=>{
-   const id=input.dataset.projectTrackAutomationId,index=Number(input.dataset.projectTrackAutomationIndex),field=input.dataset.projectTrackAutomationField;
-   const lanes=window.ITZIK_PROJECT_TRACKS.getAutomationLanes(),points=[...(lanes[id]||[])];if(!points[index])return;
-   const value=Number(input.value);if(!Number.isFinite(value)){renderAutomationEditor(id);return;}
-   points[index]={...points[index],[field]:value};await persistAutomationEditor(id,points);
-  });
-  document.querySelectorAll("[data-project-track-automation-remove]").forEach(button=>button.onclick=async()=>{
-   const id=button.dataset.projectTrackAutomationRemove,index=Number(button.dataset.projectTrackAutomationIndex),lanes=window.ITZIK_PROJECT_TRACKS.getAutomationLanes(),points=[...(lanes[id]||[])];
-   if(index<0||index>=points.length)return;points.splice(index,1);await persistAutomationEditor(id,points);
-  });
-
   document.querySelectorAll("[data-project-track-automation-add]").forEach(button=>button.onclick=async()=>{
    const id=button.dataset.projectTrackAutomationAdd,state=window.ITZIK_PROJECT_TRACKS.getTrack(id);if(!state)return;
    const time=Math.max(0,Math.min(600,window.ITZIK_PROJECT_TRACKS.getPlaybackPosition()));
