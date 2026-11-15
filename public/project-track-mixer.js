@@ -167,6 +167,7 @@
     setParam(graph.delayWet.gain, v.delayMix, ctx);
     setParam(graph.reverbWet.gain, v.reverbMix, ctx);
     setParam(graph.widthSide.gain, 0.5 * v.stereoWidth, ctx);
+    setParam(graph.widthSideInvert.gain, -1, ctx);
     setParam(graph.widthSideRightInvert.gain, -1, ctx);
     setParam(graph.pan.pan, v.pan, ctx);
   }
