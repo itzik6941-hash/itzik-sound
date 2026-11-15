@@ -174,3 +174,18 @@ test("multitrack seek clamps each file to its own duration", () => {
   assert.equal(mixer.getSynchronizedSeekTime(25, 10), 9.98);
   assert.equal(mixer.getSynchronizedSeekTime(25, 40), 25);
 });
+
+
+test("master level is normalized to a safe range and defaults to -1.5 dB", () => {
+  assert.equal(mixer.getMasterDb(), -1.5);
+  assert.equal(mixer.normalizeMasterDb(-100), -24);
+  assert.equal(mixer.normalizeMasterDb(100), 6);
+  assert.equal(mixer.normalizeMasterDb(2.5), 2.5);
+});
+
+test("master level can be changed and read back", () => {
+  assert.equal(mixer.setMasterDb(-8.5), -8.5);
+  assert.equal(mixer.getMasterDb(), -8.5);
+  assert.equal(mixer.setMasterDb(99), 6);
+  assert.equal(mixer.setMasterDb(-1.5), -1.5);
+});
