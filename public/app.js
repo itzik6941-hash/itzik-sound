@@ -170,9 +170,10 @@ function projectTracksPanel(){
       <span id="projectTrackMasterClip" class="project-track-master-clip" aria-live="polite"></span>
      </div>
      ${projectTrackScenesMarkup(scenes)}
+     <section class="project-track-bulk" aria-label="${uiText("שליטה קבוצתית","Group controls")}"><div class="project-track-bulk-heading"><b>${uiText("שליטה על ערוצים נבחרים","Selected track controls")}</b><span id="projectTrackSelectionCount">${uiText("לא נבחרו ערוצים","No tracks selected")}</span></div><div class="project-track-bulk-actions"><button type="button" class="secondary-btn" id="projectTrackSelectAll">${uiText("בחר הכל","Select all")}</button><button type="button" class="secondary-btn" id="projectTrackSelectNone">${uiText("נקה בחירה","Clear selection")}</button><button type="button" class="secondary-btn" id="projectTrackBulkMute" disabled>${uiText("השתק נבחרים","Mute selected")}</button><button type="button" class="secondary-btn" id="projectTrackBulkUnmute" disabled>${uiText("בטל השתקה","Unmute selected")}</button></div><label class="stem-mix-control"><span>${uiText("שינוי עוצמה קבוצתי","Group level adjustment")} <output id="projectTrackBulkGainValue">0 dB</output></span><input type="range" id="projectTrackBulkGain" min="-12" max="12" step="0.5" value="0" disabled></label></section>
      <div class="stem-mixer-tracks">
       ${tracks.map((track,index)=>`
-       <article class="stem-mix-track"><div class="stem-track-heading"><b>${escapeHtml(track.name)}</b><div class="stem-track-actions">
+       <article class="stem-mix-track"><label class="project-track-select"><input type="checkbox" data-project-track-select="${escapeHtml(track.id)}"><span>${uiText("בחר ערוץ","Select track")}</span></label><div class="stem-track-heading"><b>${escapeHtml(track.name)}</b><div class="stem-track-actions">
         <button type="button" class="secondary-btn" data-project-track-rename="${escapeHtml(track.id)}">${uiText("שם","Rename")}</button><button type="button" class="secondary-btn" data-project-track-up="${escapeHtml(track.id)}" ${index===0?"disabled":""} title="${uiText("הזז למעלה","Move up")}">↑</button><button type="button" class="secondary-btn" data-project-track-down="${escapeHtml(track.id)}" ${index===tracks.length-1?"disabled":""} title="${uiText("הזז למטה","Move down")}">↓</button>
         <button type="button" class="secondary-btn" data-project-track-mute="${escapeHtml(track.id)}" aria-pressed="false">${uiText("השתק","Mute")}</button><button type="button" class="secondary-btn" data-project-track-solo="${escapeHtml(track.id)}" aria-pressed="false">Solo</button><button type="button" class="secondary-btn" data-project-track-remove="${escapeHtml(track.id)}" title="${uiText("הסר מהפרויקט","Remove from project")}">✕</button>
        </div></div>
@@ -513,6 +514,36 @@ async function bindProjectTracks(){
     if(trackId===id)input.checked=state[key]===true;
    });
   };
+  const selectedTrackIds=new Set();
+  const selectionInputs=Array.from(document.querySelectorAll("[data-project-track-select]"));
+  const selectionCount=$("#projectTrackSelectionCount"),bulkMute=$("#projectTrackBulkMute"),bulkUnmute=$("#projectTrackBulkUnmute"),bulkGain=$("#projectTrackBulkGain"),bulkGainValue=$("#projectTrackBulkGainValue");
+  const updateBulkControls=()=>{
+   const count=selectedTrackIds.size;
+   if(selectionCount)selectionCount.textContent=count?count+" "+uiText("ערוצים נבחרו","tracks selected"):uiText("לא נבחרו ערוצים","No tracks selected");
+   if(bulkMute)bulkMute.disabled=!count;
+   if(bulkUnmute)bulkUnmute.disabled=!count;
+   if(bulkGain)bulkGain.disabled=!count;
+  };
+  selectionInputs.forEach(input=>input.onchange=()=>{if(input.checked)selectedTrackIds.add(input.dataset.projectTrackSelect);else selectedTrackIds.delete(input.dataset.projectTrackSelect);updateBulkControls();});
+  const selectAll=$("#projectTrackSelectAll"),selectNone=$("#projectTrackSelectNone");
+  if(selectAll)selectAll.onclick=()=>{selectionInputs.forEach(input=>{input.checked=true;selectedTrackIds.add(input.dataset.projectTrackSelect);});updateBulkControls();};
+  if(selectNone)selectNone.onclick=()=>{selectionInputs.forEach(input=>{input.checked=false;selectedTrackIds.delete(input.dataset.projectTrackSelect);});updateBulkControls();};
+  const applyBulk=async patch=>{
+   if(!selectedTrackIds.size)return;
+   for(const id of selectedTrackIds){window.ITZIK_PROJECT_TRACKS.setTrack(id,patch);refresh(id);}
+   const latest=projects.find(item=>item.id===currentProjectId),settings={...(latest?.metadata?.projectTrackMixSettings||{}),...window.ITZIK_PROJECT_TRACKS.getSettings()};
+   if(!await updateProjectMetadata({projectTrackMixSettings:settings})&&status)status.textContent=uiText("השינוי הקבוצתי פעיל, אך השמירה בענן נכשלה.","Group change applied, but cloud saving failed.");
+  };
+  if(bulkMute)bulkMute.onclick=()=>applyBulk({mute:true});
+  if(bulkUnmute)bulkUnmute.onclick=()=>applyBulk({mute:false});
+  if(bulkGain)bulkGain.onchange=async()=>{
+   const delta=Number(bulkGain.value);
+   if(bulkGainValue)bulkGainValue.textContent=(delta>0?"+":"")+delta.toFixed(1)+" dB";
+   for(const id of selectedTrackIds){const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);if(state){const gainDb=Math.max(-48,Math.min(12,state.gainDb+delta));window.ITZIK_PROJECT_TRACKS.setTrack(id,{gainDb});refresh(id);const slider=document.querySelector('[data-project-track-gain="'+id+'"]'),output=document.querySelector('[data-project-track-gain-value="'+id+'"]');if(slider)slider.value=String(gainDb);if(output)output.textContent=gainDb.toFixed(1)+" dB";}}
+   const latest=projects.find(item=>item.id===currentProjectId),settings={...(latest?.metadata?.projectTrackMixSettings||{}),...window.ITZIK_PROJECT_TRACKS.getSettings()};
+   if(!await updateProjectMetadata({projectTrackMixSettings:settings})&&status)status.textContent=uiText("שינוי העוצמה פעיל, אך השמירה בענן נכשלה.","Level change applied, but cloud saving failed.");
+  };
+  updateBulkControls();
   for(const track of audioItems){
    const id=track.id,gain=document.querySelector('[data-project-track-gain="'+id+'"]'),pan=document.querySelector('[data-project-track-pan="'+id+'"]'),width=document.querySelector('[data-project-track-width="'+id+'"]');
    const mute=document.querySelector('[data-project-track-mute="'+id+'"]'),solo=document.querySelector('[data-project-track-solo="'+id+'"]');

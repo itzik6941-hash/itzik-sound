@@ -1244,3 +1244,5 @@ body::after {
 .project-track-channel-meter-rms{display:flex;justify-content:space-between;gap:8px;font-size:.7rem;font-variant-numeric:tabular-nums;opacity:.78}
 
 .project-track-channel-meter-stereo{display:flex;justify-content:space-between;gap:10px;font-size:.7rem;font-variant-numeric:tabular-nums;opacity:.78}.project-track-channel-meter-stereo span{display:flex;gap:5px}
+
+.project-track-bulk{display:grid;gap:10px;padding:14px;margin:14px 0;border:1px solid var(--border-color,rgba(128,128,128,.25));border-radius:12px}.project-track-bulk-heading,.project-track-bulk-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.project-track-bulk-heading span{font-size:.85rem;opacity:.75}.project-track-select{display:flex;align-items:center;gap:7px;margin:8px 0;font-size:.85rem}.project-track-select input{width:18px;height:18px}
