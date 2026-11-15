@@ -308,3 +308,12 @@ test("each added track exposes an independent live level meter", () => {
   assert.match(source, /function getTrackMeter\(id\)/);
   assert.match(source, /getMasterMeter, getTrackMeter/);
 });
+
+
+test("per-track meters retain peak hold and expose a reset control", () => {
+ const app = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+ assert.match(app, /data-peak-db="-120"/);
+ assert.match(app, /data-project-track-meter-hold/);
+ assert.match(app, /Math\.max\(Number\(wrap\.dataset\.peakDb\?\?-120\)/);
+ assert.match(app, /projectTracksPeakReset/);
+});

@@ -154,7 +154,7 @@ function projectTracksPanel(){
    ${tracks.length?`
     <div class="stem-mixer" id="projectTracksMixer">
      <div class="stem-mixer-heading"><h3>${uiText("מיקסר רב־ערוצי","Multitrack mixer")}</h3><p>${uiText("הקובץ הראשי וכל הערוצים הנוספים ינוגנו יחד. אפשר לשלוט בעוצמה, Pan, השתקה ו-Solo לכל ערוץ.","The original file and all added tracks play together. Control level, pan, mute and solo for each added track.")}</p></div>
-     <div class="stem-transport"><button type="button" class="primary-btn" id="projectTracksPlay">${uiText("▶ נגן הכל","▶ Play all")}</button><button type="button" class="secondary-btn" id="projectTracksPause">${uiText("השהה","Pause")}</button><button type="button" class="secondary-btn" id="projectTracksStop">${uiText("עצור","Stop")}</button><button type="button" class="secondary-btn" id="projectTracksExport">${uiText("ייצא מיקס משולב WAV","Export combined WAV mix")}</button><button type="button" class="secondary-btn" id="projectTracksReset">${uiText("אפס מיקסר","Reset mixer")}</button></div>
+     <div class="stem-transport"><button type="button" class="primary-btn" id="projectTracksPlay">${uiText("▶ נגן הכל","▶ Play all")}</button><button type="button" class="secondary-btn" id="projectTracksPause">${uiText("השהה","Pause")}</button><button type="button" class="secondary-btn" id="projectTracksStop">${uiText("עצור","Stop")}</button><button type="button" class="secondary-btn" id="projectTracksExport">${uiText("ייצא מיקס משולב WAV","Export combined WAV mix")}</button><button type="button" class="secondary-btn" id="projectTracksReset">${uiText("אפס מיקסר","Reset mixer")}</button><button type="button" class="secondary-btn" id="projectTracksPeakReset">${uiText("אפס שיאים","Reset peak holds")}</button></div>
      <label class="project-track-master"><span>${uiText("עוצמת מאסטר","Master level")} <output id="projectTrackMasterValue">-1.5 dB</output></span><input type="range" id="projectTrackMaster" min="-24" max="6" step="0.5" value="-1.5"></label>
      <label class="project-track-master"><span>${uiText("תקרת יציאה (Limiter)","Output ceiling (Limiter)")} <output id="projectTrackCeilingValue">-1.0 dB</output></span><input type="range" id="projectTrackCeiling" min="-6" max="-0.1" step="0.1" value="-1"></label>
      <div class="project-track-master-meter" role="meter" aria-label="Master output level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
@@ -178,7 +178,7 @@ function projectTracksPanel(){
        </div></div>
        <label class="stem-mix-control"><span>${uiText("עוצמה","Level")} <output data-project-track-gain-value="${escapeHtml(track.id)}">0 dB</output></span><input type="range" data-project-track-gain="${escapeHtml(track.id)}" min="-48" max="12" step="0.5" value="0"></label>
        <label class="stem-mix-control"><span>Pan <output data-project-track-pan-value="${escapeHtml(track.id)}">Center</output></span><input type="range" data-project-track-pan="${escapeHtml(track.id)}" min="-1" max="1" step="0.01" value="0"></label>
-       <div class="project-track-channel-meter" data-project-track-meter="${escapeHtml(track.id)}" role="meter" aria-label="${escapeHtml(track.name)} level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="project-track-channel-meter-head"><span>${uiText("מד עוצמת ערוץ","Track level")}</span><output data-project-track-meter-value="${escapeHtml(track.id)}">-∞ dBFS</output></div><div class="project-track-channel-meter-track"><span data-project-track-meter-fill="${escapeHtml(track.id)}"></span></div><small data-project-track-meter-clip="${escapeHtml(track.id)}"></small></div>
+       <div class="project-track-channel-meter" data-project-track-meter="${escapeHtml(track.id)}" data-peak-db="-120" role="meter" aria-label="${escapeHtml(track.name)} level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="project-track-channel-meter-head"><span>${uiText("מד עוצמת ערוץ","Track level")}</span><output data-project-track-meter-value="${escapeHtml(track.id)}">-∞ dBFS</output></div><div class="project-track-channel-meter-track"><span data-project-track-meter-fill="${escapeHtml(track.id)}"></span><i data-project-track-meter-hold="${escapeHtml(track.id)}"></i></div><div class="project-track-channel-meter-foot"><small data-project-track-meter-clip="${escapeHtml(track.id)}"></small><output data-project-track-meter-peak="${escapeHtml(track.id)}">Peak hold: -∞ dBFS</output></div></div>
        <label class="stem-mix-control"><span>${uiText("רוחב סטריאו","Stereo width")} <output data-project-track-width-value="${escapeHtml(track.id)}">100%</output></span><input type="range" data-project-track-width="${escapeHtml(track.id)}" min="0" max="2" step="0.01" value="1"></label>
        <details class="project-track-effects"><summary>${uiText("אפקטים ועיבוד לערוץ","Track effects & processing")}</summary><div class="project-track-effects-grid">
         <label class="stem-mix-control"><span>${uiText("עוצמת כניסה","Input trim")} <output data-project-track-fx-value="inputTrimDb:${escapeHtml(track.id)}">0.0 dB</output></span><input type="range" data-project-track-fx="inputTrimDb:${escapeHtml(track.id)}" min="-24" max="24" step="0.5" value="0"></label>
@@ -576,9 +576,14 @@ async function bindProjectTracks(){
    if(masterClip)masterClip.textContent=meter.clipping?uiText("שיא אות!","CLIP!"): "";
    document.querySelectorAll("[data-project-track-meter]").forEach(wrap=>{
     const id=wrap.dataset.projectTrackMeter,trackMeter=window.ITZIK_PROJECT_TRACKS.getTrackMeter?.(id)||{db:-Infinity,clipping:false};
-    const fill=wrap.querySelector("[data-project-track-meter-fill]"),value=wrap.querySelector("[data-project-track-meter-value]"),clip=wrap.querySelector("[data-project-track-meter-clip]");
+    const fill=wrap.querySelector("[data-project-track-meter-fill]"),value=wrap.querySelector("[data-project-track-meter-value]"),clip=wrap.querySelector("[data-project-track-meter-clip]"),hold=wrap.querySelector("[data-project-track-meter-hold]"),peakValue=wrap.querySelector("[data-project-track-meter-peak]");
     const trackLevel=Math.max(0,Math.min(100,(trackMeter.db+60)/60*100));
+    const heldDb=Math.max(Number(wrap.dataset.peakDb??-120),Number.isFinite(trackMeter.db)?trackMeter.db:-120);
+    wrap.dataset.peakDb=String(heldDb);
+    const heldLevel=Math.max(0,Math.min(100,(heldDb+60)/60*100));
     if(fill)fill.style.width=trackLevel.toFixed(1)+"%";
+    if(hold)hold.style.left=heldLevel.toFixed(1)+"%";
+    if(peakValue)peakValue.textContent="Peak hold: "+(heldDb<=-59.9?"-∞":heldDb.toFixed(1))+" dBFS";
     if(value)value.textContent=trackMeter.db<=-59.9?"-∞ dBFS":trackMeter.db.toFixed(1)+" dBFS";
     if(clip)clip.textContent=trackMeter.clipping?uiText("שיא אות!","CLIP!"):"";
     wrap.setAttribute("aria-valuenow",String(Math.round(trackLevel)));
@@ -586,6 +591,16 @@ async function bindProjectTracks(){
    window.__itzikMasterMeterFrame=requestAnimationFrame(updateMasterMeter);
   };
   window.__itzikMasterMeterFrame=0;
+  const peakReset=$("#projectTracksPeakReset");
+  if(peakReset)peakReset.onclick=()=>{
+   document.querySelectorAll("[data-project-track-meter]").forEach(wrap=>{
+    wrap.dataset.peakDb="-120";
+    const hold=wrap.querySelector("[data-project-track-meter-hold]"),peakValue=wrap.querySelector("[data-project-track-meter-peak]");
+    if(hold)hold.style.left="0%";
+    if(peakValue)peakValue.textContent="Peak hold: -∞ dBFS";
+   });
+   if(status)status.textContent=uiText("שיאי העוצמה אופסו.","Peak holds reset.");
+  };
   if(window.ITZIK_PROJECT_TRACKS.isActive?.())window.__itzikMasterMeterFrame=requestAnimationFrame(updateMasterMeter);
   const sceneSave=$("#projectTrackSceneSave");
   if(sceneSave)sceneSave.onclick=async()=>{
