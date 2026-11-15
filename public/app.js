@@ -351,22 +351,28 @@ async function bindProjectTracks(){
   const selectedBytes=selected.reduce((sum,file)=>sum+file.size,0);
   if(currentBytes+selectedBytes>200*1024*1024){if(status)status.textContent=uiText("נפח הערוצים הנוספים מוגבל ל־200MB לפרויקט.","Additional tracks are limited to 200 MB per project.");return;}
   addButton.disabled=true;
+  const uploaded=[];
   try{
    for(const file of selected){
     if(!file.type.startsWith("audio/")&&!/\.(mp3|wav|m4a|aac|flac)$/i.test(file.name))throw new Error(uiText("הקובץ "+file.name+" אינו קובץ אודיו נתמך.","The file "+file.name+" is not a supported audio file."));
     if(file.size>50*1024*1024)throw new Error(uiText("הקובץ "+file.name+" גדול מ־50MB.","The file "+file.name+" exceeds 50 MB."));
-    if(status)status.textContent=uiText("מעלה ושומר: ","Uploading and saving: ")+file.name;
+    if(status)status.textContent=uiText("מעלה: ","Uploading: ")+file.name;
     const id=crypto.randomUUID(),safeName=file.name.replace(/[^\w.() -]/g,"_").slice(0,100)||"audio-file";
     const storagePath=`${currentUser.id}/${currentProjectId}/tracks/${id}-${safeName}`;
     const {error:uploadError}=await supabaseClient.storage.from("project-audio").upload(storagePath,file,{contentType:file.type||"application/octet-stream",upsert:false});
     if(uploadError)throw new Error(uiText("העלאת הקובץ נכשלה: ","Upload failed: ")+uploadError.message);
-    const latest=projects.find(item=>item.id===currentProjectId);
-    const next=[...(latest?.metadata?.projectTracks||[]),{id,name:file.name,storagePath,size:file.size,type:file.type||"application/octet-stream",createdAt:new Date().toISOString()}];
-    if(!await updateProjectMetadata({projectTracks:next})){await supabaseClient.storage.from("project-audio").remove([storagePath]);throw new Error(uiText("הקובץ הועלה, אך שמירת פרטי הערוץ בפרויקט נכשלה.","The file uploaded, but its project record could not be saved."));}
+    uploaded.push({id,name:file.name,storagePath,size:file.size,type:file.type||"application/octet-stream",createdAt:new Date().toISOString()});
    }
+   const latest=projects.find(item=>item.id===currentProjectId);
+   const next=[...(latest?.metadata?.projectTracks||[]),...uploaded];
+   if(!await updateProjectMetadata({projectTracks:next}))throw new Error(uiText("הקבצים הועלו, אך שמירת פרטי הערוצים בפרויקט נכשלה.","The files uploaded, but their project records could not be saved."));
    render("mix");
-  }catch(error){if(status)status.textContent=error.message||uiText("הוספת הערוצים נכשלה.","Could not add tracks.");}
-  finally{if(addButton)addButton.disabled=false;}
+  }catch(error){
+   if(uploaded.length)await supabaseClient.storage.from("project-audio").remove(uploaded.map(track=>track.storagePath));
+   const message=error.message||uiText("הוספת הערוצים נכשלה.","Could not add tracks.");
+   if(status)status.textContent=message;
+   else{render("mix");const nextStatus=$("#projectTracksStatus");if(nextStatus)nextStatus.textContent=message;}
+  }finally{if(addButton)addButton.disabled=false;}
  };
  if(!tracks.length){await window.ITZIK_PROJECT_TRACKS?.destroy?.();return;}
  const audioItems=[];
