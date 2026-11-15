@@ -119,10 +119,14 @@
     applyAll();
   }
 
+  function getPlaybackStartTime(leader, trackAudios) {
+    if (leader && !leader.ended) return Math.max(0, leader.currentTime || 0);
+    const active = trackAudios.find(track => !track.ended);
+    return Math.max(0, active?.currentTime || 0);
+  }
+
   function getPlaybackPosition() {
-    if (leaderAudio && !leaderAudio.ended) return Math.max(0, leaderAudio.currentTime || 0);
-    const active = [...tracks.values()].find(track => !track.audio.ended);
-    return Math.max(0, active?.audio.currentTime || 0);
+    return getPlaybackStartTime(leaderAudio, [...tracks.values()].map(track => track.audio));
   }
 
   function sync() {
@@ -146,7 +150,7 @@
   async function play() {
     if (context) await context.resume();
     const list = [...tracks.values()];
-    const start = leaderAudio?.ended ? 0 : getPlaybackPosition();
+    const start = getPlaybackPosition();
     const players = [...(leaderAudio ? [leaderAudio] : []), ...list.map(track => track.audio)];
     for (const audio of players) {
       if (!Number.isFinite(audio.duration)) {
@@ -270,5 +274,5 @@
     }
   }
 
-  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, hasSoloState, shouldMuteBase };
+  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, hasSoloState, shouldMuteBase, getPlaybackStartTime };
 })();
