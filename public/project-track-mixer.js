@@ -5,6 +5,45 @@
   const normalizeMasterDb = value => clamp(value ?? -1.5, -24, 6);
   const normalizeOutputCeilingDb = value => clamp(value ?? -1, -6, -0.1);
   let outputCeilingDb = -1;
+  const undoStack = [], redoStack = [];
+  const HISTORY_LIMIT = 50;
+  let activeHistoryTransaction = null, historyListener = null, lastHistoryKey = "", lastHistoryAt = 0, restoringHistory = false;
+  const captureHistoryState = () => ({tracks:Object.fromEntries([...tracks].map(([id,t])=>[id,{...t.state}])),baseSolo,baseMute:leaderOriginalMute,masterDb,outputCeilingDb});
+  const changedHistoryState = (a,b) => JSON.stringify(a)!==JSON.stringify(b);
+  const notifyHistory = () => {try{historyListener?.({canUndo:undoStack.length>0,canRedo:redoStack.length>0,undoLabel:undoStack.at(-1)?.label||"",redoLabel:redoStack.at(-1)?.label||""});}catch{}};
+  const pushHistory = (before,after,label,key) => {
+    if(restoringHistory||activeHistoryTransaction||!changedHistoryState(before,after))return;
+    const now=Date.now(),previous=undoStack.at(-1);
+    if(key&&key===lastHistoryKey&&now-lastHistoryAt<=650&&previous)previous.after=after;
+    else{undoStack.push({before,after,label:label||"Mix change"});if(undoStack.length>HISTORY_LIMIT)undoStack.shift();}
+    lastHistoryKey=key||"";lastHistoryAt=now;redoStack.length=0;notifyHistory();
+  };
+  const recordHistory=(before,after,label,key)=>pushHistory(before,after,label,key);
+  function beginHistoryTransaction(label){if(activeHistoryTransaction)return false;activeHistoryTransaction={before:captureHistoryState(),label:label||"Mix change"};return true;}
+  function commitHistoryTransaction(){
+    if(!activeHistoryTransaction)return false;
+    const tx=activeHistoryTransaction;activeHistoryTransaction=null;const after=captureHistoryState();
+    if(!changedHistoryState(tx.before,after))return false;
+    undoStack.push({before:tx.before,after,label:tx.label});if(undoStack.length>HISTORY_LIMIT)undoStack.shift();
+    redoStack.length=0;lastHistoryKey="";notifyHistory();return true;
+  }
+  function restoreHistoryState(snapshot){
+    restoringHistory=true;
+    try{
+      for(const [id,state] of Object.entries(snapshot.tracks||{})){const track=tracks.get(id);if(track)track.state=normalize(state);}
+      baseSolo=snapshot.baseSolo===true;leaderOriginalMute=snapshot.baseMute===true;
+      masterDb=normalizeMasterDb(snapshot.masterDb);outputCeilingDb=normalizeOutputCeilingDb(snapshot.outputCeilingDb);
+      if(master&&context)master.gain.setTargetAtTime(10**(masterDb/20),context.currentTime,0.015);
+      if(limiter&&context)limiter.threshold.setTargetAtTime(outputCeilingDb,context.currentTime,0.015);
+      window.ITZIK_MIXER?.setProjectOutputCeiling?.(outputCeilingDb);applyAll();
+    }finally{restoringHistory=false;}
+    notifyHistory();return true;
+  }
+  function undo(){const entry=undoStack.pop();if(!entry)return false;redoStack.push(entry);restoreHistoryState(entry.before);lastHistoryKey="";return true;}
+  function redo(){const entry=redoStack.pop();if(!entry)return false;undoStack.push(entry);restoreHistoryState(entry.after);lastHistoryKey="";return true;}
+  function setHistoryListener(listener){historyListener=typeof listener==="function"?listener:null;notifyHistory();}
+  function getHistoryState(){return{canUndo:undoStack.length>0,canRedo:redoStack.length>0,undoLabel:undoStack.at(-1)?.label||"",redoLabel:redoStack.at(-1)?.label||""};}
+
   const hasSoloState = states => states.some(state => state?.solo === true);
   const shouldMuteBase = states => hasSoloState(states);
   const shouldMuteAdded = (state, hasSolo, baseSolo) => state?.mute === true || baseSolo === true || (hasSolo && state?.solo !== true);
@@ -253,7 +292,7 @@
       try { track.source.disconnect(); } catch {}
       for (const node of Object.values(track.graph || {})) { try { node.disconnect(); } catch {} }
     }
-    tracks.clear();
+    tracks.clear();undoStack.length=0;redoStack.length=0;activeHistoryTransaction=null;lastHistoryKey="";lastHistoryAt=0;notifyHistory();
     leaderAudio = null;
     try { master?.disconnect(); } catch {}
     try { masterAnalyser?.disconnect(); } catch {}
@@ -450,9 +489,11 @@
   function setTrack(id, patch) {
     const track = tracks.get(id);
     if (!track) return null;
+    const before=captureHistoryState();
     track.state = normalize({ ...track.state, ...patch });
     if (patch?.solo === true) baseSolo = false;
     applyAll();
+    recordHistory(before,captureHistoryState(),"Track change","track:"+id+":"+Object.keys(patch||{}).sort().join(","));
     return { ...track.state };
   }
 
@@ -465,31 +506,30 @@
     return Object.fromEntries([...tracks].map(([id, track]) => [id, { ...track.state }]));
   }
 
-  function setBaseMute(value) {
-    leaderOriginalMute = value === true;
-    applyAll();
-    return leaderOriginalMute;
+  function setBaseMute(value, record = true) {
+    const before=captureHistoryState();leaderOriginalMute=value===true;applyAll();
+    if(record)recordHistory(before,captureHistoryState(),"Base mute","base-mute");return leaderOriginalMute;
   }
 
   function getBaseMute() {
     return leaderOriginalMute;
   }
 
-  function setMasterDb(value) {
-    masterDb = normalizeMasterDb(value);
-    if (master && context) master.gain.setTargetAtTime(10 ** (masterDb / 20), context.currentTime, 0.015);
-    return masterDb;
+  function setMasterDb(value, record = true) {
+    const before=captureHistoryState();masterDb=normalizeMasterDb(value);
+    if(master&&context)master.gain.setTargetAtTime(10**(masterDb/20),context.currentTime,0.015);
+    if(record)recordHistory(before,captureHistoryState(),"Master level","master-level");return masterDb;
   }
 
   function getMasterDb() {
     return masterDb;
   }
 
-  function setOutputCeilingDb(value) {
-    outputCeilingDb = normalizeOutputCeilingDb(value);
-    if (limiter) limiter.threshold.setTargetAtTime(outputCeilingDb, context.currentTime, 0.015);
+  function setOutputCeilingDb(value, record = true) {
+    const before=captureHistoryState();outputCeilingDb=normalizeOutputCeilingDb(value);
+    if(limiter&&context)limiter.threshold.setTargetAtTime(outputCeilingDb,context.currentTime,0.015);
     window.ITZIK_MIXER?.setProjectOutputCeiling?.(outputCeilingDb);
-    return outputCeilingDb;
+    if(record)recordHistory(before,captureHistoryState(),"Output ceiling","output-ceiling");return outputCeilingDb;
   }
 
   function getOutputCeilingDb() {
@@ -535,11 +575,10 @@
     return { ...overall, left, right, correlation, stereoBalance: left.peak + right.peak > 1e-6 ? (right.peak - left.peak) / (right.peak + left.peak) : 0 };
   }
 
-  function setBaseSolo(value) {
-    baseSolo = value === true;
-    if (baseSolo) for (const track of tracks.values()) track.state.solo = false;
-    applyAll();
-    return baseSolo;
+  function setBaseSolo(value, record = true) {
+    const before=captureHistoryState();baseSolo=value===true;
+    if(baseSolo)for(const track of tracks.values())track.state.solo=false;
+    applyAll();if(record)recordHistory(before,captureHistoryState(),"Base Solo","base-solo");return baseSolo;
   }
 
   function getBaseSolo() {
@@ -602,5 +641,5 @@
     }
   }
 
-  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, effectDefaults: { ...effectDefaults }, getEffectsTailDuration, normalizeMasterDb, setMasterDb, getMasterDb, normalizeOutputCeilingDb, setOutputCeilingDb, getOutputCeilingDb, getMasterMeter, getTrackMeter, hasSoloState, shouldMuteBase, shouldMuteAdded, shouldPlayBase, shouldPauseTracksOnLeaderPause, getSynchronizedSeekTime, getPlaybackStartTime, getPlaybackDuration, isAnyTrackPlaying, getDuration, getPlaybackPosition, isPlaying, seek, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
+  window.ITZIK_PROJECT_TRACKS = { init, destroy, play, pause, stop, setTrack, getTrack, getSettings, renderMix, normalize, effectDefaults: { ...effectDefaults }, beginHistoryTransaction, commitHistoryTransaction, undo, redo, setHistoryListener, getHistoryState, getEffectsTailDuration, normalizeMasterDb, setMasterDb, getMasterDb, normalizeOutputCeilingDb, setOutputCeilingDb, getOutputCeilingDb, getMasterMeter, getTrackMeter, hasSoloState, shouldMuteBase, shouldMuteAdded, shouldPlayBase, shouldPauseTracksOnLeaderPause, getSynchronizedSeekTime, getPlaybackStartTime, getPlaybackDuration, isAnyTrackPlaying, getDuration, getPlaybackPosition, isPlaying, seek, setBaseMute, getBaseMute, setBaseSolo, getBaseSolo, isActive };
 })();

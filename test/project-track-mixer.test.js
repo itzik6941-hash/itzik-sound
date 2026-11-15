@@ -365,3 +365,18 @@ test("project track groups expose mute, solo and bounded relative gain controls"
  assert.match(app, /Math\.max\(-48,Math\.min\(12,state\.gainDb\+delta\)\)/);
  assert.match(app, /persistGroupSettings/);
 });
+
+
+test("multitrack mixer exposes bounded undo and redo history", () => {
+ const engine = fs.readFileSync(new URL("../public/project-track-mixer.js", import.meta.url), "utf8");
+ const app = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+ assert.match(engine, /const HISTORY_LIMIT = 50/);
+ assert.match(engine, /function beginHistoryTransaction/);
+ assert.match(engine, /function commitHistoryTransaction/);
+ assert.match(engine, /function undo\(\)/);
+ assert.match(engine, /function redo\(\)/);
+ assert.match(engine, /restoreHistoryState/);
+ assert.match(app, /projectTrackUndo/);
+ assert.match(app, /projectTrackRedo/);
+ assert.match(app, /persistHistoryAction/);
+});

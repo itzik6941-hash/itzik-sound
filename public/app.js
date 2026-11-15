@@ -172,6 +172,7 @@ function projectTracksPanel(){
       <span id="projectTrackMasterClip" class="project-track-master-clip" aria-live="polite"></span>
      </div>
      ${projectTrackScenesMarkup(scenes)}
+     <div class="project-track-history" aria-label="${uiText("היסטוריית עריכה","Edit history")}"><button type="button" class="secondary-btn" id="projectTrackUndo" disabled>↶ ${uiText("בטל פעולה","Undo")}</button><button type="button" class="secondary-btn" id="projectTrackRedo" disabled>↷ ${uiText("בצע שוב","Redo")}</button><span id="projectTrackHistoryStatus" aria-live="polite">${uiText("עד 50 פעולות אחרונות נשמרות בזיכרון","Up to 50 recent mix changes")}</span></div>
      <section class="project-track-bulk" aria-label="${uiText("שליטה קבוצתית","Group controls")}"><div class="project-track-bulk-heading"><b>${uiText("שליטה על ערוצים נבחרים","Selected track controls")}</b><span id="projectTrackSelectionCount">${uiText("לא נבחרו ערוצים","No tracks selected")}</span></div><div class="project-track-bulk-actions"><button type="button" class="secondary-btn" id="projectTrackSelectAll">${uiText("בחר הכל","Select all")}</button><button type="button" class="secondary-btn" id="projectTrackSelectNone">${uiText("נקה בחירה","Clear selection")}</button><button type="button" class="secondary-btn" id="projectTrackBulkMute" disabled>${uiText("השתק נבחרים","Mute selected")}</button><button type="button" class="secondary-btn" id="projectTrackBulkUnmute" disabled>${uiText("בטל השתקה","Unmute selected")}</button></div><label class="stem-mix-control"><span>${uiText("שינוי עוצמה קבוצתי","Group level adjustment")} <output id="projectTrackBulkGainValue">0 dB</output></span><input type="range" id="projectTrackBulkGain" min="-12" max="12" step="0.5" value="0" disabled></label></section>
      <div class="project-track-group-filter"><label>${uiText("סינון לפי קבוצה","Filter by group")} <select id="projectTrackGroupFilter"><option value="all">${uiText("כל הערוצים","All tracks")}</option><option value="drums">${uiText("תופים","Drums")}</option><option value="bass">Bass</option><option value="vocals">${uiText("שירה","Vocals")}</option><option value="instruments">${uiText("כלי נגינה","Instruments")}</option><option value="fx">FX</option><option value="other">${uiText("אחר","Other")}</option></select></label></div>
      <section class="project-track-groups" aria-label="${uiText("שליטה לפי קבוצות","Group mixer controls")}">${presentGroups.map(group=>{const count=tracks.filter(track=>(track.group||"other")===group.id).length;return `<article class="project-track-group" data-project-group-panel="${group.id}"><div class="project-track-group-heading"><b>${group.label}</b><span>${count} ${uiText("ערוצים","tracks")}</span></div><div class="project-track-group-actions"><button type="button" class="secondary-btn" data-project-group-action="mute" data-project-group="${group.id}">${uiText("השתק","Mute")}</button><button type="button" class="secondary-btn" data-project-group-action="unmute" data-project-group="${group.id}">${uiText("בטל השתקה","Unmute")}</button><button type="button" class="secondary-btn" data-project-group-action="solo" data-project-group="${group.id}" aria-pressed="false">Solo</button></div><label class="stem-mix-control"><span>${uiText("שינוי עוצמה לכל הקבוצה","Group level adjustment")} <output data-project-group-gain-value="${group.id}">0.0 dB</output></span><input type="range" data-project-group-gain="${group.id}" min="-12" max="12" step="0.5" value="0"></label></article>`;}).join("")}</section>
@@ -476,7 +477,7 @@ async function bindProjectTracks(){
    }
    if(bindGeneration!==projectTracksBindGeneration||!panel.isConnected)return;
    await window.ITZIK_PROJECT_TRACKS.init(audioItems,audio);
-   window.ITZIK_PROJECT_TRACKS.setOutputCeilingDb(project.metadata?.projectTrackOutputCeilingDb??-1);
+   window.ITZIK_PROJECT_TRACKS.setOutputCeilingDb(project.metadata?.projectTrackOutputCeilingDb??-1,false)
    activeProjectTracksProjectId=currentProjectId;
    activeProjectTracksSignature=trackSignature;
   }else{
@@ -489,7 +490,7 @@ async function bindProjectTracks(){
   if(bindGeneration!==projectTracksBindGeneration||!panel.isConnected)return;
   updateProjectTrackPlayer();
   const baseSoloButton=$("#mixSolo");
-  const baseSoloActive=window.ITZIK_PROJECT_TRACKS.setBaseSolo(project.metadata?.projectBaseSolo===true);
+  const baseSoloActive=window.ITZIK_PROJECT_TRACKS.setBaseSolo(project.metadata?.projectBaseSolo===true,false)
   if(baseSoloButton){baseSoloButton.disabled=false;baseSoloButton.setAttribute("aria-pressed",String(baseSoloActive));baseSoloButton.textContent=baseSoloActive?uiText("ביטול Solo","Unsolo"):"Solo";}
   const save=async id=>{
    const latest=projects.find(item=>item.id===currentProjectId);
@@ -520,6 +521,27 @@ async function bindProjectTracks(){
    });
   };
   const groupFilter=$("#projectTrackGroupFilter");
+  const historyUndo=$("#projectTrackUndo"),historyRedo=$("#projectTrackRedo"),historyStatus=$("#projectTrackHistoryStatus");
+  const updateHistoryControls=state=>{if(historyUndo)historyUndo.disabled=!state.canUndo;if(historyRedo)historyRedo.disabled=!state.canRedo;if(historyStatus)historyStatus.textContent=state.canUndo?uiText("פעולה אחרונה: ","Last change: ")+(state.undoLabel||""):uiText("אין פעולות לביטול","Nothing to undo");};
+  window.ITZIK_PROJECT_TRACKS.setHistoryListener(updateHistoryControls);
+  const syncHistoryControls=()=>{
+   for(const item of audioItems){const id=item.id,state=window.ITZIK_PROJECT_TRACKS.getTrack(id);if(!state)continue;
+    const gain=$('[data-project-track-gain="'+id+'"]'),pan=$('[data-project-track-pan="'+id+'"]'),width=$('[data-project-track-width="'+id+'"]');
+    if(gain)gain.value=String(state.gainDb);if(pan)pan.value=String(state.pan);if(width)width.value=String(state.stereoWidth);refresh(id);refreshTrackFx(id);
+   }
+   const master=window.ITZIK_PROJECT_TRACKS.getMasterDb(),ceiling=window.ITZIK_PROJECT_TRACKS.getOutputCeilingDb(),ms=$("#projectTrackMaster"),mv=$("#projectTrackMasterValue"),cs=$("#projectTrackCeiling"),cv=$("#projectTrackCeilingValue");
+   if(ms)ms.value=String(master);if(mv)mv.textContent=master.toFixed(1)+" dB";if(cs)cs.value=String(ceiling);if(cv)cv.textContent=ceiling.toFixed(1)+" dB";
+   const baseSolo=window.ITZIK_PROJECT_TRACKS.getBaseSolo(),baseButton=$("#mixSolo");if(baseButton){baseButton.setAttribute("aria-pressed",String(baseSolo));baseButton.textContent=baseSolo?uiText("ביטול Solo","Unsolo"):"Solo";}
+   document.querySelectorAll("[data-project-group-panel]").forEach(panel=>{const group=panel.dataset.projectGroupPanel,items=audioItems.filter(item=>((document.querySelector('[data-project-track-group="'+item.id+'"]')?.value)||(tracks.find(track=>track.id===item.id)?.group)||"other")===group),button=panel.querySelector('[data-project-group-action="solo"]'),active=items.length>0&&items.every(item=>window.ITZIK_PROJECT_TRACKS.getTrack(item.id)?.solo===true);if(button){button.setAttribute("aria-pressed",String(active));button.textContent=active?uiText("בטל Solo","Unsolo"):"Solo";}});
+  };
+  const persistHistoryAction=async direction=>{
+   const changed=direction==="undo"?window.ITZIK_PROJECT_TRACKS.undo():window.ITZIK_PROJECT_TRACKS.redo();if(!changed)return;
+   syncHistoryControls();const saved=await updateProjectMetadata({projectTrackMixSettings:window.ITZIK_PROJECT_TRACKS.getSettings(),projectBaseSolo:window.ITZIK_PROJECT_TRACKS.getBaseSolo(),projectTrackMasterDb:window.ITZIK_PROJECT_TRACKS.getMasterDb(),projectTrackOutputCeilingDb:window.ITZIK_PROJECT_TRACKS.getOutputCeilingDb()});
+   if(status)status.textContent=saved?(direction==="undo"?uiText("הפעולה בוטלה ונשמרה בפרויקט.","Change undone and saved to project."):uiText("הפעולה בוצעה שוב ונשמרה בפרויקט.","Change redone and saved to project.")):uiText("הפעולה שוחזרה, אך השמירה בענן נכשלה.","History restored, but cloud saving failed.");
+  };
+  if(historyUndo)historyUndo.onclick=()=>persistHistoryAction("undo");
+  if(historyRedo)historyRedo.onclick=()=>persistHistoryAction("redo");
+
   const applyGroupFilter=()=>{
    const value=groupFilter?.value||"all";
    document.querySelectorAll("[data-project-track-card]").forEach(card=>{card.hidden=value!=="all"&&card.dataset.trackGroup!==value;});
@@ -557,6 +579,7 @@ async function bindProjectTracks(){
   document.querySelectorAll("[data-project-group-action]").forEach(button=>button.onclick=async()=>{
    const group=button.dataset.projectGroup,action=button.dataset.projectGroupAction,items=groupTracks(group);
    if(!items.length)return;
+   window.ITZIK_PROJECT_TRACKS.beginHistoryTransaction("Group "+action);
    if(action==="solo"){
     const active=items.every(item=>window.ITZIK_PROJECT_TRACKS.getTrack(item.id)?.solo===true);
     for(const item of audioItems){window.ITZIK_PROJECT_TRACKS.setTrack(item.id,{solo:active?false:items.some(groupItem=>groupItem.id===item.id)});refresh(item.id);}
@@ -564,6 +587,8 @@ async function bindProjectTracks(){
    }else{
     for(const item of items){window.ITZIK_PROJECT_TRACKS.setTrack(item.id,{mute:action==="mute"});refresh(item.id);}
    }
+   window.ITZIK_PROJECT_TRACKS.commitHistoryTransaction();
+
    await persistGroupSettings(action==="solo");
   });
   document.querySelectorAll("[data-project-group-gain]").forEach(slider=>{
@@ -572,6 +597,7 @@ async function bindProjectTracks(){
    slider.onchange=async()=>{
     const delta=Number(slider.value);
     if(delta!==0){
+     window.ITZIK_PROJECT_TRACKS.beginHistoryTransaction("Group level");
      for(const item of groupTracks(group)){
       const state=window.ITZIK_PROJECT_TRACKS.getTrack(item.id);if(!state)continue;
       const gainDb=Math.max(-48,Math.min(12,state.gainDb+delta));
@@ -579,6 +605,8 @@ async function bindProjectTracks(){
       const gain=document.querySelector('[data-project-track-gain="'+item.id+'"]'),gainOutput=document.querySelector('[data-project-track-gain-value="'+item.id+'"]');
       if(gain)gain.value=String(gainDb);if(gainOutput)gainOutput.textContent=gainDb.toFixed(1)+" dB";
      }
+     window.ITZIK_PROJECT_TRACKS.commitHistoryTransaction();
+
      await persistGroupSettings();
     }
     slider.value="0";if(output)output.textContent="0.0 dB";
@@ -601,7 +629,10 @@ async function bindProjectTracks(){
   if(selectNone)selectNone.onclick=()=>{selectionInputs.forEach(input=>{input.checked=false;selectedTrackIds.delete(input.dataset.projectTrackSelect);});updateBulkControls();};
   const applyBulk=async patch=>{
    if(!selectedTrackIds.size)return;
+    window.ITZIK_PROJECT_TRACKS.beginHistoryTransaction("Bulk track change");
    for(const id of selectedTrackIds){window.ITZIK_PROJECT_TRACKS.setTrack(id,patch);refresh(id);}
+   window.ITZIK_PROJECT_TRACKS.commitHistoryTransaction();
+
    const latest=projects.find(item=>item.id===currentProjectId),settings={...(latest?.metadata?.projectTrackMixSettings||{}),...window.ITZIK_PROJECT_TRACKS.getSettings()};
    if(!await updateProjectMetadata({projectTrackMixSettings:settings})&&status)status.textContent=uiText("השינוי הקבוצתי פעיל, אך השמירה בענן נכשלה.","Group change applied, but cloud saving failed.");
   };
@@ -609,8 +640,11 @@ async function bindProjectTracks(){
   if(bulkUnmute)bulkUnmute.onclick=()=>applyBulk({mute:false});
   if(bulkGain)bulkGain.onchange=async()=>{
    const delta=Number(bulkGain.value);
+    window.ITZIK_PROJECT_TRACKS.beginHistoryTransaction("Selected track levels");
    if(bulkGainValue)bulkGainValue.textContent=(delta>0?"+":"")+delta.toFixed(1)+" dB";
    for(const id of selectedTrackIds){const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);if(state){const gainDb=Math.max(-48,Math.min(12,state.gainDb+delta));window.ITZIK_PROJECT_TRACKS.setTrack(id,{gainDb});refresh(id);const slider=document.querySelector('[data-project-track-gain="'+id+'"]'),output=document.querySelector('[data-project-track-gain-value="'+id+'"]');if(slider)slider.value=String(gainDb);if(output)output.textContent=gainDb.toFixed(1)+" dB";}}
+   window.ITZIK_PROJECT_TRACKS.commitHistoryTransaction();
+
    const latest=projects.find(item=>item.id===currentProjectId),settings={...(latest?.metadata?.projectTrackMixSettings||{}),...window.ITZIK_PROJECT_TRACKS.getSettings()};
    if(!await updateProjectMetadata({projectTrackMixSettings:settings})&&status)status.textContent=uiText("שינוי העוצמה פעיל, אך השמירה בענן נכשלה.","Level change applied, but cloud saving failed.");
   };
@@ -641,7 +675,7 @@ async function bindProjectTracks(){
   }
   const masterSlider=$("#projectTrackMaster"),masterValue=$("#projectTrackMasterValue");
   const savedMasterDb=Number.isFinite(Number(project.metadata?.projectTrackMasterDb))?Number(project.metadata.projectTrackMasterDb):-1.5;
-  const activeMasterDb=window.ITZIK_PROJECT_TRACKS.setMasterDb(savedMasterDb);
+  const activeMasterDb=window.ITZIK_PROJECT_TRACKS.setMasterDb(savedMasterDb,false)
   if(masterSlider)masterSlider.value=String(activeMasterDb);
   if(masterValue)masterValue.textContent=activeMasterDb.toFixed(1)+" dB";
   if(masterSlider)masterSlider.oninput=async()=>{
@@ -650,7 +684,7 @@ async function bindProjectTracks(){
    if(!await updateProjectMetadata({projectTrackMasterDb:value})&&status)status.textContent=uiText("עוצמת המאסטר פעילה, אך השמירה בענן נכשלה.","Master level is active, but cloud saving failed.");
   };
   const ceilingSlider=$("#projectTrackCeiling"),ceilingValue=$("#projectTrackCeilingValue");
-  const activeCeiling=window.ITZIK_PROJECT_TRACKS.setOutputCeilingDb(project.metadata?.projectTrackOutputCeilingDb??-1);
+  const activeCeiling=window.ITZIK_PROJECT_TRACKS.setOutputCeilingDb(project.metadata?.projectTrackOutputCeilingDb??-1,false);
   if(ceilingSlider)ceilingSlider.value=String(activeCeiling);
   if(ceilingValue)ceilingValue.textContent=activeCeiling.toFixed(1)+" dB";
   if(ceilingSlider)ceilingSlider.oninput=async()=>{
@@ -724,9 +758,11 @@ async function bindProjectTracks(){
   document.querySelectorAll("[data-project-track-scene-apply]").forEach(button=>button.onclick=async()=>{
    const id=button.dataset.projectTrackSceneApply,latest=projects.find(item=>item.id===currentProjectId);
    const scene=(latest?.metadata?.projectTrackScenes||[]).find(item=>item.id===id);if(!scene)return;
+   window.ITZIK_PROJECT_TRACKS.beginHistoryTransaction("Load mix scene");
+
    const settings={};
    for(const item of audioItems){
-    const state={gainDb:0,pan:0,mute:false,solo:false,...window.ITZIK_PROJECT_TRACKS.effectDefaults,...(scene.settings?.[item.id]||{})};
+     const state={gainDb:0,pan:0,mute:false,solo:false,...window.ITZIK_PROJECT_TRACKS.effectDefaults,...(scene.settings?.[item.id]||{})};
     window.ITZIK_PROJECT_TRACKS.setTrack(item.id,state);
     settings[item.id]=window.ITZIK_PROJECT_TRACKS.getTrack(item.id);
     const gain=document.querySelector('[data-project-track-gain="'+item.id+'"]'),pan=document.querySelector('[data-project-track-pan="'+item.id+'"]'),width=document.querySelector('[data-project-track-width="'+item.id+'"]');
@@ -741,6 +777,8 @@ async function bindProjectTracks(){
    if(masterValue)masterValue.textContent=master.toFixed(1)+" dB";
    const baseButton=$("#mixSolo");
    if(baseButton){baseButton.setAttribute("aria-pressed",String(baseSolo));baseButton.textContent=baseSolo?uiText("ביטול Solo","Unsolo"):"Solo";}
+   window.ITZIK_PROJECT_TRACKS.commitHistoryTransaction();
+
    const saved=await updateProjectMetadata({projectTrackMixSettings:settings,projectBaseSolo:baseSolo,projectTrackMasterDb:master});
    if(status)status.textContent=saved?uiText("מצב המיקס נטען ונשמר בפרויקט.","Mix scene loaded and saved to the project."):uiText("המצב נטען, אך השמירה בענן נכשלה.","Scene loaded, but cloud saving failed.");
   });
@@ -755,9 +793,11 @@ async function bindProjectTracks(){
   const resetButton=$("#projectTracksReset");
   if(resetButton)resetButton.onclick=async()=>{
    if(!confirm(uiText("לאפס את עוצמת הערוצים, Pan, השתקה ו-Solo?","Reset track levels, pan, mute and Solo?")))return;
+   window.ITZIK_PROJECT_TRACKS.beginHistoryTransaction("Reset mixer");
+
    const settings={};
    for(const item of audioItems){
-    window.ITZIK_PROJECT_TRACKS.setTrack(item.id,{gainDb:0,pan:0,mute:false,solo:false,...window.ITZIK_PROJECT_TRACKS.effectDefaults});
+     window.ITZIK_PROJECT_TRACKS.setTrack(item.id,{gainDb:0,pan:0,mute:false,solo:false,...window.ITZIK_PROJECT_TRACKS.effectDefaults});
     settings[item.id]=window.ITZIK_PROJECT_TRACKS.getTrack(item.id);
     const gain=document.querySelector('[data-project-track-gain="'+item.id+'"]');
     const pan=document.querySelector('[data-project-track-pan="'+item.id+'"]');
@@ -769,6 +809,8 @@ async function bindProjectTracks(){
    const master=window.ITZIK_PROJECT_TRACKS.setMasterDb(-1.5);
    if(masterSlider)masterSlider.value=String(master);
    if(masterValue)masterValue.textContent=master.toFixed(1)+" dB";
+   window.ITZIK_PROJECT_TRACKS.commitHistoryTransaction();
+
    const saved=await updateProjectMetadata({projectTrackMixSettings:settings,projectBaseSolo:false,projectTrackMasterDb:master});
    if(status)status.textContent=saved?uiText("המיקסר אופס ונשמר בפרויקט.","Mixer reset and saved to the project."):uiText("המיקסר אופס, אך השמירה בענן נכשלה.","Mixer reset, but cloud saving failed.");
   };
