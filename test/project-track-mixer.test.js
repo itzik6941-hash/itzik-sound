@@ -123,3 +123,10 @@ test("manual base mute remains effective without changing added-track Solo", () 
   assert.equal(mixer.shouldMuteAdded({ mute: false, solo: false }, false, false), false);
   assert.equal(mixer.shouldMuteAdded({ mute: true, solo: false }, false, false), true);
 });
+
+test("main-track Solo state can be enabled and disabled", () => {
+  assert.equal(mixer.setBaseSolo(true), true);
+  assert.equal(mixer.getBaseSolo(), true);
+  assert.equal(mixer.setBaseSolo(false), false);
+  assert.equal(mixer.getBaseSolo(), false);
+});
