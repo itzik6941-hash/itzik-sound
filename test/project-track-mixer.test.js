@@ -115,8 +115,11 @@ test("added tracks reuse the main mixer audio context and do not close it", asyn
 
   await mixer.init([{ id: "track-1", audio: added }], leader);
   assert.ok(connections.includes(sharedBus));
-  mixer.setTrack("track-1", { solo: true });
+  mixer.setTrack("track-1", { stereoWidth: 0, solo: true });
+  assert.equal(mixer.getTrack("track-1").stereoWidth, 0);
   assert.equal(appliedBaseMute, true);
+  mixer.setTrack("track-1", { stereoWidth: 1.75 });
+  assert.equal(mixer.getTrack("track-1").stereoWidth, 1.75);
   mixer.setBaseMute(false);
   assert.equal(appliedBaseMute, true);
   mixer.setTrack("track-1", { solo: false });
