@@ -15,7 +15,7 @@
   let master = null;
   let limiter = null;
   let leaderAudio = null;
-  let leaderOriginalVolume = 1;
+  let leaderOriginalMute = false;
   let leaderPauseHandler = null;
   let leaderSeekingHandler = null;
   let tracks = new Map();
@@ -31,7 +31,7 @@
     if (!context) return;
     const states = [...tracks.values()].map(track => track.state);
     const hasSolo = hasSoloState(states);
-    if (leaderAudio) leaderAudio.volume = shouldMuteBase(states) ? 0 : leaderOriginalVolume;
+    if (leaderAudio && window.ITZIK_MIXER) window.ITZIK_MIXER.apply({ mute: shouldMuteBase(states) || leaderOriginalMute });
     const now = context.currentTime;
     for (const track of tracks.values()) {
       const state = track.state;
@@ -47,8 +47,8 @@
     if (leaderAudio && leaderSeekingHandler) leaderAudio.removeEventListener("seeking", leaderSeekingHandler);
     leaderPauseHandler = null;
     leaderSeekingHandler = null;
-    if (leaderAudio) leaderAudio.volume = leaderOriginalVolume;
-    leaderOriginalVolume = 1;
+    if (leaderAudio && window.ITZIK_MIXER) window.ITZIK_MIXER.apply({ mute: leaderOriginalMute });
+    leaderOriginalMute = false;
     for (const track of tracks.values()) {
       try { track.source.disconnect(); } catch {}
       try { track.gain.disconnect(); } catch {}
@@ -68,7 +68,7 @@
   async function init(items, leader) {
     await destroy();
     leaderAudio = leader || null;
-    leaderOriginalVolume = Number.isFinite(leaderAudio?.volume) ? leaderAudio.volume : 1;
+    leaderOriginalMute = window.ITZIK_MIXER?.getSettings?.().mute === true;
     if (!items?.length) return;
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextClass) throw new Error("הדפדפן אינו תומך במיקסר רב־ערוצי.");
