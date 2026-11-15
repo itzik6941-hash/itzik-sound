@@ -189,6 +189,11 @@
   let limiter = null;
   let masterAnalyser = null;
   let masterMeterBuffer = null;
+  let masterStereoSplitter = null;
+  let masterLeftAnalyser = null;
+  let masterRightAnalyser = null;
+  let masterLeftBuffer = null;
+  let masterRightBuffer = null;
   let ownsContext = false;
   let leaderAudio = null;
   let leaderOriginalMute = false;
@@ -238,12 +243,20 @@
     leaderAudio = null;
     try { master?.disconnect(); } catch {}
     try { masterAnalyser?.disconnect(); } catch {}
+    try { masterStereoSplitter?.disconnect(); } catch {}
+    try { masterLeftAnalyser?.disconnect(); } catch {}
+    try { masterRightAnalyser?.disconnect(); } catch {}
     try { limiter?.disconnect(); } catch {}
     if (context && ownsContext) await context.close().catch(() => {});
     context = null;
     master = null;
     masterAnalyser = null;
     masterMeterBuffer = null;
+    masterStereoSplitter = null;
+    masterLeftAnalyser = null;
+    masterRightAnalyser = null;
+    masterLeftBuffer = null;
+    masterRightBuffer = null;
     limiter = null;
     ownsContext = false;
   }
@@ -265,7 +278,19 @@
     masterAnalyser.fftSize = 2048;
     masterAnalyser.smoothingTimeConstant = 0.72;
     masterMeterBuffer = new Float32Array(masterAnalyser.fftSize);
+    masterStereoSplitter = context.createChannelSplitter(2);
+    masterLeftAnalyser = context.createAnalyser();
+    masterRightAnalyser = context.createAnalyser();
+    for (const analyser of [masterLeftAnalyser, masterRightAnalyser]) {
+      analyser.fftSize = masterAnalyser.fftSize;
+      analyser.smoothingTimeConstant = masterAnalyser.smoothingTimeConstant;
+    }
+    masterLeftBuffer = new Float32Array(masterLeftAnalyser.fftSize);
+    masterRightBuffer = new Float32Array(masterRightAnalyser.fftSize);
     master.connect(masterAnalyser);
+    master.connect(masterStereoSplitter);
+    masterStereoSplitter.connect(masterLeftAnalyser, 0);
+    masterStereoSplitter.connect(masterRightAnalyser, 1);
     if (sharedContext && sharedDestination) {
       masterAnalyser.connect(sharedDestination);
     } else {
@@ -457,19 +482,34 @@
     return outputCeilingDb;
   }
 
-  function getMasterMeter() {
-    if (!masterAnalyser || !masterMeterBuffer) return { peak: 0, rms: 0, db: -Infinity, clipping: false };
-    masterAnalyser.getFloatTimeDomainData(masterMeterBuffer);
+  function measureBuffer(analyser, buffer) {
+    if (!analyser || !buffer) return { peak: 0, rms: 0, db: -Infinity, clipping: false };
+    analyser.getFloatTimeDomainData(buffer);
     let peak = 0, sum = 0;
-    for (let i = 0; i < masterMeterBuffer.length; i++) {
-      const sample = masterMeterBuffer[i];
-      const absolute = Math.abs(sample);
+    for (let i = 0; i < buffer.length; i++) {
+      const sample = buffer[i], absolute = Math.abs(sample);
       if (absolute > peak) peak = absolute;
       sum += sample * sample;
     }
-    const rms = Math.sqrt(sum / masterMeterBuffer.length);
-    const db = 20 * Math.log10(Math.max(peak, 1e-6));
-    return { peak, rms, db, clipping: peak >= 0.999 };
+    const rms = Math.sqrt(sum / buffer.length);
+    return { peak, rms, db: 20 * Math.log10(Math.max(peak, 1e-6)), clipping: peak >= 0.999 };
+  }
+
+  function getMasterMeter() {
+    const overall = measureBuffer(masterAnalyser, masterMeterBuffer);
+    const left = measureBuffer(masterLeftAnalyser, masterLeftBuffer);
+    const right = measureBuffer(masterRightAnalyser, masterRightBuffer);
+    let cross = 0, leftEnergy = 0, rightEnergy = 0;
+    for (let i = 0; i < Math.min(masterLeftBuffer?.length || 0, masterRightBuffer?.length || 0); i++) {
+      const l = masterLeftBuffer[i], r = masterRightBuffer[i];
+      cross += l * r;
+      leftEnergy += l * l;
+      rightEnergy += r * r;
+    }
+    const correlation = leftEnergy > 1e-12 && rightEnergy > 1e-12
+      ? Math.max(-1, Math.min(1, cross / Math.sqrt(leftEnergy * rightEnergy)))
+      : 0;
+    return { ...overall, left, right, correlation, stereoBalance: left.peak + right.peak > 1e-6 ? (right.peak - left.peak) / (right.peak + left.peak) : 0 };
   }
 
   function setBaseSolo(value) {

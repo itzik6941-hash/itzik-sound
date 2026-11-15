@@ -1226,3 +1226,10 @@ body::after {
 .project-track-master-clip{min-height:1em;color:#d94b4b;font-size:.78rem;font-weight:800;letter-spacing:.06em}
 
 .project-track-master-meter-rms{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:.8rem;opacity:.8}
+
+.project-track-stereo-meters{display:grid;gap:7px;margin:2px 0}
+.project-track-stereo-channel{display:grid;grid-template-columns:18px minmax(0,1fr) 68px;align-items:center;gap:9px;font-size:.78rem;font-variant-numeric:tabular-nums}
+.project-track-stereo-track{height:8px;overflow:hidden;border-radius:999px;background:rgba(127,127,127,.2);direction:ltr}
+.project-track-stereo-track span{display:block;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,#22a06b 0%,#d6a629 76%,#d94b4b 94%);transition:width 55ms linear}
+.project-track-stereo-channel output{text-align:right;opacity:.8}
+.project-track-stereo-correlation{display:flex;justify-content:space-between;gap:10px;font-size:.8rem;opacity:.85}

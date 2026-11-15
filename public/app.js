@@ -159,8 +159,14 @@ function projectTracksPanel(){
      <label class="project-track-master"><span>${uiText("תקרת יציאה (Limiter)","Output ceiling (Limiter)")} <output id="projectTrackCeilingValue">-1.0 dB</output></span><input type="range" id="projectTrackCeiling" min="-6" max="-0.1" step="0.1" value="-1"></label>
      <div class="project-track-master-meter" role="meter" aria-label="Master output level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
       <div class="project-track-master-meter-head"><span>${uiText("מד עוצמת יציאה","Output level")}</span><output id="projectTrackMasterMeterValue">Peak: -∞ dBFS</output></div>
+      <div class="project-track-stereo-meters">
+       <div class="project-track-stereo-channel"><span>L</span><div class="project-track-stereo-track"><span id="projectTrackLeftMeterFill"></span></div><output id="projectTrackLeftMeterValue">-∞ dBFS</output></div>
+       <div class="project-track-stereo-channel"><span>R</span><div class="project-track-stereo-track"><span id="projectTrackRightMeterFill"></span></div><output id="projectTrackRightMeterValue">-∞ dBFS</output></div>
+      </div>
       <div class="project-track-master-meter-rms"><span>RMS</span><output id="projectTrackMasterRmsValue">-∞ dBFS</output></div>
       <div class="project-track-master-meter-track"><span id="projectTrackMasterMeterFill"></span></div>
+      <div class="project-track-master-meter-head"><span>${uiText("איזון סטריאו","Stereo balance")}</span><output id="projectTrackStereoBalanceValue">C</output></div>
+      <div class="project-track-stereo-correlation"><span>${uiText("התאמה בין הערוצים","Channel correlation")}</span><output id="projectTrackStereoCorrelationValue">—</output></div>
       <span id="projectTrackMasterClip" class="project-track-master-clip" aria-live="polite"></span>
      </div>
      ${projectTrackScenesMarkup(scenes)}
@@ -549,7 +555,7 @@ async function bindProjectTracks(){
    if(ceilingValue)ceilingValue.textContent=value.toFixed(1)+" dB";
    if(!await updateProjectMetadata({projectTrackOutputCeilingDb:value})&&status)status.textContent=uiText("תקרת היציאה פעילה, אך השמירה בענן נכשלה.","Output ceiling is active, but cloud saving failed.");
   };
-  const masterMeterFill=$("#projectTrackMasterMeterFill"),masterMeterValue=$("#projectTrackMasterMeterValue"),masterMeterRms=$("#projectTrackMasterRmsValue"),masterMeterWrap=$(".project-track-master-meter"),masterClip=$("#projectTrackMasterClip");
+  const masterMeterFill=$("#projectTrackMasterMeterFill"),masterMeterValue=$("#projectTrackMasterMeterValue"),masterMeterRms=$("#projectTrackMasterRmsValue"),masterMeterWrap=$(".project-track-master-meter"),masterClip=$("#projectTrackMasterClip"),leftMeterFill=$("#projectTrackLeftMeterFill"),rightMeterFill=$("#projectTrackRightMeterFill"),leftMeterValue=$("#projectTrackLeftMeterValue"),rightMeterValue=$("#projectTrackRightMeterValue"),stereoBalanceValue=$("#projectTrackStereoBalanceValue"),stereoCorrelationValue=$("#projectTrackStereoCorrelationValue");
   if(window.__itzikMasterMeterFrame)cancelAnimationFrame(window.__itzikMasterMeterFrame);
   const updateMasterMeter=()=>{
    if(!masterMeterFill||!masterMeterValue||!window.ITZIK_PROJECT_TRACKS.isActive?.()){window.__itzikMasterMeterFrame=0;return;}
@@ -558,6 +564,13 @@ async function bindProjectTracks(){
    masterMeterFill.style.width=level.toFixed(1)+"%";
    masterMeterValue.textContent="Peak: "+(meter.db<=-59.9?"-∞":meter.db.toFixed(1))+" dBFS";
    if(masterMeterRms){const rmsDb=20*Math.log10(Math.max(meter.rms||0,1e-6));masterMeterRms.textContent=rmsDb<=-59.9?"-∞ dBFS":rmsDb.toFixed(1)+" dBFS";}
+   const left=meter.left||{peak:0,db:-Infinity},right=meter.right||{peak:0,db:-Infinity};
+   if(leftMeterFill)leftMeterFill.style.width=Math.max(0,Math.min(100,(left.db+60)/60*100)).toFixed(1)+"%";
+   if(rightMeterFill)rightMeterFill.style.width=Math.max(0,Math.min(100,(right.db+60)/60*100)).toFixed(1)+"%";
+   if(leftMeterValue)leftMeterValue.textContent=left.db<=-59.9?"-∞":left.db.toFixed(1);
+   if(rightMeterValue)rightMeterValue.textContent=right.db<=-59.9?"-∞":right.db.toFixed(1);
+   if(stereoBalanceValue){const balance=meter.stereoBalance||0;stereoBalanceValue.textContent=Math.abs(balance)<0.04?"C":balance<0?"L "+Math.round(-balance*100)+"%":"R "+Math.round(balance*100)+"%";}
+   if(stereoCorrelationValue)stereoCorrelationValue.textContent=Number.isFinite(meter.correlation)?meter.correlation.toFixed(2):"—";
    if(masterMeterWrap)masterMeterWrap.setAttribute("aria-valuenow",String(Math.round(level)));
    if(masterClip)masterClip.textContent=meter.clipping?uiText("שיא אות!","CLIP!"): "";
    window.__itzikMasterMeterFrame=requestAnimationFrame(updateMasterMeter);
