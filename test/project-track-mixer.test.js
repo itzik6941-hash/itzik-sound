@@ -14,6 +14,7 @@ test("project track settings are normalized and bounded", () => {
   });
   assert.deepEqual(mixer.normalize({
     gainDb: 99, pan: -5, mute: true, solo: true,
+    inputTrimDb: 99, saturation: 99, compAttack: 0, compRelease: 2,
     eqLowDb: 99, eqMidDb: -99, eqHighDb: 99, compThreshold: -99, compRatio: 99,
     reverbMix: 99, delayMix: 99, delayTime: 99, delayFeedback: 99
   }), {
