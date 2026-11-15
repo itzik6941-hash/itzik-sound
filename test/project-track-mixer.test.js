@@ -256,3 +256,10 @@ test("offline export tail grows to include feedback delay echoes", () => {
   assert.ok(mixer.getEffectsTailDuration([{delayMix:0.5,delayFeedback:0.65,delayTime:0.75}])>1.3);
   assert.ok(mixer.getEffectsTailDuration([{delayMix:0.5,delayFeedback:0.65,delayTime:0.75}])<=12);
 });
+
+test("master meter returns a silent safe reading before mixer initialization", () => {
+  const source = fs.readFileSync(new URL("../public/project-track-mixer.js", import.meta.url), "utf8");
+  assert.match(source, /function getMasterMeter\(\)/);
+  assert.match(source, /clipping: peak >= 0\.999/);
+  assert.match(source, /masterAnalyser\.fftSize = 2048/);
+});
