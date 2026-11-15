@@ -180,7 +180,7 @@ function projectTracksPanel(){
       ${tracks.map((track,index)=>`
        <article class="stem-mix-track" data-project-track-card="${escapeHtml(track.id)}" data-track-group="${escapeHtml(track.group||"other")}"><label class="project-track-select"><input type="checkbox" data-project-track-select="${escapeHtml(track.id)}"><span>${uiText("בחר ערוץ","Select track")}</span></label><div class="stem-track-heading"><b>${escapeHtml(track.name)}</b><div class="stem-track-actions">
         <button type="button" class="secondary-btn" data-project-track-rename="${escapeHtml(track.id)}">${uiText("שם","Rename")}</button><button type="button" class="secondary-btn" data-project-track-up="${escapeHtml(track.id)}" ${index===0?"disabled":""} title="${uiText("הזז למעלה","Move up")}">↑</button><button type="button" class="secondary-btn" data-project-track-down="${escapeHtml(track.id)}" ${index===tracks.length-1?"disabled":""} title="${uiText("הזז למטה","Move down")}">↓</button>
-        <button type="button" class="secondary-btn" data-project-track-mute="${escapeHtml(track.id)}" aria-pressed="false">${uiText("השתק","Mute")}</button><button type="button" class="secondary-btn" data-project-track-solo="${escapeHtml(track.id)}" aria-pressed="false">Solo</button><button type="button" class="secondary-btn" data-project-track-remove="${escapeHtml(track.id)}" title="${uiText("הסר מהפרויקט","Remove from project")}">✕</button>
+        <button type="button" class="secondary-btn" data-project-track-copy="${escapeHtml(track.id)}" title="${uiText("העתק את כל הגדרות הערוץ","Copy all channel settings")}">${uiText("העתק","Copy")}</button><button type="button" class="secondary-btn" data-project-track-paste="${escapeHtml(track.id)}" disabled title="${uiText("הדבק הגדרות מערוץ שהועתק","Paste copied channel settings")}">${uiText("הדבק","Paste")}</button><button type="button" class="secondary-btn" data-project-track-reset="${escapeHtml(track.id)}" title="${uiText("אפס הגדרות ערוץ","Reset channel settings")}">${uiText("אפס","Reset")}</button><button type="button" class="secondary-btn" data-project-track-mute="${escapeHtml(track.id)}" aria-pressed="false">${uiText("השתק","Mute")}</button><button type="button" class="secondary-btn" data-project-track-solo="${escapeHtml(track.id)}" aria-pressed="false">Solo</button><button type="button" class="secondary-btn" data-project-track-remove="${escapeHtml(track.id)}" title="${uiText("הסר מהפרויקט","Remove from project")}">✕</button>
        </div></div>
        <label class="project-track-group-select"><span>${uiText("קבוצת ערוץ","Track group")}</span><select data-project-track-group="${escapeHtml(track.id)}"><option value="drums" ${track.group==="drums"?"selected":""}>${uiText("תופים","Drums")}</option><option value="bass" ${track.group==="bass"?"selected":""}>Bass</option><option value="vocals" ${track.group==="vocals"?"selected":""}>${uiText("שירה","Vocals")}</option><option value="instruments" ${track.group==="instruments"?"selected":""}>${uiText("כלי נגינה","Instruments")}</option><option value="fx" ${track.group==="fx"?"selected":""}>FX</option><option value="other" ${!track.group||track.group==="other"?"selected":""}>${uiText("אחר","Other")}</option></select></label>
        <label class="stem-mix-control"><span>${uiText("עוצמה","Level")} <output data-project-track-gain-value="${escapeHtml(track.id)}">0 dB</output></span><input type="range" data-project-track-gain="${escapeHtml(track.id)}" min="-48" max="12" step="0.5" value="0"></label>
@@ -495,7 +495,9 @@ async function bindProjectTracks(){
   const save=async id=>{
    const latest=projects.find(item=>item.id===currentProjectId);
    const settings={...(latest?.metadata?.projectTrackMixSettings||{}),[id]:window.ITZIK_PROJECT_TRACKS.getTrack(id)};
-   if(!await updateProjectMetadata({projectTrackMixSettings:settings})&&status)status.textContent=uiText("השינוי פעיל, אך השמירה בענן נכשלה.","The change is active, but cloud saving failed.");
+   const saved=await updateProjectMetadata({projectTrackMixSettings:settings});
+   if(!saved&&status)status.textContent=uiText("השינוי פעיל, אך השמירה בענן נכשלה.","The change is active, but cloud saving failed.");
+   return saved;
   };
   const refresh=id=>{
    const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);if(!state)return;
@@ -649,6 +651,35 @@ async function bindProjectTracks(){
    if(!await updateProjectMetadata({projectTrackMixSettings:settings})&&status)status.textContent=uiText("שינוי העוצמה פעיל, אך השמירה בענן נכשלה.","Level change applied, but cloud saving failed.");
   };
   updateBulkControls();
+  let copiedTrackSettings=null,copiedTrackName="";
+  const syncTrackControls=id=>{
+   const state=window.ITZIK_PROJECT_TRACKS.getTrack(id);if(!state)return;
+   const gain=document.querySelector('[data-project-track-gain="'+id+'"]'),pan=document.querySelector('[data-project-track-pan="'+id+'"]'),width=document.querySelector('[data-project-track-width="'+id+'"]');
+   if(gain)gain.value=String(state.gainDb);if(pan)pan.value=String(state.pan);if(width)width.value=String(state.stereoWidth);
+   refresh(id);refreshTrackFx(id);
+  };
+  document.querySelectorAll("[data-project-track-copy]").forEach(button=>button.onclick=()=>{
+   const id=button.dataset.projectTrackCopy;copiedTrackSettings=window.ITZIK_PROJECT_TRACKS.getTrack(id);copiedTrackName=(tracks.find(item=>item.id===id)?.name)||"";
+   document.querySelectorAll("[data-project-track-paste]").forEach(paste=>paste.disabled=!copiedTrackSettings);
+   if(status)status.textContent=uiText("ההגדרות של "+copiedTrackName+" הועתקו. אפשר להדביק בערוץ אחר.","Settings copied from "+copiedTrackName+". Paste them onto another track.");
+  });
+  document.querySelectorAll("[data-project-track-paste]").forEach(button=>button.onclick=async()=>{
+   const id=button.dataset.projectTrackPaste;if(!copiedTrackSettings)return;
+   window.ITZIK_PROJECT_TRACKS.beginHistoryTransaction("Paste channel settings");
+   window.ITZIK_PROJECT_TRACKS.setTrack(id,{...copiedTrackSettings});
+   window.ITZIK_PROJECT_TRACKS.commitHistoryTransaction();syncTrackControls(id);
+   const saved=await save(id);
+   if(status)status.textContent=saved?uiText("הגדרות הערוץ הודבקו ונשמרו.","Channel settings pasted and saved."):uiText("ההגדרות הודבקו, אך השמירה בענן נכשלה.","Settings pasted, but cloud saving failed.");
+  });
+  document.querySelectorAll("[data-project-track-reset]").forEach(button=>button.onclick=async()=>{
+   const id=button.dataset.projectTrackReset,trackName=tracks.find(item=>item.id===id)?.name||"";
+   if(!confirm(uiText("לאפס את כל הגדרות הערוץ "+trackName+"?","Reset all settings for "+trackName+"?")))return;
+   window.ITZIK_PROJECT_TRACKS.beginHistoryTransaction("Reset channel settings");
+   window.ITZIK_PROJECT_TRACKS.setTrack(id,window.ITZIK_PROJECT_TRACKS.normalize({}));
+   window.ITZIK_PROJECT_TRACKS.commitHistoryTransaction();syncTrackControls(id);
+   const saved=await save(id);
+   if(status)status.textContent=saved?uiText("הערוץ אופס ונשמר.","Track reset and saved."):uiText("הערוץ אופס, אך השמירה בענן נכשלה.","Track reset, but cloud saving failed.");
+  });
   for(const track of audioItems){
    const id=track.id,gain=document.querySelector('[data-project-track-gain="'+id+'"]'),pan=document.querySelector('[data-project-track-pan="'+id+'"]'),width=document.querySelector('[data-project-track-width="'+id+'"]');
    const mute=document.querySelector('[data-project-track-mute="'+id+'"]'),solo=document.querySelector('[data-project-track-solo="'+id+'"]');

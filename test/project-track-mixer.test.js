@@ -380,3 +380,14 @@ test("multitrack mixer exposes bounded undo and redo history", () => {
  assert.match(app, /projectTrackRedo/);
  assert.match(app, /persistHistoryAction/);
 });
+
+
+test("project mixer supports copying, pasting and resetting complete channel settings", () => {
+ const app = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+ assert.match(app, /data-project-track-copy=/);
+ assert.match(app, /data-project-track-paste=/);
+ assert.match(app, /data-project-track-reset=/);
+ assert.match(app, /Paste channel settings/);
+ assert.match(app, /Reset channel settings/);
+ assert.match(app, /window\.ITZIK_PROJECT_TRACKS\.normalize\(\{\}\)/);
+});
