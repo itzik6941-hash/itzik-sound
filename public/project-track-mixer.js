@@ -102,6 +102,12 @@
     meterAnalyser.fftSize = 1024;
     meterAnalyser.smoothingTimeConstant = 0.65;
     const meterBuffer = new Float32Array(meterAnalyser.fftSize);
+    const meterSplitter = ctx.createChannelSplitter(2);
+    const meterLeftAnalyser = ctx.createAnalyser();
+    const meterRightAnalyser = ctx.createAnalyser();
+    meterLeftAnalyser.fftSize = meterRightAnalyser.fftSize = 1024;
+    const meterLeftBuffer = new Float32Array(1024);
+    const meterRightBuffer = new Float32Array(1024);
     const widthSplitter = ctx.createChannelSplitter(2);
     const widthMerger = ctx.createChannelMerger(2);
     const widthMid = ctx.createGain();
@@ -145,9 +151,12 @@
     widthMerger.connect(reverbDry); reverbDry.connect(pan);
     widthMerger.connect(convolver); convolver.connect(reverbWet); reverbWet.connect(pan);
     pan.connect(meterAnalyser);
+    pan.connect(meterSplitter);
+    meterSplitter.connect(meterLeftAnalyser, 0);
+    meterSplitter.connect(meterRightAnalyser, 1);
     meterAnalyser.connect(destination);
 
-    const graph = { meterAnalyser, meterBuffer, input, gain, polarity, low, mid, high, compressor, saturator, dry, delay, feedback, delayWet, effectBus, widthSplitter, widthMerger, widthMid, widthSide, widthSideInvert, widthSideRightInvert, widthLeft, widthRight, reverbDry, convolver, reverbWet, pan };
+    const graph = { meterAnalyser, meterBuffer, meterLeftAnalyser, meterRightAnalyser, meterLeftBuffer, meterRightBuffer, input, gain, polarity, low, mid, high, compressor, saturator, dry, delay, feedback, delayWet, effectBus, widthSplitter, widthMerger, widthMid, widthSide, widthSideInvert, widthSideRightInvert, widthLeft, widthRight, reverbDry, convolver, reverbWet, pan };
     applyTrackGraph(graph, state, ctx);
     return graph;
   }
@@ -503,7 +512,10 @@
   function getTrackMeter(id) {
     const track = tracks.get(id);
     if (!track?.graph?.meterAnalyser || !track.graph.meterBuffer) return { peak: 0, rms: 0, db: -Infinity, clipping: false };
-    return measureBuffer(track.graph.meterAnalyser, track.graph.meterBuffer);
+    const overall = measureBuffer(track.graph.meterAnalyser, track.graph.meterBuffer);
+    const left = measureBuffer(track.graph.meterLeftAnalyser, track.graph.meterLeftBuffer);
+    const right = measureBuffer(track.graph.meterRightAnalyser, track.graph.meterRightBuffer);
+    return { ...overall, left, right, stereoBalance: left.peak + right.peak > 1e-6 ? (right.peak - left.peak) / (right.peak + left.peak) : 0 };
   }
 
   function getMasterMeter() {
