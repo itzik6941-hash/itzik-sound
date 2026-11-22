@@ -6,6 +6,8 @@ let currentPage = "home";
 let currentFileUrl = null;
 let currentFile = null;
 let currentProjectId = null;
+let assistantConversation = [];
+let assistantConversationProjectId = null;
 let projectTracksBindGeneration = 0;
 let projectTrackAudioElements = new Map();
 let activeProjectTracksProjectId = null;
@@ -39,7 +41,7 @@ const pages = {
  ideas:{title:"רעיונות מוזיקליים",html:()=>ideasPage()},
  reference:{title:"סטודיו רפרנסים",html:()=>referencePage()},
 
- assistant:{title:"איצקו AI",html:()=>`<div class="workspace-title"><div class="quick-icon">✳</div><div><h1>איצקו AI</h1><p>${uiText("עוזר הפקה שמייצר תשובות דרך OpenAI.","Production assistant powered by OpenAI.")}</p></div></div><div class="panel"><div class="notice">${uiText("איצקו מקבל טקסט בלבד. אפשר לבקש ניתוח מדידות מקומיות מקורבות; קובץ האודיו עצמו אינו נשלח.","ITZKO receives text only. You can request an approximate local signal-metrics review; the audio file itself is not uploaded to OpenAI.")}</div>${currentFile?`<button id="assistantAudioReview" class="secondary-btn">${uiText("מדוד ושלח מאפייני שמע מקורבים","Measure and send approximate audio metrics")}</button><p id="assistantAudioStatus" aria-live="polite"></p>`:""}<h3 style="margin-top:22px">${uiText("מה תרצה לברר?","What would you like to ask?")}</h3><div class="chat-box"><input id="chatInput" placeholder="${uiText("כתוב שאלה על הפקה או סאונד...","Ask about production or sound...")}"><button class="primary-btn" id="chatSend">${uiText("שליחה","Send")}</button></div><p id="chatReply" aria-live="polite"></p></div>${filePanel()}`},
+ assistant:{title:"איצקו AI",html:()=>`<div class="workspace-title"><div class="quick-icon">✳</div><div><h1>איצקו AI</h1><p>${uiText("עוזר הפקה מוזיקלי עם הצעות מיקס באישור שלך.","Music production assistant with mix suggestions you approve.")}</p></div></div><div class="panel"><div class="notice">${uiText("איצקו מקבל טקסט בלבד. אפשר לבקש ניתוח מדידות מקומיות מקורבות; קובץ האודיו עצמו אינו נשלח.","ITZKO receives text only. You can request an approximate local signal-metrics review; the audio file itself is not sent to the AI.")}</div>${currentFile?`<button id="assistantAudioReview" class="secondary-btn">${uiText("מדוד ושלח מאפייני שמע מקורבים","Measure and send approximate audio metrics")}</button><p id="assistantAudioStatus" aria-live="polite"></p>`:""}<h3 style="margin-top:22px">${uiText("מה תרצה לברר?","What would you like to ask?")}</h3><div class="chat-box"><input id="chatInput" placeholder="${uiText("כתוב שאלה על הפקה או סאונד...","Ask about production or sound...")}"><button class="primary-btn" id="chatSend">${uiText("שליחה","Send")}</button></div><p id="chatReply" aria-live="polite"></p></div>${filePanel()}`},
 
  projects:{title:"הפרויקטים שלי",html:()=>`<div class="workspace-title"><div><h1>הפרויקטים שלי</h1><p>הפרויקטים שלך שמורים בחשבון וניתנים לפתיחה מכל מכשיר.</p></div></div><div class="project-list">${projects.length?projects.map(p=>`<div class="project-card"><div><b>${escapeHtml(p.name)}</b><small>${escapeHtml(formatDate(p.created_at))} · ${escapeHtml(p.original_file_name||"ללא קובץ")}</small></div><button data-open-project="${escapeHtml(p.id)}">פתיחה</button>
 <button class="delete-project-btn" data-delete-project="${escapeHtml(p.id)}">🗑 מחיקה</button></div>`).join(""):`<div class="panel empty-state" style="grid-column:1/-1"><div class="big">▤</div><b>עדיין אין פרויקטים שמורים</b><p>העלה שיר במסך הראשי כדי ליצור פרויקט ראשון. הוא יישמר בחשבון שלך.</p><button class="secondary-btn" data-go="home">חזרה למסך הראשי</button></div>`}</div>`},
@@ -2247,10 +2249,15 @@ async function requestAssistant(message,reply,button){
  try{
   const {data,error}=await supabaseClient.auth.getSession();
   if(error||!data.session?.access_token)throw new Error(uiText("פג תוקף החיבור לחשבון. התחבר מחדש.","Your session expired. Please sign in again."));
-  const response=await fetch("/api/assistant",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${data.session.access_token}`},body:JSON.stringify({message,language:window.ITZIK_I18N?.getLanguage?.()||"he",projectId:currentProjectId||null})});
+  if(assistantConversationProjectId!==currentProjectId){assistantConversation=[];assistantConversationProjectId=currentProjectId;}
+  const mixContext={main:window.ITZIK_MIXER?.getSettings?.()||null,tracks:window.ITZIK_PROJECT_TRACKS?.getSettings?.()||{}};
+  const response=await fetch("/api/assistant",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${data.session.access_token}`},body:JSON.stringify({message,language:window.ITZIK_I18N?.getLanguage?.()||"he",projectId:currentProjectId||null,conversation:assistantConversation.slice(-8),mixContext})});
   const result=await response.json();
-  if(!response.ok)throw new Error(uiText("שירות ה-AI אינו זמין כרגע. בדוק את הגדרת OpenAI בשרת.","The AI service is unavailable. Check the server's OpenAI configuration."));
-  reply.textContent=result.message||uiText("לא התקבלה תשובה.","No response was returned.");
+  if(!response.ok)throw new Error(uiText("שירות ה-AI אינו זמין כרגע. בדוק את הגדרת Gemini בשרת.","The AI service is unavailable. Check the Gemini configuration on the server."));
+  assistantConversation.push({role:"user",text:message},{role:"model",text:result.message||""});
+  assistantConversation=assistantConversation.slice(-8);
+  if(window.ITZKO_ACTIONS)window.ITZKO_ACTIONS.render(reply,result);
+  else reply.textContent=result.message||uiText("לא התקבלה תשובה.","No response was returned.");
  }catch(error){reply.textContent=error.message||uiText("לא ניתן להגיע לשרת.","The server could not be reached.");}
  finally{button.disabled=false;}
 }
@@ -2279,7 +2286,7 @@ function bindAssistantAudioReview(){
    for(let i=0;i<n;i+=8){const l=b.getChannelData(0)[i],r=channels>1?b.getChannelData(1)[i]:l,m=(l+r)/2,s=(l-r)/2;peak=Math.max(peak,Math.abs(l),Math.abs(r));sum+=l*l+(channels>1?r*r:0);count+=channels;clipped+=(Math.abs(l)>=0.999?1:0)+(channels>1&&Math.abs(r)>=0.999?1:0);mid+=m*m;side+=s*s;}
    const db=x=>20*Math.log10(Math.max(1e-9,x)),measurements={durationSeconds:Number(b.duration.toFixed(1)),sampleRateHz:b.sampleRate,channels:b.numberOfChannels,peakDbfs:Number(db(peak).toFixed(1)),rmsDbfs:Number(db(Math.sqrt(sum/Math.max(1,count))).toFixed(1)),sampleClipPercent:Number((clipped/Math.max(1,count)*100).toFixed(3)),stereoSideToMid:Number(Math.sqrt(side/Math.max(1e-9,mid)).toFixed(3))};
    const prompt=uiText("נתח את המדידות המקורבות הבאות מהקובץ שלי ותן הצעות זהירות לשיפור. אל תטען ששמעת את הקובץ. המדידות אינן LUFS או ניתוח תפיסתי: ","Review these approximate local signal measurements and suggest cautious improvements. Do not claim that you heard the track. These are not LUFS or perceptual analysis: ")+JSON.stringify(measurements);
-   status.textContent=uiText("המדידות נשלחות כטקסט ל-OpenAI כדי לקבל עצה. קובץ האודיו לא נשלח.","Sending measurements as text to OpenAI for advice. The audio file is not sent.");await requestAssistant(prompt,reply,button);status.textContent=uiText("המדידות המקומיות הושלמו.","Local measurements complete.");
+   status.textContent=uiText("המדידות נשלחות כטקסט ל-Gemini כדי לקבל עצה. קובץ האודיו לא נשלח.","Sending measurements as text to Gemini for advice. The audio file is not sent.");await requestAssistant(prompt,reply,button);status.textContent=uiText("המדידות המקומיות הושלמו.","Local measurements complete.");
   }catch(error){status.textContent=error.message||uiText("ניתוח המדידות נכשל.","Could not analyze the measurements.");}finally{if(ctx)await ctx.close().catch(()=>{});button.disabled=false;}
  };
 }
