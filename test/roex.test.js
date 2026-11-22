@@ -231,22 +231,26 @@ test("full Mix Enhance is gated by confirmation and returns the full track URL",
   assert.ok(requests.some(r => r.url.endsWith("/retrieveenhancedtrack")));
 });
 
-test("assistant honors English language setting without sending real provider traffic", async () => {
+test("assistant honors English language setting and returns a structured Gemini proposal", async () => {
   let providerRequest;
   global.fetch = async (url, options = {}) => {
     if (String(url) === "https://supabase.test/auth/v1/user") return json(200, { id: "test-user" });
-    if (String(url) === "https://api.openai.com/v1/responses") {
+    if (String(url).startsWith("https://generativelanguage.googleapis.com/")) {
       providerRequest = JSON.parse(options.body);
-      return json(200, { output: [{ content: [{ type: "output_text", text: "Use a gentle high-pass filter." }] }] });
+      return json(200, { candidates: [{ content: { parts: [{ text: JSON.stringify({
+        reply: "Use a gentle high-pass filter.",
+        proposal: { enabled: false, target: "main", trackId: "", title: "", reason: "", settings: {} }
+      }) }] } }] });
     }
     throw new Error(`Unexpected mocked request: ${url}`);
   };
   const response = await invokeRoute("/api/assistant", { headers: { Authorization: "Bearer test-access-token" }, body: { message: "How can I reduce rumble?", language: "en" } });
   assert.equal(response.status, 200);
-  assert.match(providerRequest.instructions, /Respond in clear, friendly, professional English/);
+  assert.match(providerRequest.systemInstruction.parts[0].text, /Respond in clear, friendly, professional English/);
+  assert.equal(providerRequest.generationConfig.responseMimeType, "application/json");
   assert.equal(response.body.message, "Use a gentle high-pass filter.");
+  assert.equal(response.body.proposal.enabled, false);
 });
-
 after(() => {
   global.fetch = originalFetch;
 });
