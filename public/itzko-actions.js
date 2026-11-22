@@ -41,19 +41,62 @@
     const actions=document.createElement("div");actions.className="chat-box";
     const approve=node("button","אישור והחלת השינוי");approve.type="button";approve.className="primary-btn";
     const reject=node("button","לא עכשיו");reject.type="button";reject.className="secondary-btn";
-    approve.addEventListener("click",()=>{
+    approve.addEventListener("click",async()=>{
       try{
         if(safe.target==="track"){
-          const latest=window.ITZIK_PROJECT_TRACKS?.getTrack?.(safe.trackId);
+          const engine=window.ITZIK_PROJECT_TRACKS;
+          const latest=engine?.getTrack?.(safe.trackId);
           if(!latest)throw new Error("הערוץ כבר אינו זמין בפרויקט.");
-          window.ITZIK_PROJECT_TRACKS.setTrack(safe.trackId,{...latest,...safe.patch});
+          const next=engine.setTrack(safe.trackId,{...latest,...safe.patch});
+          if(!next)throw new Error("לא ניתן להחיל את השינוי על הערוץ.");
+          const id=safe.trackId;
+          const gain=document.querySelector('[data-project-track-gain="'+id+'"]');
+          const pan=document.querySelector('[data-project-track-pan="'+id+'"]');
+          const width=document.querySelector('[data-project-track-width="'+id+'"]');
+          if(gain)gain.value=String(next.gainDb);
+          if(pan)pan.value=String(next.pan);
+          if(width)width.value=String(next.stereoWidth);
+          const gainValue=document.querySelector('[data-project-track-gain-value="'+id+'"]');
+          const panValue=document.querySelector('[data-project-track-pan-value="'+id+'"]');
+          const widthValue=document.querySelector('[data-project-track-width-value="'+id+'"]');
+          if(gainValue)gainValue.textContent=next.gainDb.toFixed(1)+" dB";
+          if(panValue)panValue.textContent=next.pan<=-.98?"L":next.pan>=.98?"R":next.pan===0?"Center":next.pan<0?"L "+Math.round(-next.pan*100)+"%":"R "+Math.round(next.pan*100)+"%";
+          if(widthValue)widthValue.textContent=Math.round(next.stereoWidth*100)+"%";
+          document.querySelectorAll("[data-project-track-fx]").forEach(input=>{
+            const [key,trackId]=input.dataset.projectTrackFx.split(":");
+            if(trackId!==id)return;
+            input.value=String(next[key]);
+            const output=document.querySelector('[data-project-track-fx-value="'+key+':'+id+'"]');
+            if(output)output.textContent=key==="compRatio"?Number(next[key]).toFixed(1)+":1":key==="delayTime"||key==="compAttack"||key==="compRelease"?Math.round(next[key]*1000)+" ms":key==="reverbMix"||key==="delayMix"||key==="delayFeedback"||key==="saturation"?Math.round(next[key]*100)+"%":Number(next[key]).toFixed(1)+" dB";
+          });
+          document.querySelectorAll("[data-project-track-fx-toggle]").forEach(input=>{
+            const [key,trackId]=input.dataset.projectTrackFxToggle.split(":");
+            if(trackId===id)input.checked=next[key]===true;
+          });
+          if(typeof window.updateProjectMetadata==="function"){
+            const saved=await window.updateProjectMetadata({projectTrackMixSettings:engine.getSettings()});
+            if(!saved)throw new Error("השינוי הוחל, אך השמירה בפרויקט נכשלה.");
+          }
         }else{
-          const latest=window.ITZIK_MIXER?.getSettings?.();
+          const engine=window.ITZIK_MIXER;
+          const latest=engine?.getSettings?.();
           if(!latest)throw new Error("מנוע המיקס אינו פעיל כרגע.");
-          window.ITZIK_MIXER.apply({...latest,...safe.patch});
+          const next=engine.apply({...latest,...safe.patch});
+          document.querySelectorAll("[data-mix-control]").forEach(input=>{
+            const key=input.dataset.mixControl;
+            if(!(key in next))return;
+            input.value=String(next[key]);
+            const output=document.querySelector('[data-mix-value="'+key+'"]');
+            if(output)output.textContent=Number(next[key]).toFixed(key==="ratio"?1:0)+(key==="ratio"?":1":["gainDb","masterDb","low","mid","high","threshold"].includes(key)?" dB":"");
+          });
+          const mute=document.querySelector("#mixMute");
+          if(mute){mute.setAttribute("aria-pressed",String(next.mute));mute.textContent=next.mute?"Unmute":"Mute";}
+          const ab=document.querySelector("#mixAB");
+          if(ab)ab.setAttribute("aria-pressed",String(next.bypass));
+          if(typeof window.persistMixSettings==="function")await window.persistMixSettings();
         }
         approve.disabled=true;reject.disabled=true;approve.textContent="השינוי הוחל";
-        card.appendChild(node("p","השינוי הוחל. אפשר לבטל דרך Undo במיקסר הרב-ערוצי או לאפס את המיקסר הראשי."));
+        card.appendChild(node("p","השינוי הוחל וההגדרות עודכנו בממשק. אם שמירת הפרויקט נכשלה, בדוק את הודעת השמירה במיקסר."));
       }catch(error){card.appendChild(node("p",error.message||"לא ניתן להחיל את השינוי."));}
     });
     reject.addEventListener("click",()=>card.remove());
