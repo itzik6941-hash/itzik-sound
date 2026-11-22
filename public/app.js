@@ -2247,7 +2247,7 @@ async function requestAssistant(message,reply,button){
  try{
   const {data,error}=await supabaseClient.auth.getSession();
   if(error||!data.session?.access_token)throw new Error(uiText("פג תוקף החיבור לחשבון. התחבר מחדש.","Your session expired. Please sign in again."));
-  const response=await fetch("/api/assistant",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${data.session.access_token}`},body:JSON.stringify({message,language:window.ITZIK_I18N?.getLanguage?.()||"he"})});
+  const response=await fetch("/api/assistant",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${data.session.access_token}`},body:JSON.stringify({message,language:window.ITZIK_I18N?.getLanguage?.()||"he",projectId:currentProjectId||null})});
   const result=await response.json();
   if(!response.ok)throw new Error(uiText("שירות ה-AI אינו זמין כרגע. בדוק את הגדרת OpenAI בשרת.","The AI service is unavailable. Check the server's OpenAI configuration."));
   reply.textContent=result.message||uiText("לא התקבלה תשובה.","No response was returned.");
