@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 process.env.SUPABASE_URL = "https://supabase.test";
 process.env.SUPABASE_ANON_KEY = "test-public-key";
 process.env.ROEX_API_KEY = "test-roex-key";
-process.env.OPENAI_API_KEY = "test-openai-key";
+process.env.GEMINI_API_KEY = "test-gemini-key";
 
 const app = require("../server");
 const originalFetch = global.fetch;
