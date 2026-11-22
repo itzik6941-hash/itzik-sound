@@ -218,7 +218,8 @@ app.get("/api/health", (_req, res) => {
   res.json({
     ok: true,
     app: "ITZIK SOUND",
-    aiConfigured: Boolean(process.env.OPENAI_API_KEY),
+    aiConfigured: Boolean(process.env.GEMINI_API_KEY),
+    aiProvider: process.env.GEMINI_API_KEY ? "Gemini" : null,
     roexConfigured: Boolean(process.env.ROEX_API_KEY)
   });
 });
