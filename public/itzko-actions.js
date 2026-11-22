@@ -73,9 +73,9 @@
             const [key,trackId]=input.dataset.projectTrackFxToggle.split(":");
             if(trackId===id)input.checked=next[key]===true;
           });
-          if(typeof window.updateProjectMetadata==="function"){
-            const saved=await window.updateProjectMetadata({projectTrackMixSettings:engine.getSettings()});
-            if(!saved)throw new Error("השינוי הוחל, אך השמירה בפרויקט נכשלה.");
+          let cloudSaved=null;
+          if(typeof window.updateProjectMetadata==="function"&&window.currentProjectId){
+            cloudSaved=await window.updateProjectMetadata({projectTrackMixSettings:engine.getSettings()});
           }
         }else{
           const engine=window.ITZIK_MIXER;
@@ -93,10 +93,16 @@
           if(mute){mute.setAttribute("aria-pressed",String(next.mute));mute.textContent=next.mute?"Unmute":"Mute";}
           const ab=document.querySelector("#mixAB");
           if(ab)ab.setAttribute("aria-pressed",String(next.bypass));
-          if(typeof window.persistMixSettings==="function")await window.persistMixSettings();
+          let cloudSaved=null;
+          if(typeof window.persistMixSettings==="function")cloudSaved=await window.persistMixSettings();
         }
         approve.disabled=true;reject.disabled=true;approve.textContent="השינוי הוחל";
-        card.appendChild(node("p","השינוי הוחל וההגדרות עודכנו בממשק. אם שמירת הפרויקט נכשלה, בדוק את הודעת השמירה במיקסר."));
+        const statusText=cloudSaved===false
+          ?"השינוי הוחל במיקסר, אך השמירה בענן נכשלה. ההגדרות נשמרו במכשיר אם האחסון המקומי זמין."
+          :cloudSaved===true
+            ?"השינוי הוחל וההגדרות נשמרו בפרויקט."
+            :"השינוי הוחל. אין פרויקט פעיל לשמירה בענן.";
+        card.appendChild(node("p",statusText));
       }catch(error){card.appendChild(node("p",error.message||"לא ניתן להחיל את השינוי."));}
     });
     reject.addEventListener("click",()=>card.remove());
