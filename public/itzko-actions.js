@@ -43,6 +43,7 @@
     const reject=node("button","לא עכשיו");reject.type="button";reject.className="secondary-btn";
     approve.addEventListener("click",async()=>{
       try{
+        let cloudSaved=null;
         if(safe.target==="track"){
           const engine=window.ITZIK_PROJECT_TRACKS;
           const latest=engine?.getTrack?.(safe.trackId);
@@ -73,7 +74,6 @@
             const [key,trackId]=input.dataset.projectTrackFxToggle.split(":");
             if(trackId===id)input.checked=next[key]===true;
           });
-          let cloudSaved=null;
           if(typeof window.updateProjectMetadata==="function"&&window.currentProjectId){
             cloudSaved=await window.updateProjectMetadata({projectTrackMixSettings:engine.getSettings()});
           }
@@ -93,7 +93,6 @@
           if(mute){mute.setAttribute("aria-pressed",String(next.mute));mute.textContent=next.mute?"Unmute":"Mute";}
           const ab=document.querySelector("#mixAB");
           if(ab)ab.setAttribute("aria-pressed",String(next.bypass));
-          let cloudSaved=null;
           if(typeof window.persistMixSettings==="function")cloudSaved=await window.persistMixSettings();
         }
         approve.disabled=true;reject.disabled=true;approve.textContent="השינוי הוחל";
