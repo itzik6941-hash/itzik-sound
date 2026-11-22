@@ -256,7 +256,7 @@ async function getOwnedProject(req, user, projectId) {
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
   if (!supabaseUrl || !supabaseKey || typeof projectId !== "string" || projectId.length > 100) return null;
-  const query = new URLSearchParams({ id: `eq.${projectId}`, user_id: `eq.${user.id}`, select: "metadata", limit: "1" });
+  const query = new URLSearchParams({ id: `eq.${projectId}`, user_id: `eq.${user.id}`, select: "name,original_file_name,metadata", limit: "1" });
   const response = await fetch(`${supabaseUrl.replace(/\/$/, "")}/rest/v1/projects?${query}`, {
     headers: { apikey: supabaseKey, Authorization: req.headers.authorization },
     signal: AbortSignal.timeout(10000)
@@ -1170,6 +1170,28 @@ app.post("/api/assistant", async (req, res) => {
     const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
     const language = req.body?.language === "en" ? "en" : "he";
 
+    let projectContext = "No active project was supplied.";
+    const projectId = typeof req.body?.projectId === "string" ? req.body.projectId : "";
+    if (projectId) {
+      const project = await getOwnedProject(req, user, projectId);
+      if (!project) {
+        return res.status(404).json({
+          error: "PROJECT_NOT_FOUND",
+          message: "לא מצאתי פרויקט כזה בחשבון שלך."
+        });
+      }
+      const metadata = project.metadata && typeof project.metadata === "object" ? project.metadata : {};
+      projectContext = JSON.stringify({
+        name: project.name || "Untitled project",
+        originalFileName: project.original_file_name || null,
+        hasAdditionalTracks: Array.isArray(metadata.projectTracks) && metadata.projectTracks.length > 0,
+        additionalTrackCount: Array.isArray(metadata.projectTracks) ? metadata.projectTracks.length : 0,
+        savedMixSettingsAvailable: Boolean(metadata.mixSettings),
+        masteringAvailable: Boolean(metadata.mastering),
+        pitchAnalysisAvailable: Boolean(metadata.pitchAnalysis)
+      });
+    }
+
     if (!message) {
       return res.status(400).json({
         error: "EMPTY_MESSAGE",
@@ -1211,6 +1233,10 @@ audio processing. Explain when an external processing tool is required.
 והבהר שנדרש חיבור של כלי הביצוע.
 `.trim();
 
+    const userMessage = projectContext
+      ? `Active project context (verified as belonging to this user): ${projectContext}\\n\\nUser message: ${message}`
+      : message;
+
     const response = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent",
       {
@@ -1221,7 +1247,7 @@ audio processing. Explain when an external processing tool is required.
         },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: instructions }] },
-          contents: [{ role: "user", parts: [{ text: message }] }],
+          contents: [{ role: "user", parts: [{ text: userMessage }] }],
           generationConfig: { maxOutputTokens: 700, temperature: 0.7 }
         }),
         signal: AbortSignal.timeout(60000)
