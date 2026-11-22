@@ -1148,10 +1148,11 @@ app.post("/api/roex/enhance-result", async (req, res) => {
     return res.status(500).json({ error: "ROEX_ENHANCE_RETRIEVAL_ERROR", message: "אירעה תקלה בקבלת Mix Enhance." });
   }
 });
-// ITZKO AI assistant
+// ITZKO AI assistant — Gemini free-tier provider
 app.post("/api/assistant", async (req, res) => {
   try {
-    if (!process.env.OPENAI_API_KEY) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
       return res.status(503).json({
         error: "AI_NOT_CONFIGURED",
         message: "מנוע ה-AI עדיין לא הוגדר בשרת."
@@ -1159,7 +1160,6 @@ app.post("/api/assistant", async (req, res) => {
     }
 
     const user = await verifyUser(req);
-
     if (!user) {
       return res.status(401).json({
         error: "UNAUTHORIZED",
@@ -1167,10 +1167,7 @@ app.post("/api/assistant", async (req, res) => {
       });
     }
 
-    const message =
-      typeof req.body?.message === "string"
-        ? req.body.message.trim()
-        : "";
+    const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
     const language = req.body?.language === "en" ? "en" : "he";
 
     if (!message) {
@@ -1179,7 +1176,6 @@ app.post("/api/assistant", async (req, res) => {
         message: "כתוב לאיצקו הודעה לפני השליחה."
       });
     }
-
     if (message.length > 4000) {
       return res.status(400).json({
         error: "MESSAGE_TOO_LONG",
@@ -1187,17 +1183,7 @@ app.post("/api/assistant", async (req, res) => {
       });
     }
 
-    const response = await fetch(
-      "https://api.openai.com/v1/responses",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: "gpt-4.1-mini",
-          instructions: language === "en" ? `
+    const instructions = language === "en" ? `
 You are ITZKO, the music assistant for ITZIK SOUND.
 Respond in clear, friendly, professional English. Help with mixing, mastering,
 production, pitch, arrangement, chords, melody, rhythm, and sound.
@@ -1207,7 +1193,7 @@ signal statistics, not a perceptual or standards-based audio analysis.
 Do not claim to have changed a project, run a processor, or exported a file.
 You can advise and answer questions, but cannot directly alter projects or run
 audio processing. Explain when an external processing tool is required.
-          `.trim() : `
+`.trim() : `
 אתה איצקו (ITZKO), העוזר המוזיקלי של ITZIK SOUND.
 
 דבר בעברית ברורה, ידידותית ומקצועית.
@@ -1223,30 +1209,39 @@ audio processing. Explain when an external processing tool is required.
 להפעיל כלי עיבוד או לייצא קבצים.
 אם המשתמש מבקש שינוי, הסבר לו מה ניתן לעשות
 והבהר שנדרש חיבור של כלי הביצוע.
-          `.trim(),
-          input: message,
-          max_output_tokens: 700
+`.trim();
+
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey
+        },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: instructions }] },
+          contents: [{ role: "user", parts: [{ text: message }] }],
+          generationConfig: { maxOutputTokens: 700, temperature: 0.7 }
         }),
         signal: AbortSignal.timeout(60000)
       }
     );
 
     const data = await response.json();
-
     if (!response.ok) {
-      console.error("OpenAI API error", { status: response.status });
-
+      console.error("Gemini API error", {
+        status: response.status,
+        code: data?.error?.status || "UNKNOWN"
+      });
       return res.status(502).json({
         error: "AI_PROVIDER_ERROR",
-        message:
-          "איצקו לא הצליח לענות כרגע. בדוק את הגדרות חשבון ה-AI ונסה שוב."
+        message: "איצקו לא הצליח לענות כרגע. נסה שוב בעוד רגע."
       });
     }
 
-    const answer = (data.output || [])
-      .flatMap(item => item.content || [])
-      .filter(item => item.type === "output_text")
-      .map(item => item.text)
+    const answer = (data.candidates?.[0]?.content?.parts || [])
+      .map(part => typeof part.text === "string" ? part.text : "")
       .join("\n")
       .trim();
 
@@ -1257,24 +1252,18 @@ audio processing. Explain when an external processing tool is required.
       });
     }
 
-    return res.json({
-      ok: true,
-      message: answer
-    });
-
+    return res.json({ ok: true, message: answer });
   } catch (error) {
     console.error("Assistant request failed", {
       name: error?.name || "Error",
       code: error?.code || "UNKNOWN"
     });
-
     return res.status(500).json({
       error: "ASSISTANT_ERROR",
       message: "אירעה תקלה בחיבור לאיצקו. נסה שוב בעוד רגע."
     });
   }
 });
-
 app.use("/api", (_req, res) => {
   return res.status(404).json({
     error: "NOT_FOUND",
