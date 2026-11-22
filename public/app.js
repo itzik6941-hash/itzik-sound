@@ -1092,21 +1092,21 @@ function scheduleMixSettingsSave(){
 }
 
 async function persistMixSettings(){
- if(!window.ITZIK_MIXER)return;
+ if(!window.ITZIK_MIXER)return false;
  const settings=window.ITZIK_MIXER.getSettings();
  if(window.ITZIK_PROJECT_TRACKS?.isActive?.())settings.mute=window.ITZIK_PROJECT_TRACKS.getBaseMute();
  try{localStorage.setItem(mixSettingsKey(),JSON.stringify(settings));}catch{}
- if(!currentProjectId||!supabaseClient)return;
+ if(!currentProjectId||!supabaseClient)return true;
  const saved=await updateProjectMetadata({mixSettings:settings});
  if(!saved){
   const status=$("#mixSaveStatus");
   if(status)status.textContent=uiText("ההגדרות נשמרו במכשיר; סנכרון הענן נכשל.","Settings saved on this device; cloud sync failed.");
-  return;
+  return false;
  }
  const status=$("#mixSaveStatus");
  if(status)status.textContent=uiText("הגדרות המיקס נשמרו בפרויקט.","Mix settings saved to the project.");
+ return true;
 }
-
 const projectMetadataSaveQueues=new Map();
 async function updateProjectMetadata(patch){
  if(!currentProjectId||!currentUser||!supabaseClient)return false;
