@@ -15,8 +15,9 @@
       if(!trackId||!Object.prototype.hasOwnProperty.call(all,trackId))return null;
       allowed=TRACK_KEYS;limits=TRACK_LIMITS;
     }else{
-      if(engine.isConnected&&!engine.isConnected())return null;
-      if(!engine.getSettings?.())return null;
+      // Main mixer settings can be staged before playback connects the WebAudio graph.
+      if(typeof engine.getSettings!=="function"||typeof engine.apply!=="function")return null;
+      if(!engine.getSettings())return null;
       allowed=MAIN_KEYS;limits=MAIN_LIMITS;
     }
     const patch={};
